@@ -81,72 +81,77 @@ STRUKTUR PÅ DINE SVAR:
 2. Gennemgang af det relevante kildegrundlag og gældende ret.
 3. Eventuelle usikkerheder, forbehold eller manglende oplysninger i sagsakterne.`;
 
-    // 1. STANDARDMODEL: Claude 3.5 Sonnet / Sonnet 5 (hvis ANTHROPIC_API_KEY er konfigureret)
+    // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
-      const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+      try {
+        const anthropic = new Anthropic({ apiKey: anthropicApiKey.trim() });
 
-      const conversationHistory = history.slice(-6).map((h) => ({
-        role: (h.sender === "user" ? "user" : "assistant") as "user" | "assistant",
-        content: h.text,
-      }));
+        const conversationHistory = history.slice(-6).map((h) => ({
+          role: (h.sender === "user" ? "user" : "assistant") as "user" | "assistant",
+          content: h.text,
+        }));
 
-      const candidateModels = process.env.ANTHROPIC_MODEL
-        ? [process.env.ANTHROPIC_MODEL]
-        : ["claude-sonnet-5", "claude-3-5-sonnet-20241022", "claude-opus-5-5"];
+        const candidateModels = process.env.ANTHROPIC_MODEL
+          ? [process.env.ANTHROPIC_MODEL]
+          : ["claude-sonnet-5", "claude-opus-5-5", "claude-3-5-sonnet-20241022"];
 
-      let anthropicResponse: Anthropic.Message | undefined;
-      let usedModel = "Claude Sonnet";
+        let anthropicResponse: Anthropic.Message | undefined;
+        let usedModel = "Claude Sonnet";
 
-      for (const m of candidateModels) {
-        try {
-          anthropicResponse = await anthropic.messages.create({
-            model: m,
-            max_tokens: 2500,
-            temperature: 0.2,
-            system: systemPrompt,
-            messages: [
-              ...conversationHistory,
-              { role: "user", content: message },
-            ],
-          });
-          usedModel = m.includes("opus") ? "Claude Opus" : "Claude 3.5 Sonnet";
-          if (anthropicResponse) break;
-        } catch (err: unknown) {
-          const status = (err as { status?: number })?.status;
-          if (status === 404 && candidateModels.indexOf(m) < candidateModels.length - 1) {
-            continue;
+        for (const m of candidateModels) {
+          try {
+            anthropicResponse = await anthropic.messages.create({
+              model: m,
+              max_tokens: 2500,
+              temperature: 0.2,
+              system: systemPrompt,
+              messages: [
+                ...conversationHistory,
+                { role: "user", content: message },
+              ],
+            });
+            usedModel = m.includes("opus") ? "Claude Opus" : "Claude 3.5 Sonnet";
+            if (anthropicResponse) break;
+          } catch (err: unknown) {
+            const status = (err as { status?: number })?.status;
+            if (status === 404 && candidateModels.indexOf(m) < candidateModels.length - 1) {
+              continue;
+            }
+            throw err;
           }
-          throw err;
         }
+
+        const responseText =
+          anthropicResponse?.content
+            ? anthropicResponse.content
+                .filter((block) => block.type === "text" || "text" in block)
+                .map((block) => (block as { text?: string }).text || "")
+                .join("\n")
+                .trim() || "Ingen analyse kunne genereres."
+            : "Ingen analyse kunne genereres.";
+
+        let warning: string | undefined;
+        if (
+          responseText.toLowerCase().includes("risiko") ||
+          responseText.toLowerCase().includes("advarsel") ||
+          responseText.toLowerCase().includes("ophævelse") ||
+          responseText.toLowerCase().includes("ugyldig")
+        ) {
+          warning =
+            "Klagenævnspraksis (MFKN): Prøvelsen af Natura 2000, kumulation og habitatdirektivet er intens. Hvis der er videnskabelig tvivl om fravær af skade på udpegningsgrundlaget, kan tilladelse eller plan ikke vedtages.";
+        }
+
+        return NextResponse.json({
+          text: responseText,
+          warning,
+          sources: getRelevantSources(scope, message, themes),
+          modelUsed: usedModel,
+          isLiveLLM: true,
+        });
+      } catch (anthropicErr) {
+        console.error("Anthropic API error, falling back:", anthropicErr);
+        // Fall through to secondary model or intelligent legal matrix if Anthropic fails
       }
-
-      const responseText =
-        anthropicResponse?.content
-          ? anthropicResponse.content
-              .filter((block) => block.type === "text" || "text" in block)
-              .map((block) => (block as { text?: string }).text || "")
-              .join("\n")
-              .trim() || "Ingen analyse kunne genereres."
-          : "Ingen analyse kunne genereres.";
-
-      let warning: string | undefined;
-      if (
-        responseText.toLowerCase().includes("risiko") ||
-        responseText.toLowerCase().includes("advarsel") ||
-        responseText.toLowerCase().includes("ophævelse") ||
-        responseText.toLowerCase().includes("ugyldig")
-      ) {
-        warning =
-          "Klagenævnspraksis (MFKN): Prøvelsen af Natura 2000, kumulation og habitatdirektivet er intens. Hvis der er videnskabelig tvivl om fravær af skade på udpegningsgrundlaget, kan tilladelse eller plan ikke vedtages.";
-      }
-
-      return NextResponse.json({
-        text: responseText,
-        warning,
-        sources: getRelevantSources(scope, message, themes),
-        modelUsed: usedModel,
-        isLiveLLM: true,
-      });
     }
 
     // 2. SEKUNDÆR MODEL: OpenAI (f.eks. hvis OPENAI_API_KEY er konfigureret uden Anthropic)
@@ -208,8 +213,9 @@ STRUKTUR PÅ DINE SVAR:
     });
   } catch (err: unknown) {
     console.error("Chat API error:", err);
+    const errMsg = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "Fejl ved generering af miljøretlig analyse." },
+      { error: "Fejl ved generering af miljøretlig analyse.", details: errMsg },
       { status: 500 }
     );
   }
