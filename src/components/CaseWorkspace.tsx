@@ -161,17 +161,13 @@ export function CaseWorkspace({
     scope === "plan" ? ["naevnspraksis", "natura2000"] : ["artsbeskyttelse", "naevnspraksis"]
   );
 
-  // Uploaded files
+  // Uploaded files: starts empty for new cases unless explicitly provided by an existing case
+  const isNewCase = caseId.startsWith("ny-");
   const [primaryFile, setPrimaryFile] = useState<string | null>(
-    existingCase?.primaryDocument ||
-      (scope === "plan"
-        ? "Planudkast_Lokalplan_Solceller_2026.pdf"
-        : "Udkast_Afgørelse_Biogas_VVM_Screening_rev3.pdf")
+    isNewCase ? null : existingCase?.primaryDocument || null
   );
   const [supplementaryFiles, setSupplementaryFiles] = useState<string[]>(
-    scope === "plan"
-      ? ["Miljoescreening_Bilag_Grundvand.pdf"]
-      : ["Bilag_4_Artskortlaegning_Feltundersoegelse.pdf"]
+    isNewCase ? [] : (existingCase ? ["Bilag_4_Artskortlaegning_Feltundersoegelse.pdf"] : [])
   );
 
   // Right panel tab state: 'kilde' vs 'notater'
@@ -188,8 +184,23 @@ export function CaseWorkspace({
   // Loading state for LLM analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Chat message state
+  // Chat message state: new cases start with a clean welcome prompt unless it's a pre-existing demo case
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (isNewCase) {
+      return [
+        {
+          id: "welcome-1",
+          sender: "ai",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: `Velkommen til det nye sagsrum for **${
+            scope === "plan" ? "Miljøvurdering af Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
+          }**.
+
+Du kan uploade sagens dokumenter i venstre panel eller ovenfor, vælge de relevante temamapper, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor.`,
+        },
+      ];
+    }
+
     if (scope === "plan") {
       return [
         {
@@ -882,7 +893,7 @@ Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat 
                   <div className="flex items-center gap-2 text-[11px] text-slate-500">
                     <span className="inline-flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                      Fortrolig RAG-søgning uden LLM-træning
+                      Fortrolig RAG-søgning jf. gældende miljøret
                     </span>
                   </div>
 
