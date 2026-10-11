@@ -122,9 +122,12 @@ STRUKTUR PÅ DINE SVAR:
 
       const responseText =
         anthropicResponse?.content
-          .filter((block) => block.type === "text")
-          .map((block) => (block as Anthropic.TextBlock).text)
-          .join("\n") || "Ingen analyse kunne genereres.";
+          ? anthropicResponse.content
+              .filter((block) => block.type === "text" || "text" in block)
+              .map((block) => (block as { text?: string }).text || "")
+              .join("\n")
+              .trim() || "Ingen analyse kunne genereres."
+          : "Ingen analyse kunne genereres.";
 
       let warning: string | undefined;
       if (
