@@ -29,6 +29,15 @@ Dette projekt er opbygget som en moderne Next.js (App Router) + TypeScript + Tai
 - `/om` — **Om MVAI:**
   - Grundig gennemgang af metodik, 2-spors procesadskillelse, RAG-arkitektur, kildekontrol, dataintegritet, GDPR, EU-hosting (Frankfurt) og kontaktinformation.
 
+## AI Sprogmodeller & Konfiguration
+
+Projektet er bygget med en opdelt model-arkitektur:
+1. **Chat & Retslig Sagsanalyse:** **Claude 3.5 Sonnet** (`@anthropic-ai/sdk`) som standardmodel til præcis, hallucination-fri lovfortolkning og klagenævnspraksis.
+   - Kræver `ANTHROPIC_API_KEY` i miljøvariabler.
+   - Kan falde tilbage til `OPENAI_API_KEY` (GPT-4o) eller den indbyggede retskildematrix.
+2. **Dokumentindeksering & Tagging:** **GPT-4o-mini** (eller Gemini Flash via OpenAI/Google API) til lynhurtig klassificering og parsing af uploadede sagsakter (`/api/tag-document`).
+   - Kræver `OPENAI_API_KEY` (eller `GEMINI_API_KEY`).
+
 ## Kom i gang lokalt
 
 ```bash

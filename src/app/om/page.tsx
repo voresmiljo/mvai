@@ -11,6 +11,7 @@ import {
   Server,
   Mail,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 export const metadata = {
@@ -195,6 +196,56 @@ export default function AboutPage() {
                   Vi leverer standardiseret myndigheds-DPA og overholder kravene til revisionsspor, kryptering ved overførsel 
                   (TLS 1.3) og kryptering i hvile (AES-256).
                 </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Sprogmodeller & AI-Arkitektur */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0F382C] text-white">
+                <Sparkles className="w-4.5 h-4.5 text-emerald-300" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900">
+                Sprogmodeller & Ræsonneringsarkitektur
+              </h2>
+            </div>
+
+            <p className="text-sm text-slate-700 leading-relaxed">
+              MVAI.dk anvender en differentieret model-arkitektur, der balancerer juridisk ræsonneringsdybde med lynhurtig dokumentindeksering:
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs space-y-3">
+                <div className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-bold text-[#0F382C] border border-emerald-200">
+                  <span>Standardmodel for sagsanalyse</span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Claude 3.5 Sonnet (Anthropic)
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Står for den dybdegående juridiske vurdering, kobling til Miljø- og Fødevareklagenævnets præmisser, 
+                  vurdering af kumulationsprincippet og formulering af afgørelsesnotater uden hallucinationer.
+                </p>
+                <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-mono">
+                  Anvendes til: Chat, kildekrydstjek og genererede notater
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs space-y-3">
+                <div className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-900 border border-blue-200">
+                  <span>Baggrundsmotor for indeksering</span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900">
+                  GPT-4o-mini / Gemini Flash
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Lynhurtig klassificering og automatisk tagging af uploadede PDF-dokumenter, ekstraktion af metadata, 
+                  identifikation af berørte paragraffer samt anbefaling af relevante temamapper.
+                </p>
+                <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-mono">
+                  Anvendes til: /api/tag-document og baggrunds-ingestion
+                </div>
               </div>
             </div>
           </section>

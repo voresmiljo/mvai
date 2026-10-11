@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
 interface RequestBody {
@@ -38,17 +39,14 @@ export async function POST(req: Request) {
         ? "Plan / Program (Afsnit II / § 8 - Strategisk Miljøvurdering)"
         : "Konkret Projekt (Afsnit III / §§ 15–25 - VVM-screening & tilladelse)";
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+    const openaiApiKey = process.env.OPENAI_API_KEY;
 
-    // If an OpenAI API key is configured, call OpenAI Live LLM
-    if (apiKey) {
-      const openai = new OpenAI({ apiKey });
+    const fileContext = primaryFile
+      ? `Primært sagsdokument: ${primaryFile}. Supplerende: ${supplementaryFiles.join(", ") || "Ingen"}.`
+      : `Brugeren har ikke uploadet egne sagsdokumenter endnu. Besvar ud fra generel gældende dansk miljøret og klagenævnspraksis for det valgte emne.`;
 
-      const fileContext = primaryFile
-        ? `Primært sagsdokument: ${primaryFile}. Supplerende: ${supplementaryFiles.join(", ") || "Ingen"}.`
-        : `Brugeren har ikke uploadet egne sagsdokumenter endnu. Besvar ud fra generel gældende miljøret og klagenævnspraksis for det valgte emne.`;
-
-      const systemPrompt = `Du er MVAI.dk (Miljøvurderingsvejen), en fagspecifik juridisk og miljøfaglig AI-assistent skabt til danske miljøsagsbehandlere, planlæggere, miljørådgivere og forskere.
+    const systemPrompt = `Du er MVAI.dk (Miljøvurderingsvejen), en fagspecifik juridisk og miljøfaglig AI-assistent skabt til danske miljøsagsbehandlere, planlæggere, miljørådgivere og forskere.
 
 DIT RETSLIGE ARBEJDSOMRÅDE FOR DENNE SAG ER:
 - Scope: ${scopeName}
@@ -59,10 +57,60 @@ DIT RETSLIGE ARBEJDSOMRÅDE FOR DENNE SAG ER:
 VIGTIGE RETSLIGE REGLER FOR DINE BESVARELSER:
 1. Svar direkte og præcist på sagsbehandlerens konkrete spørgsmål på formfuldendt, professionelt dansk.
 2. Hvis brugeren spørger om specifikke klagenævnsafgørelser (f.eks. Natura 2000, Bilag IV, kumulation, støj eller § 8/§ 21), skal du finde og referere reelle, konkrete kendelser fra Miljø- og Fødevareklagenævnet (MFKN) eller det tidligere Natur- og Miljøklagenævn (NMKN) med årstal, sagsnummer og de bærende præmisser.
-3. Forankr konklusioner i gældende lov (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer) og habitatbekendtgørelsen / direktiverne.
+3. Forankr konklusioner i gældende lov (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer) og habitatbekendtgørelsen / EU-direktiverne.
 4. Nævn ALDRIG uploadede sagsdokumenter, medmindre brugeren rent faktisk har uploadet dem.
 5. Strukturér svaret logisk med konkrete afgørelser, præmisser og anbefalinger til sagsbehandlingen.
 6. Hvis relevant, angiv en tydelig 'Retslig risikofaktor' hvis der er fare for ugyldighed/ophævelse ved MFKN.`;
+
+    // 1. STANDARDMODEL: Claude 3.5 Sonnet (hvis ANTHROPIC_API_KEY er konfigureret)
+    if (anthropicApiKey) {
+      const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+
+      const conversationHistory = history.slice(-6).map((h) => ({
+        role: (h.sender === "user" ? "user" : "assistant") as "user" | "assistant",
+        content: h.text,
+      }));
+
+      const anthropicResponse = await anthropic.messages.create({
+        model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022",
+        max_tokens: 2500,
+        temperature: 0.2,
+        system: systemPrompt,
+        messages: [
+          ...conversationHistory,
+          { role: "user", content: message },
+        ],
+      });
+
+      const responseText =
+        anthropicResponse.content
+          .filter((block) => block.type === "text")
+          .map((block) => (block as Anthropic.TextBlock).text)
+          .join("\n") || "Ingen analyse kunne genereres.";
+
+      let warning: string | undefined;
+      if (
+        responseText.toLowerCase().includes("risiko") ||
+        responseText.toLowerCase().includes("advarsel") ||
+        responseText.toLowerCase().includes("ophævelse") ||
+        responseText.toLowerCase().includes("ugyldig")
+      ) {
+        warning =
+          "Klagenævnspraksis (MFKN): Prøvelsen af Natura 2000, kumulation og habitatdirektivet er intens. Hvis der er videnskabelig tvivl om fravær af skade på udpegningsgrundlaget, kan tilladelse eller plan ikke vedtages.";
+      }
+
+      return NextResponse.json({
+        text: responseText,
+        warning,
+        sources: getRelevantSources(scope, message, themes),
+        modelUsed: "Claude 3.5 Sonnet",
+        isLiveLLM: true,
+      });
+    }
+
+    // 2. SEKUNDÆR MODEL: OpenAI (f.eks. hvis OPENAI_API_KEY er konfigureret uden Anthropic)
+    if (openaiApiKey) {
+      const openai = new OpenAI({ apiKey: openaiApiKey });
 
       const formattedMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
@@ -98,11 +146,12 @@ VIGTIGE RETSLIGE REGLER FOR DINE BESVARELSER:
         text: responseText,
         warning,
         sources: getRelevantSources(scope, message, themes),
+        modelUsed: "GPT-4o (Fallback)",
         isLiveLLM: true,
       });
     }
 
-    // Intelligent domain-specific legal search when OPENAI_API_KEY is not yet injected
+    // 3. INTELLIGENT DOMÆNE-SPECIFIK DATABASE (Når der endnu ikke er indsat API-nøgler)
     const dynamicResponse = generateIntelligentLegalResponse(
       message,
       scope,
@@ -113,6 +162,7 @@ VIGTIGE RETSLIGE REGLER FOR DINE BESVARELSER:
 
     return NextResponse.json({
       ...dynamicResponse,
+      modelUsed: "Offline Retskildematrix",
       isLiveLLM: false,
     });
   } catch (err: unknown) {
@@ -296,7 +346,7 @@ I henhold til de aktive temamapper (${themes.join(", ") || "Generel lovgivning"}
 - Sagsbehandleren skal sikre fuld overensstemmelse mellem anmeldelsen og de retskilder, der er indekseret i systemet.
 - Eventuelle klagepunkter forventes at relatere sig til kumulation med naboområder og belysning af miljøpåvirkninger.`,
     warning:
-      "Forbind gerne din OpenAI API-nøgle i Vercel under Environment Variables (OPENAI_API_KEY) for fuld interaktiv live-dialog og dybdegående søgninger på tværs af samtlige afgørelser.",
+      "Tip: Indsæt ANTHROPIC_API_KEY på Vercel for at aktivere Claude 3.5 Sonnet til dybdegående ræsonnering på tværs af samtlige afgørelser.",
     sources: getRelevantSources(scope, prompt, themes),
   };
 }
