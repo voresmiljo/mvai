@@ -93,7 +93,7 @@ STRUKTUR PÅ DINE SVAR:
 
         const candidateModels = process.env.ANTHROPIC_MODEL
           ? [process.env.ANTHROPIC_MODEL]
-          : ["claude-sonnet-5", "claude-opus-5-5", "claude-3-5-sonnet-20241022"];
+          : ["claude-opus-5-5", "claude-sonnet-5", "claude-3-5-sonnet-20241022"];
 
         let anthropicResponse: Anthropic.Message | undefined;
         let usedModel = "Claude Sonnet";
@@ -154,47 +154,52 @@ STRUKTUR PÅ DINE SVAR:
       }
     }
 
-    // 2. SEKUNDÆR MODEL: OpenAI (f.eks. hvis OPENAI_API_KEY er konfigureret uden Anthropic)
+    // 2. SEKUNDÆR MODEL: OpenAI (f.eks. hvis OPENAI_API_KEY er konfigureret)
     if (openaiApiKey) {
-      const openai = new OpenAI({ apiKey: openaiApiKey });
+      try {
+        const openai = new OpenAI({ apiKey: openaiApiKey.trim() });
 
-      const formattedMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: "system", content: systemPrompt },
-        ...history.slice(-4).map((h) => ({
-          role: h.sender === "user" ? ("user" as const) : ("assistant" as const),
-          content: h.text,
-        })),
-        { role: "user", content: message },
-      ];
+        const formattedMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+          { role: "system", content: systemPrompt },
+          ...history.slice(-4).map((h) => ({
+            role: h.sender === "user" ? ("user" as const) : ("assistant" as const),
+            content: h.text,
+          })),
+          { role: "user", content: message },
+        ];
 
-      const completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || "gpt-4o",
-        messages: formattedMessages,
-        temperature: 0.2,
-      });
+        const completion = await openai.chat.completions.create({
+          model: process.env.OPENAI_MODEL || "gpt-4o",
+          messages: formattedMessages,
+          temperature: 0.2,
+        });
 
-      const responseText =
-        completion.choices[0]?.message?.content ||
-        "Ingen analyse kunne genereres.";
+        const responseText =
+          completion.choices[0]?.message?.content ||
+          "Ingen analyse kunne genereres.";
 
-      let warning: string | undefined;
-      if (
-        responseText.toLowerCase().includes("risiko") ||
-        responseText.toLowerCase().includes("advarsel") ||
-        responseText.toLowerCase().includes("ophævelse") ||
-        responseText.toLowerCase().includes("ugyldig")
-      ) {
-        warning =
-          "Klagenævnspraksis (MFKN): Prøvelsen af Natura 2000 og habitatdirektivets art. 6, stk. 3 er intens. Hvis der er videnskabelig tvivl om fravær af skade på udpegningsgrundlaget, kan tilladelse eller plan ikke vedtages.";
+        let warning: string | undefined;
+        if (
+          responseText.toLowerCase().includes("risiko") ||
+          responseText.toLowerCase().includes("advarsel") ||
+          responseText.toLowerCase().includes("ophævelse") ||
+          responseText.toLowerCase().includes("ugyldig")
+        ) {
+          warning =
+            "Klagenævnspraksis (MFKN): Prøvelsen af Natura 2000 og habitatdirektivets art. 6, stk. 3 er intens. Hvis der er videnskabelig tvivl om fravær af skade på udpegningsgrundlaget, kan tilladelse eller plan ikke vedtages.";
+        }
+
+        return NextResponse.json({
+          text: responseText,
+          warning,
+          sources: getRelevantSources(scope, message, themes),
+          modelUsed: "GPT-4o (Fallback)",
+          isLiveLLM: true,
+        });
+      } catch (openAiErr) {
+        console.error("OpenAI API error, falling back to matrix:", openAiErr);
+        // Fall through to offline retskildematrix if OpenAI quota is exhausted
       }
-
-      return NextResponse.json({
-        text: responseText,
-        warning,
-        sources: getRelevantSources(scope, message, themes),
-        modelUsed: "GPT-4o (Fallback)",
-        isLiveLLM: true,
-      });
     }
 
     // 3. INTELLIGENT DOMÆNE-SPECIFIK DATABASE (Når der endnu ikke er indsat API-nøgler)
