@@ -46,6 +46,13 @@ export async function POST(req: Request) {
       ? `Primært sagsdokument: ${primaryFile}. Supplerende: ${supplementaryFiles.join(", ") || "Ingen"}.`
       : `Brugeren har ikke uploadet egne sagsdokumenter endnu. Besvar ud fra generel gældende dansk miljøret og klagenævnspraksis for det valgte emne.`;
 
+    const sourcesContext = getRelevantSources(scope, message, themes)
+      .map(
+        (s) =>
+          `[RETSKILDE: ${s.title}]\nHenvisning: ${s.citation}\nAfsnit: ${s.lawSection}\nDato: ${s.date}\nUddrag:\n"${s.textSnippet}"`
+      )
+      .join("\n\n");
+
     const systemPrompt = `Du er MVAI – en specialiseret, objektiv og fagligt funderet digital assistent til miljøvurdering af planer, programmer og konkrete projekter i Danmark. Du betjener miljøsagsbehandlere hos myndigheder, miljørådgivere og forskere.
 
 DIT RETSLIGE ARBEJDSOMRÅDE FOR DENNE SAG ER:
@@ -54,10 +61,13 @@ DIT RETSLIGE ARBEJDSOMRÅDE FOR DENNE SAG ER:
 - Sagsakter: ${fileContext}
 - Aktive Temamapper: ${themes.join(", ") || "Ingen specifikke (kun grundlovgivning)"}
 
+MEDFØLGENDE RETSKILDER OG NÆVNSPRAKSIS FRA SYSTEMETS KILDEMATRIX:
+${sourcesContext}
+
 DINE PRIMÆRE PRINCIPPER:
 
 1. STRICT KILDEFORANKRING (NUL HALLUCINATIONER):
-Du må UDELUKKENDE besvare spørgsmål baseret på det medfølgende kildemateriale (Grundlovgivning, de aktiverede Temamapper og brugerens uploadede sagsdokumenter). Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande fra din generelle træningsdata.
+Du skal forankre dine svar i ovenstående medfølgende retskilder, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande.
 
 2. HÅNDTERING AF TVIVL OG MANGLER:
 Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte.
@@ -74,7 +84,8 @@ Enhver faglig påstand eller konklusion i dit svar SKAL følges af en præcis ki
 - [Miljøvurderingsloven § 8, stk. 1]
 - [BEK nr. 1608 af 09/12/2024 § 4]
 - [Vejledning om miljøvurderingsloven kap. 3]
-- [MFKN j.nr. 20/09399]
+- [MFKN j.nr. 21/04322]
+- [EU-Domstolen Sag C-127/02 Waddenzee]
 
 STRUKTUR PÅ DINE SVAR:
 1. Kort og direkte konklusion/svar på brugerens spørgsmål.
@@ -93,7 +104,7 @@ STRUKTUR PÅ DINE SVAR:
 
         const candidateModels = process.env.ANTHROPIC_MODEL
           ? [process.env.ANTHROPIC_MODEL]
-          : ["claude-opus-5-5", "claude-sonnet-5", "claude-3-5-sonnet-20241022"];
+          : ["claude-sonnet-5", "claude-opus-5-5", "claude-3-5-sonnet-20241022"];
 
         let anthropicResponse: Anthropic.Message | undefined;
         let usedModel = "Claude Sonnet";
@@ -103,7 +114,6 @@ STRUKTUR PÅ DINE SVAR:
             anthropicResponse = await anthropic.messages.create({
               model: m,
               max_tokens: 2500,
-              temperature: 0.2,
               system: systemPrompt,
               messages: [
                 ...conversationHistory,
