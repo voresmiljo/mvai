@@ -495,9 +495,10 @@ Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat 
           <button
             onClick={() => {
               setMessages(messages.slice(0, 2));
+              setSelectedThemes([]);
             }}
             className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-            title="Nulstil samtale"
+            title="Nulstil samtale og temamapper"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Nulstil</span>
@@ -505,8 +506,12 @@ Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat 
 
           <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
             <div className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="hidden sm:inline">Kildematrix aktiv</span>
-            <span className="sm:hidden font-mono">OK</span>
+            <span className="hidden sm:inline">
+              Aktive kilder: Grundlovgivning{selectedThemes.length > 0 ? ` + ${selectedThemes.length} temamappe${selectedThemes.length > 1 ? "r" : ""}` : ""}
+            </span>
+            <span className="sm:hidden font-mono">
+              {selectedThemes.length > 0 ? `+${selectedThemes.length}` : "1"} kilde
+            </span>
           </div>
 
           <Link
@@ -529,16 +534,28 @@ Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat 
                 <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
                   Temamapper
                 </span>
-                <span
-                  className={`text-xs font-semibold ${
-                    isThemeLimitExceeded ? "text-amber-600 font-bold" : "text-slate-500"
-                  }`}
-                >
-                  {selectedThemes.length}/3 aktive
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs font-semibold ${
+                      isThemeLimitExceeded ? "text-amber-600 font-bold" : "text-slate-500"
+                    }`}
+                  >
+                    {selectedThemes.length}/3 aktive
+                  </span>
+                  {selectedThemes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedThemes([])}
+                      className="text-[11px] font-medium text-slate-500 hover:text-red-600 transition-colors cursor-pointer"
+                      title="Nulstil alle temamapper og få en ren kildevisning"
+                    >
+                      Nulstil
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="text-[11px] text-slate-500 mb-3">
-                Aktivér de fagfelter, der er relevante for denne sagsafgørelse.
+                Aktivér de fagfelter, der er relevante for denne sag.
               </p>
 
               {/* Warning banner when >= 4 */}
