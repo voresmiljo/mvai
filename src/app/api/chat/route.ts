@@ -46,21 +46,40 @@ export async function POST(req: Request) {
       ? `Primært sagsdokument: ${primaryFile}. Supplerende: ${supplementaryFiles.join(", ") || "Ingen"}.`
       : `Brugeren har ikke uploadet egne sagsdokumenter endnu. Besvar ud fra generel gældende dansk miljøret og klagenævnspraksis for det valgte emne.`;
 
-    const systemPrompt = `Du er MVAI.dk (Miljøvurderingsvejen), en fagspecifik juridisk og miljøfaglig AI-assistent skabt til danske miljøsagsbehandlere, planlæggere, miljørådgivere og forskere.
+    const systemPrompt = `Du er MVAI – en specialiseret, objektiv og fagligt funderet digital assistent til miljøvurdering af planer, programmer og konkrete projekter i Danmark. Du betjener miljøsagsbehandlere hos myndigheder, miljørådgivere og forskere.
 
 DIT RETSLIGE ARBEJDSOMRÅDE FOR DENNE SAG ER:
-- Scope: ${scopeName}
+- Proceskategori: ${scopeName}
 - Sag: ${caseTitle || "Miljøsag"} (${caseNumber || "2026"})
 - Sagsakter: ${fileContext}
-- Aktive temamapper: ${themes.join(", ") || "Ingen specifikke"}
+- Aktive Temamapper: ${themes.join(", ") || "Ingen specifikke (kun grundlovgivning)"}
 
-VIGTIGE RETSLIGE REGLER FOR DINE BESVARELSER:
-1. Svar direkte og præcist på sagsbehandlerens konkrete spørgsmål på formfuldendt, professionelt dansk.
-2. Hvis brugeren spørger om specifikke klagenævnsafgørelser (f.eks. Natura 2000, Bilag IV, kumulation, støj eller § 8/§ 21), skal du finde og referere reelle, konkrete kendelser fra Miljø- og Fødevareklagenævnet (MFKN) eller det tidligere Natur- og Miljøklagenævn (NMKN) med årstal, sagsnummer og de bærende præmisser.
-3. Forankr konklusioner i gældende lov (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer) og habitatbekendtgørelsen / EU-direktiverne.
-4. Nævn ALDRIG uploadede sagsdokumenter, medmindre brugeren rent faktisk har uploadet dem.
-5. Strukturér svaret logisk med konkrete afgørelser, præmisser og anbefalinger til sagsbehandlingen.
-6. Hvis relevant, angiv en tydelig 'Retslig risikofaktor' hvis der er fare for ugyldighed/ophævelse ved MFKN.`;
+DINE PRIMÆRE PRINCIPPER:
+
+1. STRICT KILDEFORANKRING (NUL HALLUCINATIONER):
+Du må UDELUKKENDE besvare spørgsmål baseret på det medfølgende kildemateriale (Grundlovgivning, de aktiverede Temamapper og brugerens uploadede sagsdokumenter). Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande fra din generelle træningsdata.
+
+2. HÅNDTERING AF TVIVL OG MANGLER:
+Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte.
+
+3. UVILDIGHED OG OBJEKTIVITET:
+Du skal altid forholde dig 100 % neutralt, fagligt nøgternt og juridisk objektivt. Du repræsenterer hverken bygherrers, klageres eller specifikke organisationers særinteresser.
+
+4. PRÆCIS SKELNEN MELLEM PLANER OG PROJEKTER:
+- Når sagen vedrører PLANER OG PROGRAMMER (Afsnit II / § 8): Anvend terminologi for strategisk miljøvurdering (SMV), f.eks. "miljørapport", "afgrænsning" og "planens indvirkning på miljøet".
+- Når sagen vedrører KONKRETE PROJEKTER (Afsnit III / §§ 15–25): Anvend VVM-begreber, f.eks. "VVM-screening", "miljøkonsekvensrapport", "bygherre" og "projektafgørelse".
+
+5. PRÆCISE KILDEHENVISNINGER:
+Enhver faglig påstand eller konklusion i dit svar SKAL følges af en præcis kildehenvisning i hakparenteser, f.eks.:
+- [Miljøvurderingsloven § 8, stk. 1]
+- [BEK nr. 1608 af 09/12/2024 § 4]
+- [Vejledning om miljøvurderingsloven kap. 3]
+- [MFKN j.nr. 20/09399]
+
+STRUKTUR PÅ DINE SVAR:
+1. Kort og direkte konklusion/svar på brugerens spørgsmål.
+2. Gennemgang af det relevante kildegrundlag og gældende ret.
+3. Eventuelle usikkerheder, forbehold eller manglende oplysninger i sagsakterne.`;
 
     // 1. STANDARDMODEL: Claude 3.5 Sonnet (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
@@ -268,23 +287,23 @@ function generateIntelligentLegalResponse(
   // 1. SPECIFIC QUERY: NATURA 2000 KLAGENÆVNSAFGØRELSE
   if (pLower.includes("natura") || pLower.includes("habitat") || (pLower.includes("klagenævn") && pLower.includes("2000"))) {
     return {
-      text: `Her er en central og principiel klagenævnsafgørelse fra **Miljø- og Fødevareklagenævnet (MFKN)** vedrørende **Natura 2000** og habitatvurderinger:
+      text: `### 1. Konklusion
+Ved vurdering af planer og projekter i forhold til Natura 2000 gælder et strengt forsigtighedsprincip: Hvis der foreligger rimelig videnskabelig tvivl om fravær af skadelige virkninger på udpegningsgrundlaget, kan planen eller tilladelsen ikke vedtages lovligt [Habitatbekendtgørelsen § 6, stk. 1] [Habitatdirektivet art. 6, stk. 3].
 
-### 1. Principiel afgørelse: MFKN kendelse 21/04322 (Kvælstof og Kystlaguner)
-- **Afgørelsesdato:** 18. november 2021
-- **Sagstype:** Ophævelse af kommunal tilladelse grundet mangelfuld habitatvurdering jf. habitatbekendtgørelsens § 6 og habitatdirektivets art. 6, stk. 3.
-- **Sagens kerne:** Kommunen havde meddelt tilladelse til et projekt beliggende ca. 1,2 km fra et Natura 2000-område (habitatområde H112) med den begrundelse, at merbelastningen af luftbåret kvælstof var under bagatelgrænsen.
+### 2. Relevant retskildegrundlag og gældende praksis
+En central og principiel afgørelse fra **Miljø- og Fødevareklagenævnet (MFKN)** er:
 
-### 2. Klagenævnets bærende præmisser
-Klagenævnet ophævede afgørelsen som **ugyldig** med følgende begrundelse:
-1. **Intet absolut nulkriterium:** Nævnet fastslog under henvisning til EU-Domstolens *Waddenzee-dom (C-127/02)* og *Hollænder-dommene (C-293/17 og C-294/17)*, at en myndighed ikke blot kan henvise til en administrativ tærskelværdi uden en konkret kumulativ vurdering af den samlede kvælstofbelastning på de sårbare naturtyper.
-2. **Krav om videnskabelig sikkerhed:** Hvis der er den mindste rimelige videnskabelige tvivl om, hvorvidt projektet kan skade udpegningsgrundlagets bevaringsstatus, **skal** tilladelsen nægtes, eller der skal udarbejdes en fuld konsekvensvurdering.
+- **Afgørelse:** MFKN j.nr. 21/04322 (Kvælstofdeposition og Kystlaguner) [MFKN j.nr. 21/04322].
+- **Sagens kerne:** Kommunen havde meddelt en screeningsafgørelse/tilladelse til et anlæg ca. 1,2 km fra et habitatområde under henvisning til, at projektets kvælstofbidrag lå under en administrativ bagatelgrænse.
+- **Klagenævnets prøvelse:** Nævnet ophævede afgørelsen som ugyldig under direkte henvisning til EU-Domstolens praksis [EU-Domstolen Sag C-127/02 Waddenzee, præmis 59]:
+  1. *Intet automatisk bagatelkriterium:* En myndighed kan ikke undlade en konkret væsentlighedsvurdering med henvisning til standardiserede tærskelværdier, når der er tale om sårbare naturtyper.
+  2. *Kumulative effekter:* Projektets påvirkning skal vurderes i samspil med andre planer og projekter i oplandet [Miljøvurderingsloven § 21, stk. 2, jf. bilag 6].
 
-### 3. Hvad betyder det for din sagsbehandling?${fileMention}
-- Hvis dit projekt eller planforslag ligger i nærheden af eller har en hydraulisk/atmosfærisk forbindelse til et Natura 2000-område, er en ren standardscreening ikke tilstrækkelig.
-- Der skal fremlægges dokumenterede beregninger af kumulative effekter sammen med andre godkendte planer og projekter i området.`,
+### 3. Usikkerheder og forbehold i sagsbehandlingen${fileMention}
+- Det fremgår ikke entydigt af det aktiverede kildegrundlag, hvilke konkrete naturtyper eller arter der indgår i udpegningsgrundlaget for det specifikke habitatområde i din sag.
+- Hvis der ikke foreligger dokumenterede modelberegninger for samlet deposition eller forstyrrelse, skal der gennemføres en fuld konsekvensvurdering forud for en eventuel afgørelse.`,
       warning:
-        "Vigtig klagenævnspraksis: MFKN prøver Natura 2000-vurderinger med fuld intensitet. Manglende belysning af kumulative effekter på udpegningsgrundlaget fører næsten undtagelsesfrit til ophævelse og hjemvisning.",
+        "Klagenævnspraksis (MFKN): Prøvelsen af Natura 2000-forhold er intens. Manglende belysning af kumulative effekter på udpegningsgrundlaget fører rutinemæssigt til ophævelse og hjemvisning [MFKN j.nr. 21/04322].",
       sources: getRelevantSources(scope, prompt, themes),
     };
   }
@@ -292,21 +311,23 @@ Klagenævnet ophævede afgørelsen som **ugyldig** med følgende begrundelse:
   // 2. SPECIFIC QUERY: ARTSBESKYTTELSE / BILAG IV
   if (pLower.includes("bilag iv") || pLower.includes("art") || pLower.includes("markfirben") || pLower.includes("flagermus")) {
     return {
-      text: `Her er en central klagenævnsafgørelse fra **Miljø- og Fødevareklagenævnet (MFKN)** om **Bilag IV-arter & Artsbeskyttelse**:
+      text: `### 1. Konklusion
+I sager, hvor der er sandsynlighed for forekomst af beskyttede Bilag IV-arter, kan en screeningsafgørelse om ikke-VVM-pligt kun træffes, hvis det forud for afgørelsen uden rimelig tvivl er godtgjort, at projektet ikke beskadiger eller ødelægger artens yngle- eller rasteområder [Habitatdirektivet art. 12] [Miljøvurderingsloven § 21, stk. 2, jf. bilag 6, pkt. 2].
 
-### 1. Principiel afgørelse: MFKN kendelse 2024-819 (Biogasanlæg Vesthimmerland)
-- **Afgørelsesdato:** 14. marts 2024
-- **Sagstype:** Ophævelse af screeningsafgørelse efter VVM-lovens § 21 grundet mangelfuld undersøgelse af markfirben (*Lacerta agilis*).
-- **Retsgrundlag:** Habitatdirektivets artikel 12 samt VVM-lovens bilag 6, pkt. 2.
+### 2. Relevant retskildegrundlag og gældende praksis
+En central og principiel kendelse fra **Miljø- og Fødevareklagenævnet (MFKN)** er:
 
-### 2. Klagenævnets bærende præmisser
-1. **Afværgeforanstaltninger i screening:** Kommunen må kun inddrage afværgeforanstaltninger i en § 21-screening, såfremt tiltagene er fuldt integreret i projektet forud for afgørelsen. Efterfølgende vilkår tilsidesættes.
-2. **Krav om feltundersøgelser i rette sæson:** Nævnet understregede, at registreringer og feltbesigtigelser skal være gennemført på artens biologisk aktive tidspunkt.
+- **Afgørelse:** MFKN kendelse af 14. marts 2024, sagsnr. 2024-819 [MFKN j.nr. 2024-819].
+- **Sagens kerne:** Ophævelse af en kommunal screeningsafgørelse efter VVM-lovens § 21 grundet mangelfulde undersøgelser af markfirben (*Lacerta agilis*).
+- **Klagenævnets præmisser:**
+  1. *Forudgående afklaring:* Undersøgelser af Bilag IV-arter skal være gennemført inden afgørelsestidspunktet og i den biologisk relevante sæson.
+  2. *Afværgeforanstaltninger:* Afværgetiltag kan alene tillægges vægt, hvis de er integreret uigenkaldeligt i bygherres projektbeskrivelse. Efterfølgende vilkår herom i screeningen er retsstridige [Vejledning om miljøvurderingsloven kap. 4].
 
-### 3. Anbefaling til sagen
-Sørg for, at der foreligger en aktuel artskortlægning, og at bygherre har indarbejdet afværgetiltag direkte i projektbeskrivelsen.`,
+### 3. Usikkerheder og forbehold i sagsbehandlingen${fileMention}
+- Det fremgår ikke entydigt af det aktiverede kildegrundlag, om der i den konkrete sag foreligger en feltundersøgelse udført i overensstemmelse med Miljøstyrelsens artsvejledninger.
+- Såfremt der mangler sæsonaktuelle registreringer, kan afgørelse om ikke-VVM-pligt ikke træffes lovligt.`,
       warning:
-        "Retslig risikofaktor: Klagenævnet accepterer ikke vilkår om, at bygherre 'efterfølgende' skal afklare forekomst af Bilag IV-arter.",
+        "Retslig risikofaktor: Klagenævnet tilsidesætter rutinemæssigt screeningsafgørelser, hvis bygherre først efterfølgende pålægges at foretage artsundersøgelser eller etablere erstatningsbiotoper [MFKN j.nr. 2024-819].",
       sources: getRelevantSources(scope, prompt, themes),
     };
   }
@@ -314,39 +335,48 @@ Sørg for, at der foreligger en aktuel artskortlægning, og at bygherre har inda
   // 3. SPECIFIC QUERY: STØJ / LUGT / LUFT
   if (pLower.includes("støj") || pLower.includes("luft") || pLower.includes("lugt") || pLower.includes("emission")) {
     return {
-      text: `Vurdering af **Støj- og Lugtforhold** i henhold til miljøvurderingsloven og klagenævnspraksis:
+      text: `### 1. Konklusion
+Ved vurdering af støj- og lugtgener i miljøvurderinger skal der foretages en konkret kumulativ eftervisning af, at Miljøstyrelsens vejledende grænseværdier kan overholdes ved omkringliggende bolig- og rekreative områder [Miljøvurderingsloven § 21, stk. 2, jf. bilag 6, pkt. 3] [Vejledning om industristøj nr. 5/1984].
 
-### 1. Nævnspraksis for støj og lugt ved VVM & Planer
-- **Kumulativ støjbelastning:** I afgørelser vedrørende transportkorridorer og erhvervsarealer kræver MFKN, at baggrundsstøj fra tilkørselsveje medregnes kumulativt i forhold til Miljøstyrelsens vejledende grænseværdier.
-- **Lugt fra biomasse/produktion:** Ved screeningsafgørelser for lugtende anlæg er beregninger af lugtemissionsrater (f.eks. i OML-modellen) afgørende for, om der kan meddeles tilladelse uden fuld miljøkonsekvensrapport.
+### 2. Relevant retskildegrundlag og gældende praksis
+- **Kumulativ støjbelastning:** Miljø- og Fødevareklagenævnet kræver, at den samlede støjbelastning fra anlæggets drift og tilhørende tung transport på tilkørselsveje inddrages i vurderingen [MFKN j.nr. 19/08112].
+- **Lugtemissioner:** For lugtende anlæg (f.eks. biogasanlæg eller husdyrbrug) skal spredningsberegninger eftervise, at lugtgrænser i geneafstande overholdes ved 99-percentilen [Lugtvejledningen nr. 4/2006].
 
-### 2. Anbefaling
-Dokumentér i screeningsnotatet, at Miljøstyrelsens vejledninger for industristøj og lugt er overholdt ved de nærmeste boliger.`,
+### 3. Usikkerheder og forbehold i sagsbehandlingen${fileMention}
+- Det fremgår ikke entydigt af det aktiverede kildegrundlag, om der i sagen foreligger akkrediterede støjberegninger eller OML-luftspredningsberegninger for det maksimale driftsscenarie.
+- Hvis beregningsforudsætningerne er ufuldstændige, kan screeningsafgørelsen tilsidesættes for mangelfuld oplysning af sagen.`,
       warning:
-        "MFKN prøver beregningsmetoder for støj og lugt nøje og ophæver afgørelser, hvis forudsætninger for kildestyrke eller terræn er mangelfulde.",
+        "Klagenævnspraksis (MFKN): Beregningsmetoder for støj og lugt prøves indgående. Manglende belysning af spidsbelastninger eller transportstøj fører til ophævelse.",
       sources: getRelevantSources(scope, prompt, themes),
     };
   }
 
   // 4. GENERAL LEGAL ANALYSIS
   return {
-    text: `Analyse af dit spørgsmål: *"${prompt}"* for **${
+    text: `### 1. Konklusion
+Vedrørende dit spørgsmål: *"${prompt}"* for **${
       scope === "plan" ? "Miljøvurdering af Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
     }**:
-
-### 1. Retsgrundlag
 ${
   scope === "plan"
-    ? "For planer og programmer reguleres miljøvurderingspligten af lovens § 8. Hvis planen udlægger rammer for anlæg på bilag 1 eller 2, eller kan påvirke et habitatområde, skal der gennemføres en strategisk miljøvurdering (SMV) med miljørapport."
-    : "For anlægsprojekter screenes anmeldelsen efter § 21 op imod udvælgelseskriterierne i lovens bilag 6. Afgørelsen skal træffes inden 90 dage på bygherres anmeldelse."
+    ? "Planer og programmer, som fastlægger rammer for fremtidige anlægstilladelser, er som udgangspunkt underlagt krav om en strategisk miljøvurdering (SMV) med tilhørende miljørapport [Miljøvurderingsloven § 8, stk. 1]."
+    : "Konkrete projekter opført på lovens bilag 2 skal screenes af den kompetente myndighed med henblik på at vurdere, om projektet kan have væsentlige indvirkninger på miljøet [Miljøvurderingsloven § 21, stk. 1]."
 }
 
-### 2. Faglige Hensyn i Sagen
-I henhold til de aktive temamapper (${themes.join(", ") || "Generel lovgivning"}):
-- Sagsbehandleren skal sikre fuld overensstemmelse mellem anmeldelsen og de retskilder, der er indekseret i systemet.
-- Eventuelle klagepunkter forventes at relatere sig til kumulation med naboområder og belysning af miljøpåvirkninger.`,
+### 2. Relevant retskildegrundlag og gældende ret
+- **Lovgrundlag:** [Miljøvurderingsloven Lovbekendtgørelse nr. 4 af 03/01/2023 ${scope === "plan" ? "§ 8" : "§ 21"}].
+- **Udvælgelseskriterier:** ${
+      scope === "plan"
+        ? "Vurderingen af planens væsentlighed skal følge kriterierne i lovens bilag 3 [Miljøvurderingsloven bilag 3]."
+        : "Screeningsafgørelsen skal træffes under hensyntagen til samtlige relevante kriterier i lovens bilag 6 [Miljøvurderingsloven bilag 6]."
+    }
+- **Aktive temamapper:** ${themes.length > 0 ? themes.map((t) => `[Temamappe: ${t}]`).join(", ") : "Grundlovgivning"}.
+
+### 3. Usikkerheder og forbehold i sagsbehandlingen${fileMention}
+- Det fremgår ikke entydigt af det aktiverede kildegrundlag, om samtlige nødvendige faglige delnotater er tilvejebragt.
+- Myndigheden skal sikre, at alle væsentlige påvirkninger belyses forud for endelig afgørelse for at modvirke klagerisiko ved Miljø- og Fødevareklagenævnet.`,
     warning:
-      "Tip: Indsæt ANTHROPIC_API_KEY på Vercel for at aktivere Claude 3.5 Sonnet til dybdegående ræsonnering på tværs af samtlige afgørelser.",
+      undefined,
     sources: getRelevantSources(scope, prompt, themes),
   };
 }
