@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { searchSupabaseLegalSources } from "@/lib/vectorSearch";
 
 interface RequestBody {
   message: string;
@@ -46,7 +47,13 @@ export async function POST(req: Request) {
       ? `Primært sagsdokument: ${primaryFile}. Supplerende: ${supplementaryFiles.join(", ") || "Ingen"}.`
       : `Brugeren har ikke uploadet egne sagsdokumenter endnu. Besvar ud fra generel gældende dansk miljøret og klagenævnspraksis for det valgte emne.`;
 
-    const sourcesContext = getRelevantSources(scope, message, themes)
+    // Hent retskilder via semantisk vektorsøgning i Supabase, hvis tabellen er konfigureret, eller fra curateret matrix
+    let retrievedSources = await searchSupabaseLegalSources(message, scope, themes);
+    if (!retrievedSources || retrievedSources.length === 0) {
+      retrievedSources = getRelevantSources(scope, message, themes);
+    }
+
+    const sourcesContext = retrievedSources
       .map(
         (s) =>
           `[RETSKILDE: ${s.title}]\nHenvisning: ${s.citation}\nAfsnit: ${s.lawSection}\nDato: ${s.date}\nUddrag:\n"${s.textSnippet}"`
@@ -154,7 +161,7 @@ STRUKTUR PÅ DINE SVAR:
         return NextResponse.json({
           text: responseText,
           warning,
-          sources: getRelevantSources(scope, message, themes),
+          sources: retrievedSources,
           modelUsed: usedModel,
           isLiveLLM: true,
         });
@@ -202,7 +209,7 @@ STRUKTUR PÅ DINE SVAR:
         return NextResponse.json({
           text: responseText,
           warning,
-          sources: getRelevantSources(scope, message, themes),
+          sources: retrievedSources,
           modelUsed: "GPT-4o (Fallback)",
           isLiveLLM: true,
         });
