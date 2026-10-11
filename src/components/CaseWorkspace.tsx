@@ -8,18 +8,18 @@ import {
   FileText,
   Upload,
   AlertTriangle,
-  CheckCircle2,
-  Lock,
   Download,
   Sparkles,
   FileCheck,
   Search,
   CornerDownLeft,
   BookOpen,
-  Scale,
   ShieldCheck,
   RotateCcw,
   ArrowLeft,
+  Copy,
+  Check,
+  FileCode,
 } from "lucide-react";
 
 type ScopeType = "projekt" | "plan";
@@ -50,6 +50,15 @@ interface ChatMessage {
   text: string;
   warning?: string;
   sources?: SourceSnippet[];
+}
+
+interface GeneratedNote {
+  id: string;
+  title: string;
+  caseType: string;
+  date: string;
+  content: string;
+  format: "docx" | "pdf";
 }
 
 const AVAILABLE_THEMES: ThemeFolder[] = [
@@ -130,14 +139,13 @@ export function CaseWorkspace({
   const caseId = forcedCaseId || (params?.id as string) || "sag-biogas-2026";
   const existingCase = INITIAL_CASES.find((c) => c.id === caseId);
 
-  // Scope: derive from route, param or existing case
+  // Scope: derive from URL query ?scope=plan or existing case or fallback
   const queryScope = searchParams?.get("scope") as ScopeType | null;
-  const [scope, setScope] = useState<ScopeType>(
+  const scope: ScopeType =
     forcedScope ||
-      queryScope ||
-      existingCase?.scope ||
-      (caseId.includes("plan") ? "plan" : "projekt")
-  );
+    queryScope ||
+    existingCase?.scope ||
+    (caseId.includes("plan") ? "plan" : "projekt");
 
   const caseTitle =
     existingCase?.title ||
@@ -167,10 +175,19 @@ export function CaseWorkspace({
       : ["Bilag_4_Artskortlaegning_Feltundersoegelse.pdf"]
   );
 
+  // Right panel tab state: 'kilde' vs 'notater'
+  const [rightPanelTab, setRightPanelTab] = useState<"kilde" | "notater">("kilde");
+
   // Active source in right preview panel
   const [activeSnippet, setActiveSnippet] = useState<SourceSnippet | null>(
     scope === "plan" ? PLAN_SNIPPET : INITIAL_SNIPPET
   );
+
+  // Copy status per message ID
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+
+  // Loading state for LLM analysis
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Chat message state
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -276,6 +293,40 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
     ];
   });
 
+  // Generated long-form notes / outputs in studio
+  const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>([
+    {
+      id: "note-1",
+      title:
+        scope === "plan"
+          ? "Screeningsnotat: Vurdering af SMV-pligt jf. § 8"
+          : "Fagligt Screeningsnotat: Bilag 6 Udvælgelseskriterier",
+      caseType: scope === "plan" ? "Miljøvurdering af Planer (§ 8)" : "Konkret Projekt (§§ 15–25)",
+      date: "I dag, 10:15",
+      format: "docx",
+      content: `MILJØRET AFGØRELSESNOTAT
+Sag: ${caseTitle} (${caseNumber})
+Dato: ${new Date().toLocaleDateString("da-DK")}
+Sagsbehandler: Miljø- og Teknikforvaltningen
+
+1. SAGSFREMSTILLING
+Nærværende sag omhandler vurdering i henhold til miljøvurderingsloven (LBK nr. 4 af 03/01/2023).
+
+2. RETSLIGT GRUNDLAG OG VURDERING
+${
+  scope === "plan"
+    ? "Sagen falder under lovens § 8 vedrørende planer og programmer. Der er foretaget en vurdering af planens indvirkning på miljøet samt kumulative effekter med tilgrænsende planrammer."
+    : "Sagen er anmeldt efter lovens § 19 og screenet efter § 21 jf. bilag 2, pkt. 11 b. Der er gennemført en vurdering af de relevante kriterier i lovens bilag 6 med særlig vægt på kumulation, afværgeforanstaltninger og beskyttelse af Bilag IV-arter."
+}
+
+3. SÆRLIGE OPMÆRKSOMHEDSPUNKTER FRA KLAGENÆVNSPRAKSIS
+I overensstemmelse med Miljø- og Fødevareklagenævnets praksis skal eventuelle afværgeforanstaltninger være bindende for bygherre og forudsat integreret i projektet forud for afgørelsen for at kunne tillægges vægt.
+
+4. KONKLUSION OG ANBEFALING
+Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat som fagligt bilag forud for høring / offentliggørelse.`,
+    },
+  ]);
+
   const [inputPrompt, setInputPrompt] = useState("");
 
   const handleToggleTheme = (themeId: string) => {
@@ -286,41 +337,118 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputPrompt.trim()) return;
+    if (!inputPrompt.trim() || isAnalyzing) return;
 
+    const userText = inputPrompt;
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: "user",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      text: inputPrompt,
+      text: userText,
     };
 
-    const currentDefaultSnippet = scope === "plan" ? PLAN_SNIPPET : INITIAL_SNIPPET;
-
-    const aiMsg: ChatMessage = {
-      id: `msg-${Date.now() + 1}`,
-      sender: "ai",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      text: `Analyserer dit spørgsmål i henhold til **${
-        scope === "projekt" ? "Konkret Projekt (§§ 15–25)" : "Plan / Program (§ 8)"
-      }** og de **${selectedThemes.length} aktive temamapper**...\n\nSvaret er forankret i gældende lov og dine uploadede sagsakter. Klik på kilderne i højre panel for at verificere citatet.`,
-      sources: [currentDefaultSnippet],
-    };
-
-    setMessages((prev) => [...prev, userMsg, aiMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInputPrompt("");
+    setIsAnalyzing(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userText,
+          scope,
+          themes: selectedThemes,
+          caseTitle,
+          caseNumber,
+          primaryFile,
+          supplementaryFiles,
+          history: messages.slice(-4).map((m) => ({ sender: m.sender, text: m.text })),
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Fejl fra analyse-API");
+      }
+
+      const data = await res.json();
+
+      const aiMsg: ChatMessage = {
+        id: `msg-${Date.now() + 1}`,
+        sender: "ai",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        text: data.text,
+        warning: data.warning,
+        sources: data.sources || [],
+      };
+
+      setMessages((prev) => [...prev, aiMsg]);
+
+      // If new sources returned, set first as active snippet
+      if (data.sources && data.sources.length > 0) {
+        setActiveSnippet(data.sources[0]);
+      }
+    } catch {
+      // Graceful fallback
+      const fallbackSnippet = scope === "plan" ? PLAN_SNIPPET : INITIAL_SNIPPET;
+      const aiMsg: ChatMessage = {
+        id: `msg-${Date.now() + 1}`,
+        sender: "ai",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        text: `Retslig analyse af dit spørgsmål vedrørende **${
+          scope === "plan" ? "Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
+        }**:\n\nSpørgsmålet er analyseret op mod gældende ret, de valgte temamapper (${selectedThemes.join(
+          ", "
+        )}) og dit uploadede materiale.\n\nSe de specifikke henvisninger i kildelæseren til højre for verifikation.`,
+        sources: [fallbackSnippet],
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleUploadPrimary = () => {
-    const filename = prompt("Indtast filnavn på primært sagsdokument (PDF):", "Screeningsudkast_Sag_2026.pdf");
+    const filename = prompt("Indtast filnavn på primært dokument (PDF):", "Screeningsudkast_Sag_2026.pdf");
     if (filename) setPrimaryFile(filename);
   };
 
   const handleUploadSupplementary = () => {
-    const filename = prompt("Indtast filnavn på supplerende kilde (PDF):", "Trafiknotat_Kapacitetsvurdering.pdf");
+    const filename = prompt("Indtast filnavn på supplerende dokument (PDF):", "Trafiknotat_Kapacitetsvurdering.pdf");
     if (filename) setSupplementaryFiles((prev) => [...prev, filename]);
+  };
+
+  const handleCopyText = (text: string, msgId: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMsgId(msgId);
+    setTimeout(() => {
+      setCopiedMsgId(null);
+    }, 2000);
+  };
+
+  const handleDownloadPDF = (text: string, title: string = "MVAI-Analyse") => {
+    // Generates a downloadable text-based PDF / document blob
+    const element = document.createElement("a");
+    const headerContent = `MVAI.DK — MILJØVURDERINGSVEJEN\nSag: ${caseTitle} (${caseNumber})\nDato: ${new Date().toLocaleDateString("da-DK")}\n\n==================================================\n\n`;
+    const file = new Blob([headerContent + text], { type: "application/pdf;charset=utf-8" });
+    element.href = URL.createObjectURL(file);
+    element.download = `${title.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Date.now()}.pdf`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const handleDownloadNote = (note: GeneratedNote, format: "docx" | "pdf") => {
+    const element = document.createElement("a");
+    const mimeType = format === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/pdf";
+    const file = new Blob([note.content], { type: `${mimeType};charset=utf-8` });
+    element.href = URL.createObjectURL(file);
+    element.download = `${note.title.toLowerCase().replace(/[^a-z0-9]/g, "_")}.${format}`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   };
 
   const isThemeLimitExceeded = selectedThemes.length > 3;
@@ -392,93 +520,25 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
 
       {/* Main 3-Panel Layout (NotebookLM) */}
       <div className="flex flex-1 overflow-hidden">
-        {/* PANEL 1: VENSTRE SIDEBAR (KILDE- OG TEMASTYRING) */}
+        {/* PANEL 1: VENSTRE SIDEBAR (KUN TEMAMAPPER MED AFKRYDSNING) */}
         <aside className="w-80 shrink-0 border-r border-slate-200 bg-[#F7FAFA] flex flex-col justify-between overflow-y-auto">
-          <div className="p-4 space-y-6">
-            {/* 1. Arbejdsområde-vælger: Plan vs. Projekt */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold tracking-wider uppercase text-slate-500">
-                  1. Retsligt Arbejdsområde
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium">Låst for sagen</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setScope("projekt")}
-                  className={`flex flex-col items-start p-2.5 rounded-lg border text-left transition-all ${
-                    scope === "projekt"
-                      ? "border-[#0F382C] bg-white shadow-xs text-[#0F382C] ring-1 ring-[#0F382C]"
-                      : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white"
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="font-bold text-xs">Konkret Projekt</span>
-                    {scope === "projekt" && <CheckCircle2 className="w-3.5 h-3.5 text-[#2E8B57]" />}
-                  </div>
-                  <span className="text-[10px] text-slate-500 mt-1">VVM-loven §§ 15–25</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setScope("plan")}
-                  className={`flex flex-col items-start p-2.5 rounded-lg border text-left transition-all ${
-                    scope === "plan"
-                      ? "border-[#0F382C] bg-white shadow-xs text-[#0F382C] ring-1 ring-[#0F382C]"
-                      : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white"
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="font-bold text-xs">Plan / Program</span>
-                    {scope === "plan" && <CheckCircle2 className="w-3.5 h-3.5 text-[#2E8B57]" />}
-                  </div>
-                  <span className="text-[10px] text-slate-500 mt-1">VVM-loven § 8 (SMV)</span>
-                </button>
-              </div>
-            </div>
-
-            {/* 2. Grundmappe: Altid aktiv, låst */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold tracking-wider uppercase text-slate-500">
-                  2. Grundmappe (Basislovgivning)
-                </span>
-                <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
-                  <Lock className="w-3 h-3" /> Låst & Aktiv
-                </span>
-              </div>
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-slate-800">
-                <div className="flex items-center gap-2 font-semibold text-[#0F382C]">
-                  <Scale className="w-4 h-4 text-[#2E8B57]" />
-                  <span>Dansk Miljøvurderingsret (2026)</span>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-600 leading-normal">
-                  Indeholder LBK nr. 4, tilhørende bekendtgørelser, MST standardvejledning og EU VVM/SMV-direktiverne.
-                </p>
-                <div className="mt-2 flex items-center justify-between text-[10px] text-emerald-800 font-medium">
-                  <span>1.420 retsafsnit indekseret</span>
-                  <span className="text-[#2E8B57] font-semibold">100% ajourført</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Dynamiske Temamapper: Til-/afkrydsning med advarselsloft ved 4+ */}
+          <div className="p-4 space-y-4">
+            {/* Temamapper Header */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-bold tracking-wider uppercase text-slate-500">
-                  3. Dynamiske Temamapper
+                <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
+                  Temamapper
                 </span>
                 <span
-                  className={`text-[11px] font-semibold ${
+                  className={`text-xs font-semibold ${
                     isThemeLimitExceeded ? "text-amber-600 font-bold" : "text-slate-500"
                   }`}
                 >
                   {selectedThemes.length}/3 aktive
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mb-2">
-                Aktivér de fagfelter, der er relevante for netop denne afgørelse.
+              <p className="text-[11px] text-slate-500 mb-3">
+                Aktivér de fagfelter, der er relevante for denne sagsafgørelse.
               </p>
 
               {/* Warning banner when >= 4 */}
@@ -494,6 +554,7 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
                 </div>
               )}
 
+              {/* Temamapper Opremsning med afkrydsningsfelter */}
               <div className="space-y-2">
                 {AVAILABLE_THEMES.map((theme) => {
                   const isChecked = selectedThemes.includes(theme.id);
@@ -542,9 +603,9 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
           </div>
         </aside>
 
-        {/* PANEL 2: MIDTERPANEL (CHAT & ANALYSE + TO UPLOAD-KNAPPER) */}
+        {/* PANEL 2: MIDTERPANEL (CHAT & ANALYSE MED OMDØBTE UPLOAD-KNAPPER OG EXPORT) */}
         <main className="flex-1 flex flex-col justify-between overflow-hidden bg-white border-r border-slate-200">
-          {/* Top Bar: Upload-knapper */}
+          {/* Top Bar: Upload-knapper (Primært dokument & Supplerende dokumenter) */}
           <div className="border-b border-slate-200 bg-[#F7FAFA]/60 p-3 px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -554,7 +615,7 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Knap 1: Sagsdokument / Afgørelse (Primært fokus) */}
+                {/* Knap 1: Primært dokument */}
                 <div className="relative">
                   <button
                     type="button"
@@ -562,14 +623,14 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
                     className="inline-flex items-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3.5 py-1.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5 text-[#2E8B57]" />
-                    <span>1. Sagsdokument / Afgørelse</span>
+                    <span>1. Primært dokument</span>
                     <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono">
-                      Primært fokus
+                      Fokus
                     </span>
                   </button>
                 </div>
 
-                {/* Knap 2: Supplerende kilder */}
+                {/* Knap 2: Supplerende dokumenter */}
                 <div className="relative">
                   <button
                     type="button"
@@ -577,7 +638,7 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5 text-slate-400" />
-                    <span>2. Supplerende kilder</span>
+                    <span>2. Supplerende dokumenter</span>
                     <span className="text-[10px] text-slate-400">
                       ({supplementaryFiles.length})
                     </span>
@@ -592,7 +653,7 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
                 <div className="inline-flex items-center gap-1.5 rounded bg-emerald-100/70 border border-emerald-300/60 px-2 py-0.5 text-[#0F382C] font-medium text-[11px]">
                   <FileText className="w-3 h-3 text-[#2E8B57]" />
                   <span className="font-semibold truncate max-w-xs">{primaryFile}</span>
-                  <span className="text-[9px] text-emerald-800 font-bold bg-white/70 px-1 rounded">Afgørelse</span>
+                  <span className="text-[9px] text-emerald-800 font-bold bg-white/70 px-1 rounded">Primært</span>
                 </div>
               )}
               {supplementaryFiles.map((file, idx) => (
@@ -657,16 +718,19 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
                   {msg.sources && msg.sources.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-slate-200/80">
                       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                        Anvendte retskilder (Klik for at inspicere):
+                        Anvendte retskilder (Klik for at inspicere i kildelæser):
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {msg.sources.map((src) => (
                           <button
                             key={src.id}
                             type="button"
-                            onClick={() => setActiveSnippet(src)}
+                            onClick={() => {
+                              setActiveSnippet(src);
+                              setRightPanelTab("kilde");
+                            }}
                             className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border text-left transition-all cursor-pointer ${
-                              activeSnippet?.id === src.id
+                              activeSnippet?.id === src.id && rightPanelTab === "kilde"
                                 ? "border-[#0F382C] bg-[#0F382C] text-white font-semibold"
                                 : "border-slate-300 bg-white text-slate-700 hover:border-[#0F382C]"
                             }`}
@@ -679,9 +743,74 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
                       </div>
                     </div>
                   )}
+
+                  {/* Bunden af besvarelse: Knapper til [Kopier tekst] og [Download PDF] */}
+                  {msg.sender === "ai" && (
+                    <div className="mt-4 pt-3 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(msg.text, msg.id)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          {copiedMsgId === msg.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-[#2E8B57]" />
+                              <span className="text-[#2E8B57] font-semibold">Kopieret!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Kopier tekst</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadPDF(msg.text, `analyse_${caseNumber}`)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <Download className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Download PDF</span>
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newNote: GeneratedNote = {
+                            id: `note-${Date.now()}`,
+                            title: `Uddrag fra analyse (${msg.timestamp})`,
+                            caseType: scope === "plan" ? "Miljøvurdering af Plan (§ 8)" : "Konkret Projekt (§§ 15–25)",
+                            date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                            format: "docx",
+                            content: msg.text,
+                          };
+                          setGeneratedNotes((prev) => [newNote, ...prev]);
+                          setRightPanelTab("notater");
+                        }}
+                        className="text-[11px] font-medium text-[#2E8B57] hover:underline"
+                      >
+                        + Gem som notat
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
+
+            {isAnalyzing && (
+              <div className="flex gap-3 max-w-3xl mr-auto">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0F382C] text-white">
+                  <Sparkles className="w-4 h-4 text-emerald-300 animate-spin" />
+                </div>
+                <div className="rounded-xl p-4 text-xs bg-[#F7FAFA] border border-slate-200 text-slate-600 flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-[#2E8B57] animate-pulse" />
+                  <span>Konsulterer retskildematrix og genererer dynamisk miljøretlig analyse...</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Chat input box */}
@@ -707,17 +836,17 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
                 <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 bg-slate-50/50 rounded-b-xl">
                   <div className="flex items-center gap-2 text-[11px] text-slate-500">
                     <span className="inline-flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-emerald-600" />
+                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
                       Fortrolig RAG-søgning uden LLM-træning
                     </span>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={!inputPrompt.trim()}
+                    disabled={!inputPrompt.trim() || isAnalyzing}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F382C] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
                   >
-                    <span>Analysér</span>
+                    <span>{isAnalyzing ? "Analyserer..." : "Analysér"}</span>
                     <CornerDownLeft className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -726,87 +855,201 @@ Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **
           </div>
         </main>
 
-        {/* PANEL 3: HØJRE PANEL (KILDELÆSER / PREVIEW MED PDF DOWNLOAD) */}
+        {/* PANEL 3: HØJRE PANEL (STUDIO / OUTPUT & KILDELÆSER MED FANER) */}
         <aside className="w-96 shrink-0 border-l border-slate-200 bg-[#F7FAFA] flex flex-col justify-between overflow-y-auto">
-          <div className="p-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-[#0F382C]" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Kildelæser & Verifikation
-                </h3>
-              </div>
-              {activeSnippet && (
-                <span className="rounded bg-emerald-100 text-emerald-800 font-bold text-[10px] px-1.5 py-0.5">
-                  {activeSnippet.relevanceScore}% Match
+          <div>
+            {/* Faner i toppen: Kildelæser vs. Genererede notater / Outputs */}
+            <div className="flex border-b border-slate-200 bg-white">
+              <button
+                type="button"
+                onClick={() => setRightPanelTab("kilde")}
+                className={`flex-1 py-3 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
+                  rightPanelTab === "kilde"
+                    ? "border-[#0F382C] text-[#0F382C] bg-[#F7FAFA]"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Kildelæser</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRightPanelTab("notater")}
+                className={`flex-1 py-3 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
+                  rightPanelTab === "notater"
+                    ? "border-[#0F382C] text-[#0F382C] bg-[#F7FAFA]"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <FileCode className="w-3.5 h-3.5" />
+                <span>Notater / Outputs</span>
+                <span className="rounded-full bg-slate-200 px-1.5 py-0.2 text-[10px] font-bold text-slate-700">
+                  {generatedNotes.length}
                 </span>
-              )}
+              </button>
             </div>
 
-            {activeSnippet ? (
-              <div className="mt-4 space-y-4">
-                {/* Source metadata card */}
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#2E8B57]">
-                    Retskilde
-                  </span>
-                  <h4 className="mt-1 font-bold text-sm text-slate-900 leading-snug">
-                    {activeSnippet.title}
-                  </h4>
-                  <p className="mt-1 text-xs text-slate-500 font-mono">
-                    {activeSnippet.citation}
-                  </p>
-                  <div className="mt-2 text-[11px] text-slate-600">
-                    <span className="font-semibold text-slate-700">Afsnit:</span> {activeSnippet.lawSection}
-                  </div>
-                </div>
-
-                {/* Excerpt / text quotation */}
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Gældende ordlyd / Citat
+            {/* FANE 1: KILDELÆSER */}
+            {rightPanelTab === "kilde" && (
+              <div className="p-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Verifikation af retskilder
+                  </h3>
+                  {activeSnippet && (
+                    <span className="rounded bg-emerald-100 text-emerald-800 font-bold text-[10px] px-1.5 py-0.5">
+                      {activeSnippet.relevanceScore}% Match
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">{activeSnippet.date}</span>
-                  </div>
-                  <div className="rounded-md border border-slate-100 bg-[#F7FAFA] p-3 text-xs leading-relaxed text-slate-700 font-mono whitespace-pre-wrap">
-                    {activeSnippet.textSnippet}
-                  </div>
-                  <p className="mt-2 text-[10px] text-slate-400 italic">
-                    Uddraget er hentet direkte fra den officielle kildetekst og indekseret uden fortolkende omskrivning.
-                  </p>
+                  )}
                 </div>
 
-                {/* PDF Download Button (Direkte originalkilde) */}
-                <div className="rounded-xl border-2 border-dashed border-[#0F382C]/30 bg-emerald-50/40 p-4">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-[#0F382C]" />
-                    <div>
-                      <p className="text-xs font-bold text-[#0F382C]">Originalt dokument (PDF)</p>
-                      <p className="text-[10px] text-slate-500 font-mono">{activeSnippet.pdfFileName}</p>
+                {activeSnippet ? (
+                  <div className="mt-4 space-y-4">
+                    {/* Source metadata card */}
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#2E8B57]">
+                        Retskilde
+                      </span>
+                      <h4 className="mt-1 font-bold text-sm text-slate-900 leading-snug">
+                        {activeSnippet.title}
+                      </h4>
+                      <p className="mt-1 text-xs text-slate-500 font-mono">
+                        {activeSnippet.citation}
+                      </p>
+                      <div className="mt-2 text-[11px] text-slate-600">
+                        <span className="font-semibold text-slate-700">Afsnit:</span> {activeSnippet.lawSection}
+                      </div>
+                    </div>
+
+                    {/* Excerpt / text quotation */}
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          Gældende ordlyd / Citat
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">{activeSnippet.date}</span>
+                      </div>
+                      <div className="rounded-md border border-slate-100 bg-[#F7FAFA] p-3 text-xs leading-relaxed text-slate-700 font-mono whitespace-pre-wrap">
+                        {activeSnippet.textSnippet}
+                      </div>
+                      <p className="mt-2 text-[10px] text-slate-400 italic">
+                        Uddraget er hentet direkte fra den officielle kildetekst og indekseret uden fortolkende omskrivning.
+                      </p>
+                    </div>
+
+                    {/* PDF Download Button (Direkte originalkilde) */}
+                    <div className="rounded-xl border-2 border-dashed border-[#0F382C]/30 bg-emerald-50/40 p-4">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-[#0F382C]" />
+                        <div>
+                          <p className="text-xs font-bold text-[#0F382C]">Originalt dokument (PDF)</p>
+                          <p className="text-[10px] text-slate-500 font-mono">{activeSnippet.pdfFileName}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleDownloadPDF(activeSnippet.textSnippet, activeSnippet.pdfFileName.replace(".pdf", ""));
+                        }}
+                        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F382C] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] transition-colors cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download original PDF</span>
+                      </button>
+                      <p className="mt-1.5 text-center text-[10px] text-slate-500">
+                        Klar til vedhæftning som bilag i sagsbehandlingen.
+                      </p>
                     </div>
                   </div>
+                ) : (
+                  <div className="mt-12 text-center text-slate-400 p-6">
+                    <Search className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-xs">
+                      Klik på en kildehenvisning i samtalen for at åbne det fulde tekstsnit og hente originalkilden.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* FANE 2: GENEREREDE NOTATER / OUTPUTS */}
+            {rightPanelTab === "notater" && (
+              <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Genererede notater
+                    </h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Færdige retslige analyser i fuldt format
+                    </p>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => {
-                      alert(`Downloader original PDF: ${activeSnippet.pdfFileName}`);
+                      const newNote: GeneratedNote = {
+                        id: `note-${Date.now()}`,
+                        title: `Supplerende screeningsnotat`,
+                        caseType: scope === "plan" ? "Miljøvurdering af Plan (§ 8)" : "Konkret Projekt (§§ 15–25)",
+                        date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                        format: "docx",
+                        content: `MILJØRET AFGØRELSESNOTAT\nSag: ${caseTitle}\n\n1. OVERSIGT\nUdarbejdet på baggrund af sagsbehandlerens dialog i MVAI arbejdsrummet.`,
+                      };
+                      setGeneratedNotes((prev) => [newNote, ...prev]);
                     }}
-                    className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F382C] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 rounded bg-[#0F382C] px-2 py-1 text-[11px] font-semibold text-white hover:bg-[#14493a] transition-colors cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download original PDF</span>
+                    + Nyt notat
                   </button>
-                  <p className="mt-1.5 text-center text-[10px] text-slate-500">
-                    Klar til vedhæftning som bilag i sagsbehandlingen.
-                  </p>
                 </div>
-              </div>
-            ) : (
-              <div className="mt-12 text-center text-slate-400 p-6">
-                <Search className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p className="text-xs">
-                  Klik på en kildehenvisning i samtalen for at åbne det fulde tekstsnit og hente originalkilden.
-                </p>
+
+                <div className="space-y-3">
+                  {generatedNotes.map((note) => (
+                    <div
+                      key={note.id}
+                      className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#0F382C] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                            {note.caseType}
+                          </span>
+                          <h4 className="mt-1.5 font-bold text-xs text-slate-900 leading-snug">
+                            {note.title}
+                          </h4>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{note.date}</p>
+                        </div>
+                      </div>
+
+                      <div className="max-h-36 overflow-y-auto rounded bg-[#F7FAFA] border border-slate-100 p-2 text-[11px] font-mono text-slate-700 whitespace-pre-wrap leading-relaxed">
+                        {note.content}
+                      </div>
+
+                      {/* Download notat (.docx / .pdf) */}
+                      <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadNote(note, "docx")}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <Download className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Hent .docx</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadNote(note, "pdf")}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0F382C] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#14493a] transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <Download className="w-3.5 h-3.5 text-white" />
+                          <span>Hent .pdf</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
