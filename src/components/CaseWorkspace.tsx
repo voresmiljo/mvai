@@ -15,7 +15,6 @@ import {
   CornerDownLeft,
   BookOpen,
   ShieldCheck,
-  RotateCcw,
   ArrowLeft,
   Copy,
   Check,
@@ -492,28 +491,6 @@ Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat 
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              setMessages(messages.slice(0, 2));
-              setSelectedThemes([]);
-            }}
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-            title="Nulstil samtale og temamapper"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Nulstil</span>
-          </button>
-
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
-            <div className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="hidden sm:inline">
-              Aktive kilder: Grundlovgivning{selectedThemes.length > 0 ? ` + ${selectedThemes.length} temamappe${selectedThemes.length > 1 ? "r" : ""}` : ""}
-            </span>
-            <span className="sm:hidden font-mono">
-              {selectedThemes.length > 0 ? `+${selectedThemes.length}` : "1"} kilde
-            </span>
-          </div>
-
           <Link
             href="/om"
             className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
@@ -534,25 +511,13 @@ Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat 
                 <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
                   Temamapper
                 </span>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs font-semibold ${
-                      isThemeLimitExceeded ? "text-amber-600 font-bold" : "text-slate-500"
-                    }`}
-                  >
-                    {selectedThemes.length}/3 aktive
-                  </span>
-                  {selectedThemes.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedThemes([])}
-                      className="text-[11px] font-medium text-slate-500 hover:text-red-600 transition-colors cursor-pointer"
-                      title="Nulstil alle temamapper og få en ren kildevisning"
-                    >
-                      Nulstil
-                    </button>
-                  )}
-                </div>
+                <span
+                  className={`text-xs font-semibold ${
+                    isThemeLimitExceeded ? "text-amber-600 font-bold" : "text-slate-500"
+                  }`}
+                >
+                  {selectedThemes.length}/3 aktive
+                </span>
               </div>
               <p className="text-[11px] text-slate-500 mb-3">
                 Aktivér de fagfelter, der er relevante for denne sag.
@@ -607,6 +572,69 @@ Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat 
                     </label>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Sektion til brugerens egne sagsdokumenter */}
+            <div className="pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
+                  Sagsdokumenter
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {(primaryFile ? 1 : 0) + supplementaryFiles.length} fil(er)
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {/* Primært dokument */}
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#0F382C] flex items-center gap-1.5 truncate">
+                      <FileText className="w-3.5 h-3.5 text-[#2E8B57] shrink-0" />
+                      <span className="truncate">{primaryFile || "Intet primært dokument"}</span>
+                    </span>
+                    <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono shrink-0">
+                      Primært
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUploadPrimary}
+                    className="mt-2 text-[10px] text-emerald-800 font-semibold hover:underline cursor-pointer"
+                  >
+                    Skift primært dokument &rarr;
+                  </button>
+                </div>
+
+                {/* Supplerende dokumenter */}
+                <div className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs space-y-2">
+                  <div className="flex items-center justify-between text-slate-600 font-semibold text-[11px]">
+                    <span>Supplerende kilder ({supplementaryFiles.length})</span>
+                    <button
+                      type="button"
+                      onClick={handleUploadSupplementary}
+                      className="text-[#2E8B57] hover:underline cursor-pointer text-[10px]"
+                    >
+                      + Tilføj
+                    </button>
+                  </div>
+                  {supplementaryFiles.length > 0 ? (
+                    <div className="space-y-1">
+                      {supplementaryFiles.map((file, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-1.5 text-[11px] text-slate-600 truncate py-0.5"
+                        >
+                          <FileText className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate">{file}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 italic">Ingen supplerende dokumenter tilføjet</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
