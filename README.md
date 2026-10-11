@@ -6,17 +6,16 @@ Dette projekt er opbygget som en moderne Next.js (App Router) + TypeScript + Tai
 
 ## Struktur
 
-- `/` — **Public Landing Page:**
-  - Hero med værdibudskab og opfordring til handling.
-  - Værditilbud: Hvorfor specialiseret RAG vs. generiske AI-chatbots.
-  - Platformens funktioner: Grundmappe + Dynamiske Temamapper, Procesadskillelse (§ 8 vs. §§ 15–25) og Kildevisning/PDF-download.
-  - Målgrupper: Myndigheder/Kommuner, Miljørådgivere og Forskere.
-  - Datasikkerhed & GDPR (GovTech-krav, ingen træning på sagsakter, EU-hosting).
-  - Demotilmelding / kontakt.
+- `/` — **Hovedside / Sagsdashboard (NotebookLM-stil):**
+  - Top-sektion: 'Start ny sag'-blok med to store knapper:
+    - *Miljøvurdering af planer* (Afsnit II / § 8)
+    - *Miljøvurdering af projekter* (Afsnit III / §§ 15–25)
+  - Bund-sektion: 'Dine sager' oversigt med søgning og filtrering.
+  - Header: Diskret topmenu med MVAI-logo, link til 'Dine sager', 'Om MVAI' og brugerprofil.
 
-- `/app` — **Web-App Interface (3 Paneler):**
+- `/sag/[id]` & `/app` — **Arbejdsinterface (3-panels NotebookLM layout):**
   - **Venstre Panel:** 
-    - Retsligt arbejdsområde (Konkret Projekt jf. §§ 15–25 vs. Plan/Program jf. § 8).
+    - Kilde- og temastyring: Retsligt arbejdsområde (§ 8 vs. §§ 15–25).
     - Grundmappe (altid aktiv og låst til gældende lov og bekendtgørelser).
     - Dynamiske temamapper (Artsbeskyttelse, Klagenævnspraksis, Natura 2000 m.fl. med advarselsloft ved 4+).
   - **Midterpanel:**
@@ -26,6 +25,9 @@ Dette projekt er opbygget som en moderne Next.js (App Router) + TypeScript + Tai
   - **Højre Panel:**
     - Kildelæser & verifikation med ordlyd/citat fra gældende lov eller nævnsafgørelse.
     - Direkte knap til download af original PDF.
+
+- `/om` — **Om MVAI:**
+  - Grundig gennemgang af metodik, 2-spors procesadskillelse, RAG-arkitektur, kildekontrol, dataintegritet, GDPR, EU-hosting (Frankfurt) og kontaktinformation.
 
 ## Kom i gang lokalt
 
