@@ -81,7 +81,7 @@ STRUKTUR PÅ DINE SVAR:
 2. Gennemgang af det relevante kildegrundlag og gældende ret.
 3. Eventuelle usikkerheder, forbehold eller manglende oplysninger i sagsakterne.`;
 
-    // 1. STANDARDMODEL: Claude 3.5 Sonnet (hvis ANTHROPIC_API_KEY er konfigureret)
+    // 1. STANDARDMODEL: Claude 3.5 Sonnet / Sonnet 5 (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
       const anthropic = new Anthropic({ apiKey: anthropicApiKey });
 
@@ -90,19 +90,38 @@ STRUKTUR PÅ DINE SVAR:
         content: h.text,
       }));
 
-      const anthropicResponse = await anthropic.messages.create({
-        model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022",
-        max_tokens: 2500,
-        temperature: 0.2,
-        system: systemPrompt,
-        messages: [
-          ...conversationHistory,
-          { role: "user", content: message },
-        ],
-      });
+      const candidateModels = process.env.ANTHROPIC_MODEL
+        ? [process.env.ANTHROPIC_MODEL]
+        : ["claude-sonnet-5", "claude-3-5-sonnet-20241022", "claude-opus-5-5"];
+
+      let anthropicResponse: Anthropic.Message | undefined;
+      let usedModel = "Claude Sonnet";
+
+      for (const m of candidateModels) {
+        try {
+          anthropicResponse = await anthropic.messages.create({
+            model: m,
+            max_tokens: 2500,
+            temperature: 0.2,
+            system: systemPrompt,
+            messages: [
+              ...conversationHistory,
+              { role: "user", content: message },
+            ],
+          });
+          usedModel = m.includes("opus") ? "Claude Opus" : "Claude 3.5 Sonnet";
+          if (anthropicResponse) break;
+        } catch (err: unknown) {
+          const status = (err as { status?: number })?.status;
+          if (status === 404 && candidateModels.indexOf(m) < candidateModels.length - 1) {
+            continue;
+          }
+          throw err;
+        }
+      }
 
       const responseText =
-        anthropicResponse.content
+        anthropicResponse?.content
           .filter((block) => block.type === "text")
           .map((block) => (block as Anthropic.TextBlock).text)
           .join("\n") || "Ingen analyse kunne genereres.";
@@ -122,7 +141,7 @@ STRUKTUR PÅ DINE SVAR:
         text: responseText,
         warning,
         sources: getRelevantSources(scope, message, themes),
-        modelUsed: "Claude 3.5 Sonnet",
+        modelUsed: usedModel,
         isLiveLLM: true,
       });
     }
