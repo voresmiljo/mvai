@@ -17,6 +17,7 @@ function LoginForm() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -28,6 +29,12 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     setInfo("");
+
+    if (mode === "signup" && password !== passwordConfirm) {
+      setError("Adgangskoderne er ikke ens.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -35,7 +42,9 @@ function LoginForm() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(
+          mode === "signup" ? { email, password, passwordConfirm } : { email, password }
+        ),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -102,6 +111,20 @@ function LoginForm() {
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal focus:border-[#0F382C] focus:outline-none"
               />
             </label>
+            {mode === "signup" && (
+              <label className="block text-xs font-semibold text-slate-700">
+                Gentag adgangskode
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal focus:border-[#0F382C] focus:outline-none"
+                />
+              </label>
+            )}
 
             {confirmError && !error && (
               <p className="text-xs font-medium text-red-700">
@@ -124,6 +147,7 @@ function LoginForm() {
             type="button"
             onClick={() => {
               setMode(mode === "login" ? "signup" : "login");
+              setPasswordConfirm("");
               setError("");
               setInfo("");
             }}
