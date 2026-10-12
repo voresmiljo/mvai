@@ -145,11 +145,6 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
-
-                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                    <span>Låser til: SMV-direktivet & § 8</span>
-                    <span className="font-semibold text-emerald-800">Klik for at starte</span>
-                  </div>
                 </button>
 
                 {/* Knap 2: Miljøvurdering af projekter (§§ 15–25) */}
@@ -178,11 +173,6 @@ export default function DashboardPage() {
                         Konkrete anlægsprojekter, VVM-screeninger jf. § 21 (bilag 2) eller fulde miljøkonsekvensrapporter jf. § 15 (bilag 1).
                       </p>
                     </div>
-                  </div>
-
-                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                    <span>Låser til: VVM-regler & Bilag 6</span>
-                    <span className="font-semibold text-emerald-800">Klik for at starte</span>
                   </div>
                 </button>
               </div>
