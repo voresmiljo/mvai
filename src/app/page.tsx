@@ -118,7 +118,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Knap 1: Miljøvurdering af planer (§ 8) */}
+                {/* Knap 1: Miljøvurdering af planer og programmer (§ 8) */}
                 <button
                   type="button"
                   onClick={() => handleStartCase("plan")}
@@ -138,16 +138,16 @@ export default function DashboardPage() {
 
                     <div>
                       <h3 className="text-lg font-bold text-slate-900 group-hover:text-[#0F382C] transition-colors">
-                        Miljøvurdering af planer
+                        Miljøvurdering af planer og programmer
                       </h3>
                       <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                        Planer og programmer efter § 8, når de sætter rammer for fremtidige projekter eller kan påvirke et internationalt naturbeskyttelsesområde. Det primære dokument kan være et udkast, en miljørapport eller en afgørelse, også når formålet er at skrive en klage. Sekundære dokumenter er det materiale, det sammenholdes med.
+                        Strategisk miljøvurdering (SMV) for kommuneplantillæg, lokalplaner, affalds- og vandplaner jf. miljøvurderingslovens § 8.
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                    <span>Låser til: planer og programmer · § 8</span>
+                    <span>Låser til: SMV-direktivet & § 8</span>
                     <span className="font-semibold text-emerald-800">Klik for at starte</span>
                   </div>
                 </button>
@@ -163,7 +163,7 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between">
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-[#2A3B47] border border-slate-200">
                         <Scale className="w-3.5 h-3.5 text-[#2A3B47]" />
-                        <span>Afsnit III — Lovens §§ 15–25</span>
+                        <span>Afsnit III — Lovens § 15</span>
                       </span>
                       <span className="text-[11px] font-semibold text-slate-400 group-hover:text-[#0F382C] transition-colors">
                         Opret sag &rarr;
@@ -175,13 +175,13 @@ export default function DashboardPage() {
                         Miljøvurdering af projekter
                       </h3>
                       <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                        Konkrete projekter efter §§ 15–25. Projekter på bilag 1 skal miljøvurderes. Projekter på bilag 2 screenes efter § 21. Det primære dokument kan være en screening, en miljøkonsekvensrapport eller en afgørelse, også når formålet er at skrive en klage. Sekundære dokumenter er det materiale, det sammenholdes med.
+                        Konkrete anlægsprojekter, VVM-screeninger jf. § 21 (bilag 2) eller fulde miljøkonsekvensrapporter jf. § 15 (bilag 1).
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                    <span>Låser til: konkrete projekter · §§ 15–25</span>
+                    <span>Låser til: VVM-regler & Bilag 6</span>
                     <span className="font-semibold text-emerald-800">Klik for at starte</span>
                   </div>
                 </button>
