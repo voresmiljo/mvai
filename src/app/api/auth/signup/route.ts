@@ -27,13 +27,41 @@ export async function POST(req: Request) {
     options: { emailRedirectTo: redirectTo },
   });
   if (error) {
+    console.error("Signup error:", error.message);
     return NextResponse.json({ error: danishAuthError(error.message) }, { status: 400 });
+  }
+
+  const alreadyExists = Array.isArray(data.user?.identities) && data.user.identities.length === 0;
+  if (alreadyExists) {
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: redirectTo },
+    });
+    if (resendError) {
+      console.error("Resend confirmation error:", resendError.message);
+      const text = resendError.message.toLowerCase();
+      if (text.includes("already") && text.includes("confirm")) {
+        return NextResponse.json(
+          { error: "Der findes allerede en konto med den e-mail. Log ind." },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({ error: danishAuthError(resendError.message) }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      needsConfirmation: true,
+      message:
+        "Der fandtes allerede en oprettelse med den e-mail. En ny bekræftelsesmail er sendt fra kontakt@mvai.dk. Kig i indbakken og i spam.",
+    });
   }
 
   if (!data.session) {
     return NextResponse.json({
       needsConfirmation: true,
-      message: "Kontoen er oprettet. Bekræft e-mailen, og log derefter ind.",
+      message:
+        "Kontoen er oprettet. En bekræftelsesmail er sendt fra kontakt@mvai.dk. Kig i indbakken og i spam, og log derefter ind.",
     });
   }
 
