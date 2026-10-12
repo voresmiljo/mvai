@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       needsConfirmation: true,
       message:
-        "Der fandtes allerede en oprettelse med den e-mail. En ny bekræftelsesmail er sendt fra kontakt@mvai.dk. Kig i indbakken og i spam.",
+        `Der fandtes allerede en oprettelse med den e-mail. Bekræftelsesmailen er sendt til ${email} fra kontakt@mvai.dk. Kig i den indbakke og i spam.`,
     });
   }
 
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       needsConfirmation: true,
       message:
-        "Kontoen er oprettet. En bekræftelsesmail er sendt fra kontakt@mvai.dk. Kig i indbakken og i spam, og log derefter ind.",
+        `Kontoen er oprettet. Bekræftelsesmailen er sendt til ${email} fra kontakt@mvai.dk. Kig i den indbakke og i spam, og log derefter ind.`,
     });
   }
 
