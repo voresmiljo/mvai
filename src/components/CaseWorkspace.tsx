@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { INITIAL_CASES } from "@/lib/casesData";
+import { THEME_FOLDERS } from "@/lib/themeFolders";
 import {
   FileText,
   Upload,
@@ -61,44 +62,10 @@ interface GeneratedNote {
   format: "docx" | "pdf";
 }
 
-const AVAILABLE_THEMES: ThemeFolder[] = [
-  {
-    id: "artsbeskyttelse",
-    name: "Artsbeskyttelse & Bilag IV",
-    description: "Markfirben, flagermus, padder og yngle-/rasteområder jf. habitatdirektivets art. 12.",
-    count: 0,
-  },
-  {
-    id: "naevnspraksis",
-    name: "Klagenævnspraksis (MFKN)",
-    description: "Miljø- og Fødevareklagenævnets principielle afgørelser vedr. screeningsfejl og ophævelser.",
-    count: 0,
-  },
-  {
-    id: "natura2000",
-    name: "Natura 2000 & Habitatvurdering",
-    description: "Kumulative effekter, kvælstofdeposition og væsentlighedsvurderinger for habitatområder.",
-    count: 0,
-  },
-  {
-    id: "stoej_og_luft",
-    name: "Støj, Luft & Lugt",
-    description: "Miljøstyrelsens vejledninger om industristøj, lavfrekvent støj og lugtemissioner.",
-    count: 0,
-  },
-  {
-    id: "grundvand",
-    name: "Drikkevand & Grundvand",
-    description: "BNBO, sårbare indvindingsområder og nedsivningstilladelser jf. miljøbeskyttelsesloven.",
-    count: 0,
-  },
-  {
-    id: "kyst_og_landskab",
-    name: "Kystnærhed & Landskabshensyn",
-    description: "Kystnærhedszonen, naturbeskyttelseslovens bygge- og beskyttelseslinjer.",
-    count: 0,
-  },
-];
+const AVAILABLE_THEMES: ThemeFolder[] = THEME_FOLDERS.map((folder) => ({
+  ...folder,
+  count: 0,
+}));
 
 export function CaseWorkspace({
   forcedCaseId,
@@ -139,7 +106,7 @@ export function CaseWorkspace({
 
   // Selected themes (Max 3, warn on 4+)
   const [selectedThemes, setSelectedThemes] = useState<string[]>(
-    scope === "plan" ? ["naevnspraksis", "natura2000"] : ["artsbeskyttelse", "naevnspraksis"]
+    scope === "plan" ? ["natura2000"] : ["artsbeskyttelse"]
   );
 
   // Uploaded files: starts empty for new cases unless explicitly provided by an existing case
@@ -408,7 +375,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mb-3">
-                Aktivér de fagfelter, der er relevante for denne sag.
+                Aktivér de fagområder, sagen handler om. Klagenævnsafgørelser ligger i den temamappe, de handler om.
               </p>
 
               {/* Warning banner when >= 4 */}

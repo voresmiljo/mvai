@@ -9,7 +9,7 @@ interface SeedSourceItem {
   content: string;
   source_type: "lov" | "bekendtgoerelse" | "vejledning" | "naevnskendelse" | "eu_dom";
   scope: "plan" | "projekt" | "begge";
-  theme: "natura2000" | "artsbeskyttelse" | "naevnspraksis" | "stoej_og_luft" | "grundvand" | "kyst_og_landskab";
+  theme: "grund" | "natura2000" | "artsbeskyttelse" | "stoej_og_luft" | "grundvand" | "kyst_og_landskab";
   pdf_file_name: string;
   metadata: {
     date: string;
@@ -75,7 +75,7 @@ const SEED_SOURCES: SeedSourceItem[] = [
     content: `§ 8. Myndigheden skal gennemføre en miljøvurdering af planer og programmer, hvor planerne eller programmerne: 1) fastlægger rammerne for fremtidige anlægstilladelser til projekter omfattet af bilag 1 og 2, eller 2) kan påvirke et udpeget internationalt naturbeskyttelsesområde væsentligt. Stk. 2. For planer og programmer, som alene fastlægger anvendelsen af mindre områder på lokalt plan, gennemføres kun en miljøvurdering, hvis de må antages at kunne få væsentlig indvirkning på miljøet efter en vurdering i henhold til bilag 3.`,
     source_type: "lov",
     scope: "plan",
-    theme: "naevnspraksis",
+    theme: "grund",
     pdf_file_name: "miljoevurderingsloven-lbk-4-2023.pdf",
     metadata: {
       date: "03/01/2023",
@@ -91,7 +91,7 @@ const SEED_SOURCES: SeedSourceItem[] = [
     content: `§ 21. Projekter omfattet af bilag 2 skal screenes af den kompetente myndighed på grundlag af bygherrens anmeldelse for at vurdere, om projektet kan have væsentlige indvirkninger på miljøet. Stk. 2. Ved vurderingen efter stk. 1 skal myndigheden tage hensyn til de relevante udvælgelseskriterier, der er fastsat i bilag 6, herunder projektets karakteristika, projektets placering samt arten og kendetegnene ved den forventede indvirkning på miljøet (herunder kumulative effekter, støj, emissioner og naturværdier).`,
     source_type: "lov",
     scope: "projekt",
-    theme: "naevnspraksis",
+    theme: "grund",
     pdf_file_name: "miljoevurderingsloven-lbk-4-2023.pdf",
     metadata: {
       date: "03/01/2023",
