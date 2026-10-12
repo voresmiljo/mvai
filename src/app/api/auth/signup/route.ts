@@ -4,20 +4,25 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { danishAuthError } from "@/lib/session";
 
 export async function POST(req: Request) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ error: AUTH_SETUP_HINT }, { status: 500 });
-  }
-
   const body = await req.json().catch(() => null);
   const email = String(body?.email || "").trim().toLowerCase();
   const password = String(body?.password || "");
+  const passwordConfirm = String(body?.passwordConfirm || "");
 
   if (!email.includes("@") || password.length < 8) {
     return NextResponse.json(
       { error: "Skriv en gyldig e-mail og en adgangskode på mindst 8 tegn." },
       { status: 400 }
     );
+  }
+
+  if (password !== passwordConfirm) {
+    return NextResponse.json({ error: "Adgangskoderne er ikke ens." }, { status: 400 });
+  }
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) {
+    return NextResponse.json({ error: AUTH_SETUP_HINT }, { status: 500 });
   }
 
   const redirectTo = `${publicSiteUrl(req)}/auth/confirm`;
