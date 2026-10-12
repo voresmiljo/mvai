@@ -229,7 +229,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
   };
 
   const handleUploadPrimary = async () => {
-    const filename = prompt("Indtast filnavn på primært dokument (PDF):", "Screeningsudkast_Sag_2026.pdf");
+    const filename = prompt("Indtast filnavn på hoveddokumentet (PDF):", "Miljorapport_Sag_2026.pdf");
     if (!filename) return;
     setPrimaryFile(filename);
 
@@ -442,15 +442,15 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
               </div>
 
               <div className="space-y-2">
-                {/* Primært dokument */}
+                {/* Hoveddokument */}
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-[#0F382C] flex items-center gap-1.5 truncate">
                       <FileText className="w-3.5 h-3.5 text-[#2E8B57] shrink-0" />
-                      <span className="truncate">{primaryFile || "Intet primært dokument"}</span>
+                      <span className="truncate">{primaryFile || "Intet hoveddokument"}</span>
                     </span>
                     <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono shrink-0">
-                      Primært
+                      Hoveddokument
                     </span>
                   </div>
                   <button
@@ -458,7 +458,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                     onClick={handleUploadPrimary}
                     className="mt-2 text-[10px] text-emerald-800 font-semibold hover:underline cursor-pointer"
                   >
-                    Skift primært dokument &rarr;
+                    Skift hoveddokument &rarr;
                   </button>
                 </div>
 
@@ -505,7 +505,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
 
         {/* PANEL 2: MIDTERPANEL (CHAT & ANALYSE MED OMDØBTE UPLOAD-KNAPPER OG EXPORT) */}
         <main className="flex-1 flex flex-col justify-between overflow-hidden bg-white border-r border-slate-200">
-          {/* Top Bar: Upload-knapper (Primært dokument & Supplerende dokumenter) */}
+          {/* Top Bar: Upload-knapper (Hoveddokument & Supplerende dokumenter) */}
           <div className="border-b border-slate-200 bg-[#F7FAFA]/60 p-3 px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -515,7 +515,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Knap 1: Primært dokument */}
+                {/* Knap 1: Hoveddokument */}
                 <div className="relative">
                   <button
                     type="button"
@@ -523,7 +523,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                     className="inline-flex items-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3.5 py-1.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5 text-[#2E8B57]" />
-                    <span>1. Primært dokument</span>
+                    <span>1. Hoveddokument</span>
                     <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono">
                       Fokus
                     </span>
@@ -553,7 +553,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                 <div className="inline-flex items-center gap-1.5 rounded bg-emerald-100/70 border border-emerald-300/60 px-2 py-0.5 text-[#0F382C] font-medium text-[11px]">
                   <FileText className="w-3 h-3 text-[#2E8B57]" />
                   <span className="font-semibold truncate max-w-xs">{primaryFile}</span>
-                  <span className="text-[9px] text-emerald-800 font-bold bg-white/70 px-1 rounded">Primært</span>
+                  <span className="text-[9px] text-emerald-800 font-bold bg-white/70 px-1 rounded">Hoveddokument</span>
                 </div>
               )}
               {supplementaryFiles.map((file, idx) => (

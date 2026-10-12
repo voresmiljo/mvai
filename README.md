@@ -19,7 +19,7 @@ Dette projekt er opbygget som en moderne Next.js (App Router) + TypeScript + Tai
     - Grundmappe (altid aktiv og låst til gældende lov og bekendtgørelser).
     - Dynamiske temamapper (Artsbeskyttelse, Klagenævnspraksis, Natura 2000 m.fl. med advarselsloft ved 4+).
   - **Midterpanel:**
-    - To adskilte upload-knapper: *"1. Sagsdokument / Afgørelse (Primært fokus)"* og *"2. Supplerende kilder"*.
+    - To adskilte upload-knapper: *"1. Hoveddokument"* og *"2. Supplerende kilder"*.
     - Besvarelsesvindue med strukturerede analyser, risikofaktorer og klikbare kildereferencer.
     - Chat-input med kildekontrol.
   - **Højre Panel:**
