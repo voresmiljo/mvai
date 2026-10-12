@@ -1,0 +1,135 @@
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/session";
+
+export type StoredCase = {
+  id: string;
+  title: string;
+  caseNumber: string;
+  scope: "projekt" | "plan";
+  scopeLabel: string;
+  lawReference: string;
+  updatedAt: string;
+  previewSummary: string;
+  primaryDocument: string | null;
+};
+
+type CaseRow = {
+  id: string;
+  title: string;
+  case_number: string;
+  scope: "projekt" | "plan";
+  law_reference: string;
+  preview_summary: string | null;
+  primary_document: string | null;
+  updated_at: string;
+};
+
+function mapCase(row: CaseRow): StoredCase {
+  const updated = new Date(row.updated_at);
+  const updatedAt = Number.isNaN(updated.getTime())
+    ? row.updated_at
+    : updated.toLocaleString("da-DK", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+  return {
+    id: row.id,
+    title: row.title,
+    caseNumber: row.case_number,
+    scope: row.scope,
+    scopeLabel: row.scope === "plan" ? "Plan / Program" : "Konkret projekt",
+    lawReference: row.law_reference,
+    updatedAt,
+    previewSummary: row.preview_summary || "Sagen er oprettet og klar til dokumenter.",
+    primaryDocument: row.primary_document,
+  };
+}
+
+export function caseTableError(message: string): string | null {
+  const text = message.toLowerCase();
+  if (text.includes("cases") && (text.includes("relation") || text.includes("schema cache") || text.includes("does not exist"))) {
+    return "Sagstabellen mangler i databasen. Kør src/lib/supabase-auth.sql i Supabase SQL Editor.";
+  }
+  if (text.includes("row-level security") || text.includes("permission denied")) {
+    return "Databasen afviste sagen. Kør src/lib/supabase-auth.sql, så brugeren kun kan se sine egne sager.";
+  }
+  return null;
+}
+
+export async function listOwnCases(): Promise<{ cases: StoredCase[]; error?: string }> {
+  const user = await getSessionUser();
+  if (!user) return { cases: [], error: "Du er ikke logget ind." };
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { cases: [], error: "Login er ikke konfigureret." };
+
+  const { data, error } = await supabase
+    .from("cases")
+    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, updated_at")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    return { cases: [], error: caseTableError(error.message) || "Sagerne kunne ikke hentes." };
+  }
+
+  return { cases: ((data || []) as CaseRow[]).map(mapCase) };
+}
+
+export async function getOwnCase(id: string): Promise<StoredCase | null> {
+  const user = await getSessionUser();
+  if (!user) return null;
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("cases")
+    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, updated_at")
+    .eq("user_id", user.id)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapCase(data as CaseRow);
+}
+
+export async function createOwnCase(scope: "projekt" | "plan"): Promise<{ case?: StoredCase; error?: string }> {
+  const user = await getSessionUser();
+  if (!user) return { error: "Log ind, før du opretter en sag." };
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { error: "Login er ikke konfigureret." };
+
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+  const year = new Date().getFullYear();
+  const caseNumber = scope === "plan" ? `${year}-PLAN-${suffix}` : `${year}-VVM-${suffix}`;
+  const title =
+    scope === "plan"
+      ? "Ny miljøvurdering af plan / program (§ 8)"
+      : "Ny VVM-sag / miljøvurdering af projekt (§§ 15–25)";
+  const lawReference =
+    scope === "plan" ? "Miljøvurderingslovens § 8" : "Miljøvurderingslovens §§ 15–25";
+
+  const { data, error } = await supabase
+    .from("cases")
+    .insert({
+      user_id: user.id,
+      title,
+      case_number: caseNumber,
+      scope,
+      law_reference: lawReference,
+      preview_summary: "",
+    })
+    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, updated_at")
+    .single();
+
+  if (error || !data) {
+    return { error: caseTableError(error?.message || "") || "Sagen kunne ikke oprettes." };
+  }
+
+  return { case: mapCase(data as CaseRow) };
+}

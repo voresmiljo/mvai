@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
-import { INITIAL_CASES } from "@/lib/casesData";
+import { useAuth } from "@/components/AuthProvider";
 import {
   FilePlus2,
   FolderKanban,
@@ -15,27 +15,88 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+type DashboardCase = {
+  id: string;
+  title: string;
+  caseNumber: string;
+  scope: "projekt" | "plan";
+  scopeLabel: string;
+  lawReference: string;
+  updatedAt: string;
+  previewSummary: string;
+  primaryDocument?: string | null;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
-  const cases = INITIAL_CASES;
+  const { user, loading: authLoading } = useAuth();
+  const [cases, setCases] = useState<DashboardCase[]>([]);
+  const [casesLoading, setCasesLoading] = useState(false);
+  const [casesError, setCasesError] = useState("");
+  const [creating, setCreating] = useState<"plan" | "projekt" | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<"alle" | "projekt" | "plan">("alle");
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setCases([]);
+      setCasesError("");
+      return;
+    }
+
+    let cancelled = false;
+    setCasesLoading(true);
+    fetch("/api/cases")
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Sagerne kunne ikke hentes.");
+        if (!cancelled) setCases(data.cases || []);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setCasesError(err instanceof Error ? err.message : "Sagerne kunne ikke hentes.");
+      })
+      .finally(() => {
+        if (!cancelled) setCasesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
 
   const filteredCases = cases.filter((c) => {
     const matchesFilter =
       selectedFilter === "alle" || c.scope === selectedFilter;
     const matchesSearch =
       c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.authority.toLowerCase().includes(searchTerm.toLowerCase());
+      c.caseNumber.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
-  const handleStartCase = (scope: "plan" | "projekt") => {
-    const timestamp = Date.now().toString().slice(-4);
-    const newCaseId =
-      scope === "plan" ? `ny-plan-${timestamp}` : `ny-projekt-${timestamp}`;
-    router.push(`/sag/${newCaseId}?scope=${scope}&new=1`);
+  const handleStartCase = async (scope: "plan" | "projekt") => {
+    if (!user) {
+      router.push("/login?next=/");
+      return;
+    }
+
+    setCreating(scope);
+    setCasesError("");
+    try {
+      const res = await fetch("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.case?.id) {
+        throw new Error(data.error || "Sagen kunne ikke oprettes.");
+      }
+      router.push(`/sag/${data.case.id}?scope=${scope}`);
+    } catch (err) {
+      setCasesError(err instanceof Error ? err.message : "Sagen kunne ikke oprettes.");
+      setCreating(null);
+    }
   };
 
   return (
@@ -79,6 +140,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => handleStartCase("plan")}
+                  disabled={creating !== null || authLoading}
                   className="group relative flex flex-col justify-between rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-[#F7FAFA] p-6 text-left transition-all hover:border-[#0F382C] hover:bg-emerald-50/20 hover:shadow-md cursor-pointer"
                 >
                   <div className="space-y-3">
@@ -112,6 +174,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => handleStartCase("projekt")}
+                  disabled={creating !== null || authLoading}
                   className="group relative flex flex-col justify-between rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white to-[#F7FAFA] p-6 text-left transition-all hover:border-[#0F382C] hover:bg-emerald-50/20 hover:shadow-md cursor-pointer"
                 >
                   <div className="space-y-3">
@@ -209,12 +272,36 @@ export default function DashboardPage() {
             </div>
 
             {/* Case List */}
-            {filteredCases.length > 0 ? (
+            {casesError && (
+              <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                {casesError}
+              </p>
+            )}
+
+            {authLoading || (user && casesLoading) ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
+                Henter dine sager...
+              </div>
+            ) : !user ? (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
+                <FolderKanban className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                <p className="text-sm font-semibold">Log ind for at se dine sager</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Efter login vises de sager, du har oprettet, her.
+                </p>
+                <Link
+                  href="/login?next=/"
+                  className="mt-4 inline-flex rounded-lg bg-[#0F382C] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#14493a]"
+                >
+                  Log ind
+                </Link>
+              </div>
+            ) : filteredCases.length > 0 ? (
               <div className="grid grid-cols-1 gap-3">
                 {filteredCases.map((c) => (
                   <Link
                     key={c.id}
-                    href={`/sag/${c.id}`}
+                    href={`/sag/${c.id}?scope=${c.scope}`}
                     className="group flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 transition-all hover:border-[#0F382C] hover:shadow-xs hover:bg-[#FDFEFE]"
                   >
                     <div className="space-y-1.5 flex-1 min-w-0">
@@ -251,8 +338,7 @@ export default function DashboardPage() {
                             {c.primaryDocument}
                           </span>
                         )}
-                        <span>{c.themesCount > 0 ? `${c.themesCount} temamapper` : "Ingen temamapper valgt"}</span>
-                        <span>{c.sourcesCount > 0 ? `${c.sourcesCount} anvendte kilder` : "Ingen kilder tilknyttet"}</span>
+                        <span>Gemt på din konto</span>
                       </div>
                     </div>
 
@@ -272,8 +358,14 @@ export default function DashboardPage() {
             ) : (
               <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
                 <FolderKanban className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                <p className="text-sm font-semibold">Ingen sager matcher søgningen</p>
-                <p className="text-xs text-slate-400 mt-1">Prøv at rydde søgefeltet eller skifte filter.</p>
+                <p className="text-sm font-semibold">
+                  {cases.length === 0 ? "Du har ingen sager endnu" : "Ingen sager matcher søgningen"}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {cases.length === 0
+                    ? "Start en plan eller et projekt ovenfor. Sagen bliver stående på denne liste."
+                    : "Prøv at rydde søgefeltet eller skifte filter."}
+                </p>
               </div>
             )}
           </section>
