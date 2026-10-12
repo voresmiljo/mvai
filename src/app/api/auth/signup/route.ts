@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AUTH_SETUP_HINT } from "@/lib/supabase/env";
+import { AUTH_SETUP_HINT, publicSiteUrl } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { danishAuthError } from "@/lib/session";
 
@@ -20,7 +20,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const redirectTo = `${publicSiteUrl(req)}/auth/confirm`;
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: redirectTo },
+  });
   if (error) {
     return NextResponse.json({ error: danishAuthError(error.message) }, { status: 400 });
   }

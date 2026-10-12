@@ -13,3 +13,13 @@ export function getSupabaseAuthConfig(): { url: string; key: string } | null {
 
 export const AUTH_SETUP_HINT =
   "Login mangler nøgler på serveren. Sæt SUPABASE_URL og den publishable nøgle som SUPABASE_ANON_KEY.";
+
+export function publicSiteUrl(req: Request): string {
+  const configured = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) return configured.replace(/\/$/, "");
+
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+  if (host) return `${proto}://${host}`;
+  return new URL(req.url).origin;
+}

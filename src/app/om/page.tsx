@@ -37,7 +37,7 @@ export default function AboutPage() {
               Om MVAI.dk — Miljøvurderingsvejen
             </h1>
             <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
-              MVAI.dk er et specialiseret sagsbehandler- og analyseværktøj designet til dansk miljøvurderingsret. 
+              MVAI.dk er et specialiseret analyseværktøj til dansk miljøvurderingsret for myndigheder, rådgivere, forskere og miljøorganisationer. 
               Platformen anvender en stringent RAG-arkitektur (Retrieval-Augmented Generation), der forankrer ethvert 
               svar i gældende lov, bekendtgørelser og klagenævnspraksis — med nul hallucinationer og fuld kildesporbarhed.
             </p>
@@ -133,7 +133,7 @@ export default function AboutPage() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Sagsbehandleren kan tilkoble specialiserede temamapper som f.eks. <em>Artsbeskyttelse & Bilag IV</em>, 
+                  Du kan tilkoble specialiserede temamapper som f.eks. <em>Artsbeskyttelse & Bilag IV</em>, 
                   <em>Klagenævnspraksis (MFKN)</em>, <em>Natura 2000</em> eller <em>Grundvand/BNBO</em>.
                   Hvis der aktiveres flere end 3 temamapper, udløser systemet et fagligt advarselsloft, fordi for brede 
                   kilderammer øger risikoen for informationsstøj og forringer præcisionen i det konkrete lovtjek.
@@ -292,7 +292,7 @@ export default function AboutPage() {
           <section className="rounded-2xl border border-slate-200 bg-white p-8 space-y-4">
             <h2 className="text-xl font-bold text-slate-900">Kontakt & Faglig Dialog</h2>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              MVAI.dk udvikles i tæt dialog med miljøsagsbehandlere og planlæggere. Har du spørgsmål til dataintegration, 
+              MVAI.dk udvikles i tæt dialog med myndigheder, rådgivere, forskere og miljøorganisationer. Har du spørgsmål til dataintegration, 
               ønsker du at tilføje jeres egne lokale temamapper, eller vil I etablere en pilot i jeres forvaltning?
             </p>
             <div className="pt-2 flex flex-wrap items-center gap-6 text-xs text-slate-700">
