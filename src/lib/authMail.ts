@@ -62,27 +62,72 @@ function mailCopy(action: MailAction): { subject: string; text: string; html: st
   };
 }
 
-export async function sendAuthMail(action: MailAction): Promise<void> {
-  const password = process.env.SMTP_PASSWORD;
-  if (!password) {
-    throw new Error("SMTP_PASSWORD mangler på serveren.");
-  }
+function envValue(name: string): string {
+  return process.env[name]?.trim() || "";
+}
 
-  const port = Number(process.env.SMTP_PORT || 465);
-  const user = process.env.SMTP_USER || "kontakt@mvai.dk";
+function mailError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : "";
+  const text = message.toLowerCase();
+  if (text.includes("invalid login") || text.includes("authentication") || text.includes("535")) {
+    return new Error("one.com afviste adgangskoden til kontakt@mvai.dk.");
+  }
+  if (
+    text.includes("timeout") ||
+    text.includes("econnrefused") ||
+    text.includes("econnreset") ||
+    text.includes("esocket") ||
+    text.includes("greeting never received") ||
+    text.includes("connect")
+  ) {
+    return new Error("Forbindelsen til one.com kunne ikke oprettes.");
+  }
+  return new Error("Bekræftelsesmailen kunne ikke sendes fra kontakt@mvai.dk.");
+}
+
+async function deliver(action: MailAction, port: number, password: string): Promise<void> {
+  const user = envValue("SMTP_USER") || "kontakt@mvai.dk";
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "send.one.com",
+    host: envValue("SMTP_HOST") || "send.one.com",
     port,
     secure: port === 465,
+    requireTLS: port === 587,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
     auth: { user, pass: password },
+    tls: { servername: envValue("SMTP_HOST") || "send.one.com" },
   });
-
   const copy = mailCopy(action);
   await transporter.sendMail({
-    from: process.env.SMTP_FROM || "MVAI <kontakt@mvai.dk>",
+    from: envValue("SMTP_FROM") || "MVAI <kontakt@mvai.dk>",
     to: action.email,
     subject: copy.subject,
     text: copy.text,
     html: copy.html,
   });
+}
+
+export async function sendAuthMail(action: MailAction): Promise<void> {
+  const password = envValue("SMTP_PASSWORD");
+  if (!password) {
+    throw new Error("Adgangskoden til mailen mangler på serveren.");
+  }
+
+  const preferred = Number(envValue("SMTP_PORT") || 587);
+  const ports = preferred === 465 ? [465, 587] : [587, 465];
+  let lastError: unknown;
+  for (const port of ports) {
+    try {
+      await deliver(action, port, password);
+      return;
+    } catch (error) {
+      lastError = error;
+      const text = error instanceof Error ? error.message.toLowerCase() : "";
+      if (text.includes("invalid login") || text.includes("authentication") || text.includes("535")) {
+        throw mailError(error);
+      }
+    }
+  }
+  throw mailError(lastError);
 }
