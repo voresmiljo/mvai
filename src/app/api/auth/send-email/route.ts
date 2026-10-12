@@ -56,10 +56,7 @@ export async function POST(req: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Bekræftelsesmailen kunne ikke sendes.";
     console.error("Auth mail error:", message);
-    return NextResponse.json(
-      { error: { http_code: 500, message: "Bekræftelsesmailen kunne ikke sendes fra kontakt@mvai.dk." } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { http_code: 500, message } }, { status: 500 });
   }
 
   return NextResponse.json({});

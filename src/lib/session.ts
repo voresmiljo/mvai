@@ -24,12 +24,20 @@ export function danishAuthError(message: string): string {
   }
   if (text.includes("password")) return "Adgangskoden skal være mindst 8 tegn.";
   if (text.includes("rate limit")) return "Der er forsøgt for mange gange. Vent et øjeblik og prøv igen.";
+  if (text.includes("afviste adgangskoden")) {
+    return "one.com afviste adgangskoden til kontakt@mvai.dk.";
+  }
+  if (text.includes("forbindelsen til one.com")) {
+    return "Forbindelsen til one.com kunne ikke oprettes.";
+  }
+  if (text.includes("mangler på serveren")) {
+    return "Adgangskoden til mailen mangler på serveren.";
+  }
   if (
     text.includes("error sending") ||
     text.includes("smtp") ||
     text.includes("confirmation email") ||
-    text.includes("bekræftelsesmailen kunne ikke sendes") ||
-    text.includes("hook")
+    text.includes("bekræftelsesmailen kunne ikke sendes")
   ) {
     return "Bekræftelsesmailen kunne ikke sendes fra kontakt@mvai.dk. Prøv igen om et øjeblik.";
   }
