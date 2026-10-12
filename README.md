@@ -21,7 +21,7 @@ Dette projekt er opbygget som en moderne Next.js (App Router) + TypeScript + Tai
   - **Midterpanel:**
     - To adskilte upload-knapper: *"1. Sagsdokument / Afgørelse (Primært fokus)"* og *"2. Supplerende kilder"*.
     - Besvarelsesvindue med strukturerede analyser, risikofaktorer og klikbare kildereferencer.
-    - Chat-input til sagsbehandleren med kildekontrol.
+    - Chat-input med kildekontrol.
   - **Højre Panel:**
     - Kildelæser & verifikation med ordlyd/citat fra gældende lov eller nævnsafgørelse.
     - Direkte knap til download af original PDF.

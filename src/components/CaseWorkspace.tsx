@@ -626,7 +626,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                   <div className="flex items-center justify-between gap-4 mb-1 text-[11px]">
                     <div className="flex items-center gap-2">
                       <span className={msg.sender === "user" ? "text-slate-300 font-semibold" : "text-[#0F382C] font-bold"}>
-                        {msg.sender === "user" ? "Sagsbehandler" : "MVAI Afgørelsesanalyse"}
+                        {msg.sender === "user" ? "Du" : "MVAI Afgørelsesanalyse"}
                       </span>
                       {msg.modelUsed && (
                         <span className="rounded bg-emerald-100 text-[#0F382C] px-1.5 py-0.2 text-[9px] font-mono font-medium">
@@ -935,7 +935,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                         caseType: scope === "plan" ? "Miljøvurdering af Plan (§ 8)" : "Konkret Projekt (§§ 15–25)",
                         date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                         format: "docx",
-                        content: `MILJØRET AFGØRELSESNOTAT\nSag: ${caseTitle}\n\n1. OVERSIGT\nUdarbejdet på baggrund af sagsbehandlerens dialog i MVAI arbejdsrummet.`,
+                        content: `MILJØRET AFGØRELSESNOTAT\nSag: ${caseTitle}\n\n1. OVERSIGT\nUdarbejdet på baggrund af dialogen i MVAI arbejdsrummet.`,
                       };
                       setGeneratedNotes((prev) => [newNote, ...prev]);
                     }}

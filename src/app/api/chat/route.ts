@@ -60,7 +60,7 @@ export async function POST(req: Request) {
           .join("\n\n")
       : "Der er på nuværende tidspunkt ikke uploadet eller indekseret specifikke retskildedokumenter i databasen for de valgte temamapper.";
 
-    const systemPrompt = `Du er MVAI – en specialiseret, objektiv og fagligt funderet digital assistent til miljøvurdering af planer, programmer og konkrete projekter i Danmark. Du betjener miljøsagsbehandlere hos myndigheder, miljørådgivere og forskere.
+    const systemPrompt = `Du er MVAI – en specialiseret, objektiv og fagligt funderet digital assistent til miljøvurdering af planer, programmer og konkrete projekter i Danmark. Du betjener myndigheder, rådgivere, forskere og miljøorganisationer.
 
 DIT RETSLIGE ARBEJDSOMRÅDE FOR DENNE SAG ER:
 - Proceskategori: ${scopeName}

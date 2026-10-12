@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "MVAI.dk — Afgørelsesklar AI for miljøvurderinger",
   description:
-    "Fagspecifik AI for miljøsagsbehandlere, rådgivere og forskere. Objektiv, kildeforankret RAG-analyse af planer og projekter uden hallucinationer.",
+    "Fagspecifik AI for myndigheder, rådgivere, forskere og miljøorganisationer. Objektiv, kildeforankret RAG-analyse af planer og projekter uden hallucinationer.",
 };
 
 export default function RootLayout({

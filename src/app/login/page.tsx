@@ -22,6 +22,7 @@ function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
 
   const nextPath = safeNextPath(searchParams.get("next"));
+  const confirmError = searchParams.get("error") === "confirm";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +103,11 @@ function LoginForm() {
               />
             </label>
 
+            {confirmError && !error && (
+              <p className="text-xs font-medium text-red-700">
+                Bekræftelseslinket kunne ikke åbne kontoen. Brug samme browser som ved oprettelsen, eller opret kontoen igen.
+              </p>
+            )}
             {error && <p className="text-xs font-medium text-red-700">{error}</p>}
             {info && <p className="text-xs font-medium text-emerald-800">{info}</p>}
 
