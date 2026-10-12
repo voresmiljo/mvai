@@ -66,65 +66,39 @@ const AVAILABLE_THEMES: ThemeFolder[] = [
     id: "artsbeskyttelse",
     name: "Artsbeskyttelse & Bilag IV",
     description: "Markfirben, flagermus, padder og yngle-/rasteområder jf. habitatdirektivets art. 12.",
-    count: 240,
+    count: 0,
   },
   {
     id: "naevnspraksis",
     name: "Klagenævnspraksis (MFKN)",
     description: "Miljø- og Fødevareklagenævnets principielle afgørelser vedr. screeningsfejl og ophævelser.",
-    count: 485,
+    count: 0,
   },
   {
     id: "natura2000",
     name: "Natura 2000 & Habitatvurdering",
     description: "Kumulative effekter, kvælstofdeposition og væsentlighedsvurderinger for habitatområder.",
-    count: 195,
+    count: 0,
   },
   {
     id: "stoej_og_luft",
     name: "Støj, Luft & Lugt",
     description: "Miljøstyrelsens vejledninger om industristøj, lavfrekvent støj og lugtemissioner.",
-    count: 110,
+    count: 0,
   },
   {
     id: "grundvand",
     name: "Drikkevand & Grundvand",
     description: "BNBO, sårbare indvindingsområder og nedsivningstilladelser jf. miljøbeskyttelsesloven.",
-    count: 145,
+    count: 0,
   },
   {
     id: "kyst_og_landskab",
     name: "Kystnærhed & Landskabshensyn",
     description: "Kystnærhedszonen, naturbeskyttelseslovens bygge- og beskyttelseslinjer.",
-    count: 82,
+    count: 0,
   },
 ];
-
-const INITIAL_SNIPPET: SourceSnippet = {
-  id: "src-1",
-  title: "Miljøvurderingsloven (Lovbekendtgørelse nr. 4 af 03/01/2023)",
-  citation: "LBK nr. 4 af 03/01/2023, § 21, stk. 1 & Bilag 2 pkt. 11 b",
-  lawSection: "§ 21 (Screeningspligt) & Bilag 6 (Udvælgelseskriterier)",
-  date: "Gældende lov 2026",
-  textSnippet:
-    "§ 21. Projekter omfattet af bilag 2 skal screenes af den kompetente myndighed på grundlag af bygherrens anmeldelse for at vurdere, om projektet kan have væsentlige indvirkninger på miljøet.\n\nStk. 2. Ved vurderingen efter stk. 1 skal myndigheden tage hensyn til de relevante udvælgelseskriterier, der er fastsat i bilag 6, herunder projektets karakteristika, projektets placering samt arten og kendetegnene ved den forventede indvirkning på miljøet.",
-  pdfUrl: "#",
-  pdfFileName: "miljoevurderingsloven-lbk-4-2023.pdf",
-  relevanceScore: 98,
-};
-
-const PLAN_SNIPPET: SourceSnippet = {
-  id: "src-plan-1",
-  title: "Miljøvurderingsloven (Lovbekendtgørelse nr. 4 af 03/01/2023)",
-  citation: "LBK nr. 4 af 03/01/2023, § 8, stk. 1 & 2",
-  lawSection: "§ 8 (Obligatorisk miljøvurdering af planer og programmer)",
-  date: "Gældende lov 2026",
-  textSnippet:
-    "§ 8. Myndigheden skal gennemføre en miljøvurdering af planer og programmer, hvor planerne eller programmerne:\n1) fastlægger rammerne for fremtidige anlægstilladelser til projekter omfattet af bilag 1 og 2, eller\n2) kan påvirke et udpeget internationalt naturbeskyttelsesområde væsentligt.\n\nStk. 2. For planer og programmer, som alene fastlægger anvendelsen af mindre områder på lokalt plan, gennemføres kun en miljøvurdering, hvis de må antages at kunne få væsentlig indvirkning på miljøet.",
-  pdfUrl: "#",
-  pdfFileName: "miljoevurderingsloven-planer-smv.pdf",
-  relevanceScore: 99,
-};
 
 export function CaseWorkspace({
   forcedCaseId,
@@ -175,9 +149,7 @@ export function CaseWorkspace({
   const [rightPanelTab, setRightPanelTab] = useState<"kilde" | "notater">("kilde");
 
   // Active source in right preview panel
-  const [activeSnippet, setActiveSnippet] = useState<SourceSnippet | null>(
-    scope === "plan" ? PLAN_SNIPPET : INITIAL_SNIPPET
-  );
+  const [activeSnippet, setActiveSnippet] = useState<SourceSnippet | null>(null);
 
   // Copy status per message ID
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
@@ -185,158 +157,22 @@ export function CaseWorkspace({
   // Loading state for LLM analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Chat message state: new cases start with a clean welcome prompt unless it's a pre-existing demo case
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    if (isNewCase) {
-      return [
-        {
-          id: "welcome-1",
-          sender: "ai",
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          text: `Velkommen til det nye sagsrum for **${
-            scope === "plan" ? "Miljøvurdering af Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
-          }**.
-
-Du kan uploade sagens dokumenter i venstre panel eller ovenfor, vælge de relevante temamapper, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor.`,
-        },
-      ];
-    }
-
-    if (scope === "plan") {
-      return [
-        {
-          id: "msg-p1",
-          sender: "user",
-          timestamp: "09:30",
-          text: "Vi udarbejder et nyt kommuneplantillæg for et solcelleområde på 45 ha. Udløser planændringen obligatorisk miljøvurdering jf. § 8, stk. 1, eller kan planen screenes efter § 8, stk. 2 som et mindre område på lokalt plan?",
-        },
-        {
-          id: "msg-p2",
-          sender: "ai",
-          timestamp: "09:30",
-          text: `På baggrund af gældende ret for **Plan / Program (§ 8)** og dine uploadede sagsakter er vurderingen:
-
-### 1. Retsgrundlag efter § 8
-Et areal på 45 ha til teknisk anlæg betragtes ifølge fast nævnspraksis (MFKN) **ikke som et mindre område på lokalt plan**. 
-
-Planen fastlægger rammerne for fremtidige anlægstilladelser til projekter omfattet af bilag 2 (energianlæg). Derfor er der som udgangspunkt **krav om gennemførelse af en fuld strategisk miljøvurdering (SMV)** med tilhørende miljørapport jf. § 8, stk. 1, nr. 1.
-
-### 2. Opmærksomhedspunkter
-- **Kumulative effekter med nabokommuner:** Skal belyse det samlede landskabelige pres.
-- **Natura 2000 væsentlighed:** Hvis afstrømning kan påvirke et habitatområde, er fuld vurdering altid obligatorisk jf. § 8, stk. 1, nr. 2.`,
-          warning:
-            "MFKN ophæver rutinemæssigt lokalplaner/kommuneplantillæg, hvis kommunen fejlagtigt anvender undtagelsen om 'mindre områder' på anlæg af denne skala uden dokumenteret screening for væsentlighed.",
-          sources: [
-            PLAN_SNIPPET,
-            {
-              id: "src-plan-2",
-              title: "MFKN Kendelse 2024-512 (Kommuneplantillæg Solceller)",
-              citation: "Miljø- og Fødevareklagenævnets afgørelse af 22. maj 2024",
-              lawSection: "Miljøvurderingslovens § 8, stk. 1 vs. stk. 2",
-              date: "22/05/2024",
-              textSnippet:
-                "Nævnet fandt, at et planområde på over 20 ha i det åbne land ikke kan henføres under begrebet 'mindre områder på lokalt plan', hvorfor planforslaget var underlagt ubetinget miljøvurderingspligt.",
-              pdfUrl: "#",
-              pdfFileName: "mfkn-2024-512-kendelse.pdf",
-              relevanceScore: 96,
-            },
-          ],
-        },
-      ];
-    }
-
-    return [
-      {
-        id: "msg-1",
-        sender: "user",
-        timestamp: "10:14",
-        text: "Vi behandler en anmeldelse om udvidelse af et eksisterende biogasanlæg med 18.000 ton biomasse/år i landzone. Er der krav om fuld miljøkonsekvensrapport (VVM), eller kan vi nøjes med en § 21-screening?",
-      },
-      {
-        id: "msg-2",
-        sender: "ai",
-        timestamp: "10:14",
-        text: `På baggrund af gældende lov og din uploadede sagsakt for **Konkret Projekt (§§ 15–25)** er vurderingen:
-
-### 1. Retsgrundlag og Pligtkategori
-Projektet falder ind under **VVM-lovens bilag 2, punkt 11 b** (*anlæg til bortskaffelse af affald* / biogasproduktion under tærskelværdien for bilag 1, pkt. 9).
-
-Der er derfor **ikke obligatorisk krav om fuld miljøkonsekvensrapport**, men derimod en **obligatorisk screeningspligt efter § 21**.
-
-### 2. Afgørende kriterier efter Bilag 6
-Ved screeningsafgørelsen skal kommunen lægge særlig vægt på:
-- **Kumulative effekter:** Den samlede kapacitet sammenholdt med eksisterende tilladelser (jf. *MFKN kendelse 2024-819*).
-- **Lugt- og transportgener:** Tung trafik gennem nærliggende boligområder.
-- **Artsbeskyttelse (Bilag IV):** Da der er registreret markfirben i naboområdet (se *Feltundersøgelse, side 14*), skal der ske en konkret vurdering af, om anlægsfasen kan beskadige eller ødelægge yngle- eller rasteområder.
-
-### 3. Konklusion for afgørelsen
-Afgørelsen kan træffes som en § 21-screeningsafgørelse om ikke-VVM-pligt, **forudsat** at bygherre har indarbejdet dokumenterede afværgeforanstaltninger for lugt og beskyttelse af eventuelle Bilag IV-arter i projektbeskrivelsen.`,
-        warning:
-          "Opmærksomhed: Hvis afværgeforanstaltninger først fastlægges efterfølgende uden for projektets ramme, tilsidesætter Klagenævnet rutinemæssigt screeningen som ugyldig.",
-        sources: [
-          INITIAL_SNIPPET,
-          {
-            id: "src-2",
-            title: "MFKN Kendelse 2024-819 (Biogasanlæg Vesthimmerland)",
-            citation: "Miljø- og Fødevareklagenævnets afgørelse af 14. marts 2024",
-            lawSection: "VVM-lovens § 21 & kumulationsprincippet",
-            date: "14/03/2024",
-            textSnippet:
-              "Nævnet fandt, at kommunens screeningsafgørelse var behæftet med en væsentlig retlig mangel, idet der ikke var foretaget en tilstrækkelig vurdering af den kumulative transportbelastning fra tilkørselsveje.",
-            pdfUrl: "#",
-            pdfFileName: "mfkn-2024-819-kendelse.pdf",
-            relevanceScore: 94,
-          },
-          {
-            id: "src-3",
-            title: "Habitatsdirektivets Artikel 12 Vejledning (Miljøstyrelsen)",
-            citation: "MST Vejledning om administration af plan- og projektregler for Bilag IV-arter",
-            lawSection: "Afsnit 4.2 — Forebyggende foranstaltninger vs. afbødning",
-            date: "Rev. 2025",
-            textSnippet:
-              "En screening kan alene lægge vægt på tiltag, som bygherre har integreret uigenkaldeligt i projektets udformning forud for afgørelsen.",
-            pdfUrl: "#",
-            pdfFileName: "mst-vejledning-bilag-iv-arter.pdf",
-            relevanceScore: 91,
-          },
-        ],
-      },
-    ];
-  });
-
-  // Generated long-form notes / outputs in studio
-  const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>([
+  // Chat message state: starter altid helt rent med en velkomsthilsen
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      id: "note-1",
-      title:
-        scope === "plan"
-          ? "Screeningsnotat: Vurdering af SMV-pligt jf. § 8"
-          : "Fagligt Screeningsnotat: Bilag 6 Udvælgelseskriterier",
-      caseType: scope === "plan" ? "Miljøvurdering af Planer (§ 8)" : "Konkret Projekt (§§ 15–25)",
-      date: "I dag, 10:15",
-      format: "docx",
-      content: `MILJØRET AFGØRELSESNOTAT
-Sag: ${caseTitle} (${caseNumber})
-Dato: ${new Date().toLocaleDateString("da-DK")}
-Sagsbehandler: Miljø- og Teknikforvaltningen
+      id: "welcome-1",
+      sender: "ai",
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      text: `Velkommen til sagsrummet for **${
+        scope === "plan" ? "Miljøvurdering af Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
+      }**.
 
-1. SAGSFREMSTILLING
-Nærværende sag omhandler vurdering i henhold til miljøvurderingsloven (LBK nr. 4 af 03/01/2023).
-
-2. RETSLIGT GRUNDLAG OG VURDERING
-${
-  scope === "plan"
-    ? "Sagen falder under lovens § 8 vedrørende planer og programmer. Der er foretaget en vurdering af planens indvirkning på miljøet samt kumulative effekter med tilgrænsende planrammer."
-    : "Sagen er anmeldt efter lovens § 19 og screenet efter § 21 jf. bilag 2, pkt. 11 b. Der er gennemført en vurdering af de relevante kriterier i lovens bilag 6 med særlig vægt på kumulation, afværgeforanstaltninger og beskyttelse af Bilag IV-arter."
-}
-
-3. SÆRLIGE OPMÆRKSOMHEDSPUNKTER FRA KLAGENÆVNSPRAKSIS
-I overensstemmelse med Miljø- og Fødevareklagenævnets praksis skal eventuelle afværgeforanstaltninger være bindende for bygherre og forudsat integreret i projektet forud for afgørelsen for at kunne tillægges vægt.
-
-4. KONKLUSION OG ANBEFALING
-Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat som fagligt bilag forud for høring / offentliggørelse.`,
+Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre panel eller ovenfor, vælge de relevante temamapper, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor.`,
     },
   ]);
+
+  // Generated long-form notes / outputs in studio
+  const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>([]);
 
   const [inputPrompt, setInputPrompt] = useState("");
 
@@ -404,17 +240,14 @@ Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat 
       }
     } catch {
       // Graceful fallback
-      const fallbackSnippet = scope === "plan" ? PLAN_SNIPPET : INITIAL_SNIPPET;
       const aiMsg: ChatMessage = {
         id: `msg-${Date.now() + 1}`,
         sender: "ai",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        text: `Retslig analyse af dit spørgsmål vedrørende **${
+        text: `Der er på nuværende tidspunkt ikke uploadet eller indekseret specifikke retskildedokumenter eller sagsakter i databasen for ${
           scope === "plan" ? "Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
-        }**:\n\nSpørgsmålet er analyseret op mod gældende ret, de valgte temamapper (${selectedThemes.join(
-          ", "
-        )}) og dit uploadede materiale.\n\nSe de specifikke henvisninger i kildelæseren til højre for verifikation.`,
-        sources: [fallbackSnippet],
+        }.\n\nNår du uploader et sagsdokument eller tilføjer afgørelser til temamapperne, analyseres spørgsmålet med kildehenvisninger.`,
+        sources: [],
       };
       setMessages((prev) => [...prev, aiMsg]);
     } finally {
@@ -1107,49 +940,58 @@ Der indstilles til, at udkastet til afgørelse vedlægges dette screeningsnotat 
                 </div>
 
                 <div className="space-y-3">
-                  {generatedNotes.map((note) => (
-                    <div
-                      key={note.id}
-                      className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-3"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#0F382C] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
-                            {note.caseType}
-                          </span>
-                          <h4 className="mt-1.5 font-bold text-xs text-slate-900 leading-snug">
-                            {note.title}
-                          </h4>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{note.date}</p>
+                  {generatedNotes.length > 0 ? (
+                    generatedNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#0F382C] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                              {note.caseType}
+                            </span>
+                            <h4 className="mt-1.5 font-bold text-xs text-slate-900 leading-snug">
+                              {note.title}
+                            </h4>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{note.date}</p>
+                          </div>
+                        </div>
+
+                        <div className="max-h-36 overflow-y-auto rounded bg-[#F7FAFA] border border-slate-100 p-2 text-[11px] font-mono text-slate-700 whitespace-pre-wrap leading-relaxed">
+                          {note.content}
+                        </div>
+
+                        {/* Download notat (.docx / .pdf) */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadNote(note, "docx")}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <Download className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Hent .docx</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadNote(note, "pdf")}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0F382C] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#14493a] transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <Download className="w-3.5 h-3.5 text-white" />
+                            <span>Hent .pdf</span>
+                          </button>
                         </div>
                       </div>
-
-                      <div className="max-h-36 overflow-y-auto rounded bg-[#F7FAFA] border border-slate-100 p-2 text-[11px] font-mono text-slate-700 whitespace-pre-wrap leading-relaxed">
-                        {note.content}
-                      </div>
-
-                      {/* Download notat (.docx / .pdf) */}
-                      <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadNote(note, "docx")}
-                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <Download className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Hent .docx</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadNote(note, "pdf")}
-                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0F382C] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#14493a] transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <Download className="w-3.5 h-3.5 text-white" />
-                          <span>Hent .pdf</span>
-                        </button>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="mt-12 text-center text-slate-400 p-6">
+                      <FileCode className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                      <p className="text-xs">
+                        Ingen genererede notater endnu. Du kan oprette et nyt notat ovenfor eller gemme analyser fra chatten.
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}

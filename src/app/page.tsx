@@ -251,8 +251,8 @@ export default function DashboardPage() {
                             {c.primaryDocument}
                           </span>
                         )}
-                        <span>{c.themesCount} temamapper</span>
-                        <span>{c.sourcesCount} anvendte kilder</span>
+                        <span>{c.themesCount > 0 ? `${c.themesCount} temamapper` : "Ingen temamapper valgt"}</span>
+                        <span>{c.sourcesCount > 0 ? `${c.sourcesCount} anvendte kilder` : "Ingen kilder tilknyttet"}</span>
                       </div>
                     </div>
 
