@@ -68,10 +68,10 @@ export default function AboutPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-slate-900">Hvorfor bruge det til arbejdet</h2>
             <p className="text-sm leading-relaxed text-slate-700">
-              En miljøvurdering skal kunne holde hoveddokumentet op mod loven, vejledningerne og de klagenævnsafgørelser, der ligner sagen. Plan og projekt har forskellige regler og må ikke blandes sammen. Det er det arbejde, siden er bygget til.
+              En miljøvurdering skal kunne holde det primære dokument op mod loven, vejledningerne og de klagenævnsafgørelser, der ligner sagen. Plan og projekt har forskellige regler og må ikke blandes sammen. Det er det arbejde, siden er bygget til.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
-              Man arbejder i en sag. Hoveddokumentet er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes, også når formålet er at skrive en klage. Bilagene er det materiale, hoveddokumentet skal sammenholdes med. Grundmappen og de valgte temamapper er retskilderne. Svaret henviser til de tekster, man kan åbne ved siden af. Hvis materialet ikke dækker spørgsmålet, skal svaret sige det.
+              Man arbejder i en sag. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes, også når formålet er at skrive en klage. Sekundære dokumenter er det materiale, det primære dokument skal sammenholdes med. Grundmappen og de valgte temamapper er retskilderne. Svaret henviser til de tekster, man kan åbne ved siden af. Hvis materialet ikke dækker spørgsmålet, skal svaret sige det.
             </p>
           </section>
 
@@ -94,7 +94,7 @@ export default function AboutPage() {
               Dokumenterne i arkivet er udvalgt af fagpersoner med uddannelse i miljøvurdering. Et dokument kommer først ind, når det er læst og lagt i grundmappen eller i den temamappe, det handler om. Det er ikke et udtræk fra nettet.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
-              Hoveddokument og bilag, som en bruger selv lægger på en sag, bliver på den sag. De blandes ikke ind i det fælles arkiv og bruges ikke til at træne modellerne.
+              Primære og sekundære dokumenter, som en bruger selv lægger på en sag, bliver på den sag. De blandes ikke ind i det fælles arkiv og bruges ikke til at træne modellerne.
             </p>
           </section>
 
