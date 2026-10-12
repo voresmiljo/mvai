@@ -103,9 +103,13 @@ const AVAILABLE_THEMES: ThemeFolder[] = [
 export function CaseWorkspace({
   forcedCaseId,
   forcedScope,
+  forcedTitle,
+  forcedCaseNumber,
 }: {
   forcedCaseId?: string;
   forcedScope?: ScopeType;
+  forcedTitle?: string;
+  forcedCaseNumber?: string;
 }) {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -122,12 +126,14 @@ export function CaseWorkspace({
     (caseId.includes("plan") ? "plan" : "projekt");
 
   const caseTitle =
+    forcedTitle ||
     existingCase?.title ||
     (scope === "plan"
       ? "Ny Miljøvurdering af Plan / Program (§ 8)"
       : "Ny VVM-sag / Miljøvurdering af Projekt (§§ 15–25)");
 
   const caseNumber =
+    forcedCaseNumber ||
     existingCase?.caseNumber ||
     `2026-${scope === "plan" ? "PLAN" : "VVM"}-${caseId.slice(-4)}`;
 

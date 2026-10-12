@@ -2,20 +2,31 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { MvLogo } from "@/components/MvLogo";
+import { useAuth } from "@/components/AuthProvider";
 import {
   FolderKanban,
   Info,
   ShieldCheck,
   ChevronDown,
   LogOut,
-  Building,
 } from "lucide-react";
 
 export function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading, refresh } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const initial = user?.email?.charAt(0).toUpperCase() || "?";
+
+  const handleLogout = async () => {
+    setUserMenuOpen(false);
+    await fetch("/api/auth/logout", { method: "POST" });
+    await refresh();
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <header className="sticky top-0 z-40 h-14 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur-xs">
@@ -60,65 +71,61 @@ export function AppHeader() {
             <span>GovTech Sikkerhed • EU Frankfurt</span>
           </div>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
-            >
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F382C] text-white text-[10px] font-bold">
-                J
-              </div>
-              <span className="hidden md:inline font-semibold">Sagsbehandler</span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
-            </button>
+          {loading ? (
+            <span className="text-[11px] text-slate-400">Tjekker login...</span>
+          ) : user ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+              >
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F382C] text-white text-[10px] font-bold">
+                  {initial}
+                </div>
+                <span className="hidden md:inline max-w-[180px] truncate font-semibold">{user.email}</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </button>
 
-            {userMenuOpen && (
-              <div className="absolute right-0 mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg z-50 text-xs">
-                <div className="px-2 py-1.5 border-b border-slate-100">
-                  <p className="font-semibold text-slate-800">Jon Munch-Petersen</p>
-                  <p className="text-[11px] text-slate-500">jon@voresmiljo.dk</p>
-                  <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
-                    <Building className="w-3 h-3" />
-                    <span>Myndighedskonto (Aktiv)</span>
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg z-50 text-xs">
+                  <div className="px-2 py-1.5 border-b border-slate-100">
+                    <p className="font-semibold text-slate-800">Logget ind</p>
+                    <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                  </div>
+
+                  <div className="py-1">
+                    <Link
+                      href="/"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-50"
+                    >
+                      <FolderKanban className="w-3.5 h-3.5" />
+                      <span>Dine sager</span>
+                    </Link>
+                  </div>
+
+                  <div className="pt-1 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-red-600 hover:bg-red-50 text-left font-medium"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Log ud</span>
+                    </button>
                   </div>
                 </div>
-
-                <div className="py-1">
-                  <Link
-                    href="/"
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-50"
-                  >
-                    <FolderKanban className="w-3.5 h-3.5" />
-                    <span>Mine sagsmapper</span>
-                  </Link>
-                  <Link
-                    href="/om"
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-50"
-                  >
-                    <Info className="w-3.5 h-3.5" />
-                    <span>Metode & RAG-kilder</span>
-                  </Link>
-                </div>
-
-                <div className="pt-1 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUserMenuOpen(false);
-                      alert("Logget ud fra sikker myndighedssession.");
-                    }}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-red-600 hover:bg-red-50 text-left font-medium"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Log ud</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-lg bg-[#0F382C] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#14493a]"
+            >
+              Log ind
+            </Link>
+          )}
         </div>
       </div>
     </header>
