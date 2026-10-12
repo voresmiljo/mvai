@@ -34,11 +34,12 @@ export async function searchSupabaseLegalSources(
 
       const vector = embeddingResponse.data[0]?.embedding;
       if (vector) {
+        const themesWithGround = Array.from(new Set([...themes, "grund"]));
         const { data, error } = await supabase.rpc("match_legal_sources", {
           query_embedding: vector,
           match_threshold: 0.45,
-          match_count: 5,
-          filter_themes: themes.length > 0 ? themes : null,
+          match_count: 6,
+          filter_themes: themesWithGround,
           filter_scope: scope,
         });
 
@@ -78,9 +79,10 @@ export async function searchSupabaseLegalSources(
       .select("id, title, citation, law_section, content, pdf_file_name, pdf_url, metadata, theme, scope")
       .limit(5);
 
-    if (themes.length > 0) {
-      query = query.in("theme", themes);
-    }
+    const themesWithGround = Array.from(new Set([...themes, "grund"]));
+    query = query.or(
+      `theme.is.null,theme.in.(${themesWithGround.join(",")})`
+    );
 
     const { data, error } = await query;
     if (!error && data && Array.isArray(data) && data.length > 0) {

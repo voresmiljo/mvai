@@ -11,6 +11,13 @@ interface RequestBody {
   caseNumber?: string;
   primaryFile?: string | null;
   supplementaryFiles?: string[];
+  uploadedFilesContent?: Array<{
+    fileName: string;
+    textSnippet: string;
+    text?: string;
+    truncated?: boolean;
+    category: "primary" | "supplementary";
+  }>;
   history?: Array<{ sender: "user" | "ai"; text: string }>;
 }
 
@@ -25,6 +32,7 @@ export async function POST(req: Request) {
       caseNumber,
       primaryFile,
       supplementaryFiles = [],
+      uploadedFilesContent = [],
       history = [],
     } = body;
 
@@ -43,9 +51,38 @@ export async function POST(req: Request) {
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
-    const fileContext = primaryFile
-      ? `Primært sagsdokument: ${primaryFile}. Supplerende: ${supplementaryFiles.join(", ") || "Ingen"}.`
-      : `Brugeren har ikke uploadet egne sagsdokumenter endnu. Besvar ud fra generel gældende dansk miljøret og klagenævnspraksis for det valgte emne.`;
+    const MAX_CASE_TEXT = 90000;
+    let remainingCaseChars = MAX_CASE_TEXT;
+    let fileContext = "";
+    if (uploadedFilesContent && uploadedFilesContent.length > 0) {
+      const ordered = [...uploadedFilesContent].sort((a, b) =>
+        a.category === b.category ? 0 : a.category === "primary" ? -1 : 1
+      );
+      fileContext = ordered
+        .map((f) => {
+          const roleLabel =
+            f.category === "primary"
+              ? "UDKAST (det dokument brugeren arbejder på og som skal vurderes)"
+              : "BILAG (kildemateriale der skal sammenholdes med udkastet)";
+          const sourceText = (f.text || f.textSnippet || "").trim();
+          const slice = sourceText.slice(0, Math.max(0, remainingCaseChars));
+          remainingCaseChars -= slice.length;
+          const cutNote =
+            f.truncated || slice.length < sourceText.length
+              ? "\n[Teksten er afkortet. Kun det medsendte uddrag indgår i analysen.]"
+              : "";
+          if (!slice) {
+            return `=== ${roleLabel}: ${f.fileName} ===\n[Ikke medtaget, fordi sagens tekstloft er nået.]`;
+          }
+          return `=== ${roleLabel}: ${f.fileName} ===\n${slice}${cutNote}\n=== SLUT PÅ ${f.fileName} ===`;
+        })
+        .join("\n\n");
+    } else if (primaryFile) {
+      fileContext = `Der er angivet et filnavn (${primaryFile}), men dokumentets tekst er ikke læst. Supplerende filnavne: ${supplementaryFiles.join(", ") || "ingen"}. Vurder ikke indholdet af filer, hvis tekst ikke er medsendt.`;
+    } else {
+      fileContext =
+        "Brugeren har ikke uploadet et udkast eller bilag i denne sag. Besvar ud fra retskilderne i grundmappen og de valgte temamapper. Sig det, hvis spørgsmålet kræver sagens egne dokumenter.";
+    }
 
     // Hent retskilder via semantisk vektorsøgning i Supabase
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
@@ -65,16 +102,25 @@ export async function POST(req: Request) {
 DIT RETSLIGE ARBEJDSOMRÅDE FOR DENNE SAG ER:
 - Proceskategori: ${scopeName}
 - Sag: ${caseTitle || "Miljøsag"} (${caseNumber || "2026"})
-- Sagsakter: ${fileContext}
-- Aktive Temamapper: ${themes.join(", ") || "Ingen specifikke (kun grundlovgivning)"}
+- Aktive temamapper: ${themes.join(", ") || "Ingen specifikke (kun grundmappen)"}
 
-MEDFØLGENDE RETSKILDER OG NÆVNSPRAKSIS FRA SYSTEMETS KILDEMATRIX:
+SAGENS EGNE FILER (uploadet af brugeren til denne sag, ikke en del af den fælles kildedatabase):
+${fileContext}
+
+RETSKILDER FRA GRUNDMAPPEN OG DE VALGTE TEMAMAPPER:
 ${sourcesContext}
+
+SÅDAN BRUGER DU DE TRE LAG:
+- Udkastet er genstanden for vurderingen. Det er det dokument, brugeren arbejder på.
+- Bilagene er brugerens eget kildemateriale. Sammenhold udkastet med bilagene på samme måde, som du sammenholder det med retskilderne.
+- Retskilderne er programmets grundmappe (love, bekendtgørelser og vejledninger) og de valgte temamapper. De gælder uanset om brugeren har uploadet filer.
+- Hvis et krav fremgår af en retskilde eller et bilag, men ikke af udkastet, skal du sige det direkte.
+- Citér brugerens filer med filnavnet i hakparenteser, f.eks. [udkast-screening.pdf]. Citér retskilder som hidtil.
 
 DINE PRIMÆRE PRINCIPPER:
 
 1. STRICT KILDEFORANKRING (NUL HALLUCINATIONER):
-Du skal forankre dine svar i ovenstående medfølgende retskilder, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande.
+Du skal forankre dine svar i de medfølgende retskilder, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt teksten fra de uploadede filer ovenfor. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande. Hvis en fils tekst ikke er medsendt, må du ikke gætte dens indhold.
 
 2. HÅNDTERING AF TVIVL OG MANGLER:
 Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte.

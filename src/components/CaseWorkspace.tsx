@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { INITIAL_CASES } from "@/lib/casesData";
@@ -100,6 +100,44 @@ const AVAILABLE_THEMES: ThemeFolder[] = [
   },
 ];
 
+interface UploadedDoc {
+  fileName: string;
+  category: "primary" | "supplementary";
+  textSnippet: string;
+  fullText: string;
+  pageCount: number;
+  fileSize: number;
+}
+
+const PRIMARY_TEXT_LIMIT = 50000;
+const SUPPLEMENTARY_TEXT_LIMIT = 20000;
+
+function analysisPayload(doc: UploadedDoc) {
+  const limit = doc.category === "primary" ? PRIMARY_TEXT_LIMIT : SUPPLEMENTARY_TEXT_LIMIT;
+  const text = doc.fullText || doc.textSnippet;
+  return {
+    fileName: doc.fileName,
+    textSnippet: doc.textSnippet,
+    text: text.slice(0, limit),
+    truncated: text.length > limit,
+    category: doc.category,
+  };
+}
+
+function caseFileSource(doc: UploadedDoc): SourceSnippet {
+  return {
+    id: `sag-${doc.category}-${doc.fileName}`,
+    title: doc.fileName,
+    citation: doc.category === "primary" ? "Udkast i denne sag" : "Bilag i denne sag",
+    lawSection: doc.category === "primary" ? "Det dokument der vurderes" : "Bilag til sammenholdelse",
+    date: `${doc.pageCount} sider`,
+    textSnippet: (doc.fullText || doc.textSnippet).slice(0, 6000),
+    pdfUrl: "",
+    pdfFileName: doc.fileName,
+    relevanceScore: 100,
+  };
+}
+
 export function CaseWorkspace({
   forcedCaseId,
   forcedScope,
@@ -136,14 +174,41 @@ export function CaseWorkspace({
     scope === "plan" ? ["naevnspraksis", "natura2000"] : ["artsbeskyttelse", "naevnspraksis"]
   );
 
-  // Uploaded files: starts empty for new cases unless explicitly provided by an existing case
-  const isNewCase = caseId.startsWith("ny-");
-  const [primaryFile, setPrimaryFile] = useState<string | null>(
-    isNewCase ? null : existingCase?.primaryDocument || null
-  );
-  const [supplementaryFiles, setSupplementaryFiles] = useState<string[]>(
-    isNewCase ? [] : (existingCase ? ["Bilag_4_Artskortlaegning_Feltundersoegelse.pdf"] : [])
-  );
+  const [primaryFile, setPrimaryFile] = useState<string | null>(null);
+  const [supplementaryFiles, setSupplementaryFiles] = useState<string[]>([]);
+  const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
+  const [docsHydrated, setDocsHydrated] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const primaryInputRef = useRef<HTMLInputElement>(null);
+  const suppInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(`mvai-case-docs:${caseId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw) as UploadedDoc[];
+        if (Array.isArray(parsed)) {
+          setUploadedDocs(parsed);
+          setPrimaryFile(parsed.find((d) => d.category === "primary")?.fileName ?? null);
+          setSupplementaryFiles(
+            parsed.filter((d) => d.category === "supplementary").map((d) => d.fileName)
+          );
+        }
+      }
+    } catch {
+      // Sessionen kan ikke læses. Sagen starter uden filer.
+    }
+    setDocsHydrated(true);
+  }, [caseId]);
+
+  useEffect(() => {
+    if (!docsHydrated) return;
+    try {
+      sessionStorage.setItem(`mvai-case-docs:${caseId}`, JSON.stringify(uploadedDocs));
+    } catch {
+      // Teksten er for stor til sessionen. Den findes stadig, indtil siden genindlæses.
+    }
+  }, [uploadedDocs, caseId, docsHydrated]);
 
   // Right panel tab state: 'kilde' vs 'notater'
   const [rightPanelTab, setRightPanelTab] = useState<"kilde" | "notater">("kilde");
@@ -167,7 +232,7 @@ export function CaseWorkspace({
         scope === "plan" ? "Miljøvurdering af Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
       }**.
 
-Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre panel eller ovenfor, vælge de relevante temamapper, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor.`,
+Upload dit udkast og de bilag, du vil sammenholde det med. Vælg derefter temamapper, og stil spørgsmålet i feltet nedenfor. Udkast og bilag læses sammen med kilderne i grundmappen og de valgte temamapper.`,
     },
   ]);
 
@@ -212,6 +277,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
           caseNumber,
           primaryFile,
           supplementaryFiles,
+          uploadedFilesContent: uploadedDocs.map(analysisPayload),
           history: messages.slice(-4).map((m) => ({ sender: m.sender, text: m.text })),
         }),
       });
@@ -222,21 +288,24 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
 
       const data = await res.json();
 
+      const caseSources = uploadedDocs.map(caseFileSource);
+      const legalSources: SourceSnippet[] = data.sources || [];
       const aiMsg: ChatMessage = {
         id: `msg-${Date.now() + 1}`,
         sender: "ai",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         text: data.text,
         warning: data.warning,
-        sources: data.sources || [],
+        sources: [...caseSources, ...legalSources],
         modelUsed: data.modelUsed,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
 
-      // If new sources returned, set first as active snippet
-      if (data.sources && data.sources.length > 0) {
-        setActiveSnippet(data.sources[0]);
+      if (legalSources.length > 0) {
+        setActiveSnippet(legalSources[0]);
+      } else if (caseSources.length > 0) {
+        setActiveSnippet(caseSources[0]);
       }
     } catch {
       // Graceful fallback
@@ -255,49 +324,135 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
     }
   };
 
-  const handleUploadPrimary = async () => {
-    const filename = prompt("Indtast filnavn på primært dokument (PDF):", "Screeningsudkast_Sag_2026.pdf");
-    if (!filename) return;
-    setPrimaryFile(filename);
-
-    // Kør hurtig baggrundstagging med GPT-4o-mini API
-    try {
-      const res = await fetch("/api/tag-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: filename, scope }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.recommendedThemes && Array.isArray(data.recommendedThemes)) {
-          setSelectedThemes((prev) => Array.from(new Set([...prev, ...data.recommendedThemes])));
-        }
-      }
-    } catch {
-      // Ignorér baggrundstagging-fejl
+  const removeCaseFile = (fileName: string, category: "primary" | "supplementary") => {
+    setUploadedDocs((prev) => prev.filter((d) => !(d.fileName === fileName && d.category === category)));
+    if (category === "primary") {
+      setPrimaryFile(null);
+    } else {
+      setSupplementaryFiles((prev) => prev.filter((name) => name !== fileName));
     }
   };
 
-  const handleUploadSupplementary = async () => {
-    const filename = prompt("Indtast filnavn på supplerende dokument (PDF):", "Trafiknotat_Kapacitetsvurdering.pdf");
-    if (!filename) return;
-    setSupplementaryFiles((prev) => [...prev, filename]);
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    category: "primary" | "supplementary"
+  ) => {
+    const selected = Array.from(e.target.files || []);
+    e.target.value = "";
+    const files = category === "primary" ? selected.slice(0, 1) : selected;
+    if (files.length === 0) return;
 
-    // Kør hurtig baggrundstagging med GPT-4o-mini API
+    setIsUploading(true);
     try {
-      const res = await fetch("/api/tag-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: filename, scope }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.recommendedThemes && Array.isArray(data.recommendedThemes)) {
-          setSelectedThemes((prev) => Array.from(new Set([...prev, ...data.recommendedThemes])));
+      for (const file of files) {
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        if (!isPdf) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `upload-notice-${Date.now()}-${file.name}`,
+              sender: "ai",
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              text: `\`${file.name}\` blev ikke indlæst. Vælg en PDF-fil.`,
+            },
+          ]);
+          continue;
         }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("scope", scope);
+        formData.append("category", category);
+
+        const res = await fetch("/api/upload-pdf", { method: "POST", body: formData });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || "Kunne ikke læse PDF-filen.");
+        }
+
+        const newDoc: UploadedDoc = {
+          fileName: file.name,
+          category,
+          textSnippet: data.textSnippet || "",
+          fullText: data.fullText || "",
+          pageCount: data.pageCount || 1,
+          fileSize: file.size,
+        };
+
+        setUploadedDocs((prev) => {
+          const withoutReplaced =
+            category === "primary"
+              ? prev.filter((d) => d.category !== "primary")
+              : prev.filter((d) => !(d.category === "supplementary" && d.fileName === file.name));
+          return [...withoutReplaced, newDoc];
+        });
+
+        if (category === "primary") {
+          setPrimaryFile(file.name);
+        } else {
+          setSupplementaryFiles((prev) => Array.from(new Set([...prev, file.name])));
+        }
+
+        let themeNote = "";
+        try {
+          const tagRes = await fetch("/api/tag-document", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileName: file.name,
+              fileTextSnippet: data.textSnippet || "",
+              scope,
+            }),
+          });
+          if (tagRes.ok) {
+            const tagData = await tagRes.json();
+            const recommended: string[] = Array.isArray(tagData.recommendedThemes)
+              ? tagData.recommendedThemes
+              : [];
+            if (recommended.length > 0) {
+              setSelectedThemes((prev) => {
+                const next = [...prev];
+                for (const themeId of recommended) {
+                  if (!next.includes(themeId) && next.length < 3) next.push(themeId);
+                }
+                return next;
+              });
+              const names = recommended
+                .map((id) => AVAILABLE_THEMES.find((theme) => theme.id === id)?.name || id)
+                .join(", ");
+              themeNote = `\n\nForeslåede temamapper ud fra teksten: ${names}.`;
+            }
+          }
+        } catch {
+          // Tagging er et supplement. Filen er allerede læst.
+        }
+
+        const role =
+          category === "primary"
+            ? "udkast — det dokument, analysen tager udgangspunkt i"
+            : "bilag — materiale, der sammenholdes med udkastet";
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `upload-notice-${Date.now()}-${file.name}`,
+            sender: "ai",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            text: `Teksten i \`${file.name}\` er læst (${data.pageCount} sider). Filen er knyttet til sagen som ${role}.\n\nDen ligger kun i denne sag og bliver ikke kopieret til grundmappen eller temamapperne. Når du stiller et spørgsmål, læses udkastet og bilagene sammen med de matchende afsnit fra grundmappen og de valgte temamapper.${themeNote}`,
+          },
+        ]);
       }
-    } catch {
-      // Ignorér baggrundstagging-fejl
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `upload-error-${Date.now()}`,
+          sender: "ai",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: `Filen kunne ikke læses. ${err instanceof Error ? err.message : String(err)}`,
+        },
+      ]);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -457,65 +612,95 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
               </div>
             </div>
 
-            {/* Sektion til brugerens egne sagsdokumenter */}
+            {/* Brugerens egne filer i sagen */}
             <div className="pt-4 border-t border-slate-200">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
-                  Sagsdokumenter
+                  Dine filer
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono">
                   {(primaryFile ? 1 : 0) + supplementaryFiles.length} fil(er)
                 </span>
               </div>
+              <p className="text-[11px] text-slate-500 mb-3 leading-snug">
+                Udkastet er det, du arbejder på. Bilag er materiale, du vil sammenholde udkastet med.
+              </p>
 
               <div className="space-y-2">
-                {/* Primært dokument */}
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#0F382C] flex items-center gap-1.5 truncate">
-                      <FileText className="w-3.5 h-3.5 text-[#2E8B57] shrink-0" />
-                      <span className="truncate">{primaryFile || "Intet primært dokument"}</span>
-                    </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-[#0F382C]">Udkast</span>
                     <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono shrink-0">
-                      Primært
+                      Vurderes
                     </span>
                   </div>
+                  <p className="mt-1 text-[10px] text-slate-600 leading-snug">
+                    F.eks. udkast til afgørelse, screening eller miljørapport.
+                  </p>
+                  {primaryFile ? (
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] text-[#0F382C]">
+                      <FileText className="w-3.5 h-3.5 text-[#2E8B57] shrink-0" />
+                      <span className="truncate flex-1">{primaryFile}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeCaseFile(primaryFile, "primary")}
+                        className="text-[10px] text-slate-500 hover:text-slate-800 cursor-pointer"
+                      >
+                        Fjern
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-[10px] text-slate-400 italic">Ingen PDF valgt</p>
+                  )}
                   <button
                     type="button"
-                    onClick={handleUploadPrimary}
-                    className="mt-2 text-[10px] text-emerald-800 font-semibold hover:underline cursor-pointer"
+                    onClick={() => primaryInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-[#0F382C] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[#14493a] disabled:opacity-50 cursor-pointer"
                   >
-                    Skift primært dokument &rarr;
+                    <Upload className="w-3 h-3" />
+                    {isUploading ? "Læser PDF..." : primaryFile ? "Skift udkast" : "Upload udkast"}
                   </button>
                 </div>
 
-                {/* Supplerende dokumenter */}
                 <div className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs space-y-2">
-                  <div className="flex items-center justify-between text-slate-600 font-semibold text-[11px]">
-                    <span>Supplerende kilder ({supplementaryFiles.length})</span>
-                    <button
-                      type="button"
-                      onClick={handleUploadSupplementary}
-                      className="text-[#2E8B57] hover:underline cursor-pointer text-[10px]"
-                    >
-                      + Tilføj
-                    </button>
+                  <div>
+                    <span className="font-bold text-slate-700">Bilag</span>
+                    <p className="mt-1 text-[10px] text-slate-500 leading-snug">
+                      Kildemateriale til sammenholdelse, f.eks. feltundersøgelse eller høringssvar.
+                    </p>
                   </div>
                   {supplementaryFiles.length > 0 ? (
                     <div className="space-y-1">
-                      {supplementaryFiles.map((file, idx) => (
+                      {supplementaryFiles.map((file) => (
                         <div
-                          key={idx}
-                          className="flex items-center gap-1.5 text-[11px] text-slate-600 truncate py-0.5"
+                          key={file}
+                          className="flex items-center gap-1.5 text-[11px] text-slate-600 py-0.5"
                         >
                           <FileText className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className="truncate">{file}</span>
+                          <span className="truncate flex-1">{file}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeCaseFile(file, "supplementary")}
+                            className="text-[10px] text-slate-500 hover:text-slate-800 cursor-pointer"
+                          >
+                            Fjern
+                          </button>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-slate-400 italic">Ingen supplerende dokumenter tilføjet</p>
+                    <p className="text-[10px] text-slate-400 italic">Ingen bilag valgt</p>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => suppInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Upload className="w-3 h-3" />
+                    {isUploading ? "Læser PDF..." : "Upload bilag"}
+                  </button>
                 </div>
               </div>
             </div>
@@ -532,45 +717,52 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
 
         {/* PANEL 2: MIDTERPANEL (CHAT & ANALYSE MED OMDØBTE UPLOAD-KNAPPER OG EXPORT) */}
         <main className="flex-1 flex flex-col justify-between overflow-hidden bg-white border-r border-slate-200">
-          {/* Top Bar: Upload-knapper (Primært dokument & Supplerende dokumenter) */}
+          <input
+            ref={primaryInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={(e) => handleFileUpload(e, "primary")}
+          />
+          <input
+            ref={suppInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            className="hidden"
+            onChange={(e) => handleFileUpload(e, "supplementary")}
+          />
+
+          {/* Top Bar: Upload af udkast og bilag */}
           <div className="border-b border-slate-200 bg-[#F7FAFA]/60 p-3 px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                  Sagsmateriale:
-                </span>
-              </div>
+              <p className="max-w-xl text-[11px] leading-snug text-slate-500">
+                Udkastet vurderes. Bilagene og kilderne i grundmappen og temamapperne bruges til at sammenholde det.
+              </p>
 
               <div className="flex items-center gap-3">
-                {/* Knap 1: Primært dokument */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={handleUploadPrimary}
-                    className="inline-flex items-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3.5 py-1.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
-                  >
-                    <Upload className="w-3.5 h-3.5 text-[#2E8B57]" />
-                    <span>1. Primært dokument</span>
-                    <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono">
-                      Fokus
-                    </span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => primaryInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="inline-flex items-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3.5 py-1.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5 text-[#2E8B57]" />
+                  <span>Upload udkast</span>
+                </button>
 
-                {/* Knap 2: Supplerende dokumenter */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={handleUploadSupplementary}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-                  >
-                    <Upload className="w-3.5 h-3.5 text-slate-400" />
-                    <span>2. Supplerende dokumenter</span>
-                    <span className="text-[10px] text-slate-400">
-                      ({supplementaryFiles.length})
-                    </span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => suppInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Upload bilag</span>
+                  <span className="text-[10px] text-slate-400">
+                    ({supplementaryFiles.length})
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -580,7 +772,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                 <div className="inline-flex items-center gap-1.5 rounded bg-emerald-100/70 border border-emerald-300/60 px-2 py-0.5 text-[#0F382C] font-medium text-[11px]">
                   <FileText className="w-3 h-3 text-[#2E8B57]" />
                   <span className="font-semibold truncate max-w-xs">{primaryFile}</span>
-                  <span className="text-[9px] text-emerald-800 font-bold bg-white/70 px-1 rounded">Primært</span>
+                  <span className="text-[9px] text-emerald-800 font-bold bg-white/70 px-1 rounded">Udkast</span>
                 </div>
               )}
               {supplementaryFiles.map((file, idx) => (
@@ -741,7 +933,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                 </div>
                 <div className="rounded-xl p-4 text-xs bg-[#F7FAFA] border border-slate-200 text-slate-600 flex items-center gap-2">
                   <span className="flex h-2 w-2 rounded-full bg-[#2E8B57] animate-pulse" />
-                  <span>Konsulterer retskildematrix og genererer dynamisk miljøretlig analyse...</span>
+                  <span>Læser udkast, bilag og kilder i grundmappen og temamapperne...</span>
                 </div>
               </div>
             )}
@@ -843,7 +1035,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                     {/* Source metadata card */}
                     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-[#2E8B57]">
-                        Retskilde
+                        {activeSnippet.pdfUrl ? "Retskilde" : "Sagens fil"}
                       </span>
                       <h4 className="mt-1 font-bold text-sm text-slate-900 leading-snug">
                         {activeSnippet.title}
@@ -872,29 +1064,30 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                       </p>
                     </div>
 
-                    {/* PDF Download Button (Direkte originalkilde) */}
-                    <div className="rounded-xl border-2 border-dashed border-[#0F382C]/30 bg-emerald-50/40 p-4">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-[#0F382C]" />
-                        <div>
-                          <p className="text-xs font-bold text-[#0F382C]">Originalt dokument (PDF)</p>
-                          <p className="text-[10px] text-slate-500 font-mono">{activeSnippet.pdfFileName}</p>
+                    {activeSnippet.pdfUrl && activeSnippet.pdfUrl !== "#" ? (
+                      <div className="rounded-xl border-2 border-dashed border-[#0F382C]/30 bg-emerald-50/40 p-4">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-[#0F382C]" />
+                          <div>
+                            <p className="text-xs font-bold text-[#0F382C]">Originalt dokument (PDF)</p>
+                            <p className="text-[10px] text-slate-500 font-mono">{activeSnippet.pdfFileName}</p>
+                          </div>
                         </div>
+                        <a
+                          href={activeSnippet.pdfUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F382C] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Åbn original PDF</span>
+                        </a>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleDownloadPDF(activeSnippet.textSnippet, activeSnippet.pdfFileName.replace(".pdf", ""));
-                        }}
-                        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F382C] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] transition-colors cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Download original PDF</span>
-                      </button>
-                      <p className="mt-1.5 text-center text-[10px] text-slate-500">
-                        Klar til vedhæftning som bilag i sagsbehandlingen.
+                    ) : (
+                      <p className="text-[11px] leading-relaxed text-slate-500">
+                        Teksten er læst ud af den PDF, du har uploadet til sagen. Filen er ikke lagt i grundmappen eller temamapperne.
                       </p>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <div className="mt-12 text-center text-slate-400 p-6">
