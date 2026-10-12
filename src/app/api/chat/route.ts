@@ -44,8 +44,8 @@ export async function POST(req: Request) {
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
     const fileContext = primaryFile
-      ? `Primært sagsdokument: ${primaryFile}. Supplerende: ${supplementaryFiles.join(", ") || "Ingen"}.`
-      : `Brugeren har ikke uploadet egne sagsdokumenter endnu. Besvar ud fra generel gældende dansk miljøret og klagenævnspraksis for det valgte emne.`;
+      ? `Primært dokument: ${primaryFile}. Sekundære dokumenter: ${supplementaryFiles.join(", ") || "Ingen"}. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes, også når formålet er at skrive en klage. Sekundære dokumenter er materiale, det primære dokument skal sammenholdes med.`
+      : `Brugeren har ikke uploadet et primært dokument endnu. Besvar ud fra generel gældende dansk miljøret og klagenævnspraksis for det valgte emne.`;
 
     // Hent retskilder via semantisk vektorsøgning i Supabase
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
@@ -264,7 +264,7 @@ Der er på nuværende tidspunkt ikke uploadet eller indekseret specifikke retski
 - Generelt gælder for ${scope === "plan" ? "planer og programmer [Miljøvurderingsloven § 8]" : "konkrete anlægsprojekter [Miljøvurderingsloven § 21]"}, at vurderinger skal baseres på dokumenteret materiale forud for afgørelsen.
 
 ### 3. Usikkerheder, forbehold eller manglende oplysninger i sagsakterne${fileMention}
-- Kildedatabasen er helt nulstillet. Når du uploader sagsakter (f.eks. via 'Primært dokument' eller 'Supplerende dokumenter') eller tilføjer kendelser til temamapperne, vil analysen tage direkte udgangspunkt i de fremlagte dokumenter.`,
+- Kildedatabasen er helt nulstillet. Når du uploader sagsakter (f.eks. via 'Primært dokument' eller 'Sekundære dokumenter') eller tilføjer kendelser til temamapperne, vil analysen tage direkte udgangspunkt i de fremlagte dokumenter.`,
     warning: undefined,
     sources: [],
   };

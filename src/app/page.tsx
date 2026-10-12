@@ -141,13 +141,13 @@ export default function DashboardPage() {
                         Miljøvurdering af planer
                       </h3>
                       <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                        Strategisk miljøvurdering (SMV) for kommuneplantillæg, lokalplaner, affalds- og vandplaner jf. miljøvurderingslovens § 8.
+                        Planer og programmer efter § 8, når de sætter rammer for fremtidige projekter eller kan påvirke et internationalt naturbeskyttelsesområde. Det primære dokument kan være et udkast, en miljørapport eller en afgørelse, også når formålet er at skrive en klage. Sekundære dokumenter er det materiale, det sammenholdes med.
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                    <span>Låser til: SMV-direktivet & § 8</span>
+                    <span>Låser til: planer og programmer · § 8</span>
                     <span className="font-semibold text-emerald-800">Klik for at starte</span>
                   </div>
                 </button>
@@ -175,13 +175,13 @@ export default function DashboardPage() {
                         Miljøvurdering af projekter
                       </h3>
                       <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                        Konkrete anlægsprojekter, VVM-screeninger jf. § 21 (bilag 2) eller fulde miljøkonsekvensrapporter jf. § 15 (bilag 1).
+                        Konkrete projekter efter §§ 15–25. Projekter på bilag 1 skal miljøvurderes. Projekter på bilag 2 screenes efter § 21. Det primære dokument kan være en screening, en miljøkonsekvensrapport eller en afgørelse, også når formålet er at skrive en klage. Sekundære dokumenter er det materiale, det sammenholdes med.
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                    <span>Låser til: VVM-regler & Bilag 6</span>
+                    <span>Låser til: konkrete projekter · §§ 15–25</span>
                     <span className="font-semibold text-emerald-800">Klik for at starte</span>
                   </div>
                 </button>

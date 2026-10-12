@@ -229,7 +229,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
   };
 
   const handleUploadPrimary = async () => {
-    const filename = prompt("Indtast filnavn på primært dokument (PDF):", "Screeningsudkast_Sag_2026.pdf");
+    const filename = prompt("Indtast filnavn på det primære dokument (PDF):", "Miljorapport_Sag_2026.pdf");
     if (!filename) return;
     setPrimaryFile(filename);
 
@@ -252,7 +252,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
   };
 
   const handleUploadSupplementary = async () => {
-    const filename = prompt("Indtast filnavn på supplerende dokument (PDF):", "Trafiknotat_Kapacitetsvurdering.pdf");
+    const filename = prompt("Indtast filnavn på sekundært dokument (PDF):", "Trafiknotat_Kapacitetsvurdering.pdf");
     if (!filename) return;
     setSupplementaryFiles((prev) => [...prev, filename]);
 
@@ -462,10 +462,10 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                   </button>
                 </div>
 
-                {/* Supplerende dokumenter */}
+                {/* Sekundære dokumenter */}
                 <div className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs space-y-2">
                   <div className="flex items-center justify-between text-slate-600 font-semibold text-[11px]">
-                    <span>Supplerende kilder ({supplementaryFiles.length})</span>
+                    <span>Sekundære dokumenter ({supplementaryFiles.length})</span>
                     <button
                       type="button"
                       onClick={handleUploadSupplementary}
@@ -487,7 +487,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-slate-400 italic">Ingen supplerende dokumenter tilføjet</p>
+                    <p className="text-[10px] text-slate-400 italic">Ingen sekundære dokumenter tilføjet</p>
                   )}
                 </div>
               </div>
@@ -505,7 +505,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
 
         {/* PANEL 2: MIDTERPANEL (CHAT & ANALYSE MED OMDØBTE UPLOAD-KNAPPER OG EXPORT) */}
         <main className="flex-1 flex flex-col justify-between overflow-hidden bg-white border-r border-slate-200">
-          {/* Top Bar: Upload-knapper (Primært dokument & Supplerende dokumenter) */}
+          {/* Top Bar: Upload-knapper (Primært dokument og sekundære dokumenter) */}
           <div className="border-b border-slate-200 bg-[#F7FAFA]/60 p-3 px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -530,7 +530,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                   </button>
                 </div>
 
-                {/* Knap 2: Supplerende dokumenter */}
+                {/* Knap 2: Sekundære dokumenter */}
                 <div className="relative">
                   <button
                     type="button"
@@ -538,7 +538,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5 text-slate-400" />
-                    <span>2. Supplerende dokumenter</span>
+                    <span>2. Sekundære dokumenter</span>
                     <span className="text-[10px] text-slate-400">
                       ({supplementaryFiles.length})
                     </span>
@@ -729,8 +729,10 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                   value={inputPrompt}
                   onChange={(e) => setInputPrompt(e.target.value)}
                   placeholder={`Stil spørgsmål til ${
-                    scope === "projekt" ? "projektets VVM-screening/afgørelse" : "planens miljøvurdering"
-                  } (f.eks. 'Hvilke krav stiller Klagenævnet til kumulationsvurdering jf. § 21?')...`}
+                    scope === "projekt"
+                      ? "projektets screening eller miljøkonsekvensrapport (f.eks. 'Hvilke krav stiller klagenævnet til kumulationsvurdering ved screening efter § 21?')"
+                      : "planens miljøvurdering (f.eks. 'Hvornår skal en plan miljøvurderes efter § 8?')"
+                  }...`}
                   className="w-full resize-none border-0 bg-transparent p-3 text-sm placeholder-slate-400 focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
