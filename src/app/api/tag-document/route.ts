@@ -33,7 +33,7 @@ Scope: ${scope === "plan" ? "Plan / Program (§ 8)" : "Konkret Projekt (§§ 15�
 Returnér KUN et JSON-objekt med:
 {
   "documentType": "Screeningsudkast" | "VVM-rapport" | "Feltundersøgelse" | "Høringssvar" | "Teknisk notat" | "Andet",
-  "recommendedThemes": ["artsbeskyttelse" | "naevnspraksis" | "natura2000" | "stoej_og_luft" | "grundvand" | "kyst_og_landskab"],
+  "recommendedThemes": ["artsbeskyttelse" | "natura2000" | "stoej_og_luft" | "grundvand" | "kyst_og_landskab"],
   "keyLegalParagraphs": ["f.eks. § 21", "Bilag 6", "Art. 12"],
   "summary": "1-2 korte sætninger på dansk om dokumentets indhold",
   "potentialRiskPoints": ["1 kort opmærksomhedspunkt vedr. klagerisiko"]
@@ -72,10 +72,6 @@ Returnér KUN et JSON-objekt med:
     if (lowerName.includes("vand") || lowerName.includes("grundvand") || lowerName.includes("bnbo")) {
       recommendedThemes.push("grundvand");
     }
-    if (recommendedThemes.length === 0) {
-      recommendedThemes.push("naevnspraksis");
-    }
-
     return NextResponse.json({
       documentType: lowerName.includes("screening") ? "Screeningsudkast" : "Teknisk notat",
       recommendedThemes,
