@@ -105,25 +105,7 @@ export default function DashboardPage() {
 
       <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-10">
-          {/* Top Banner: Retslig sagsopstart */}
           <section className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-4">
-              <div>
-                <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-                  Arbejdsrum for Miljøsagsbehandling
-                </h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Start en ny analyse eller genoptag en igangværende sag. Alle analyser er kildeforankret i gældende ret.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
-                <span>RAG-indeks ajourført (LBK nr. 4 / 2026)</span>
-              </div>
-            </div>
-
-            {/* Sektion 1: 'Start ny sag'-blok med to store knapper */}
             <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-7 shadow-xs">
               <div className="flex items-center gap-2 mb-4">
                 <FilePlus2 className="w-4 h-4 text-[#0F382C]" />
