@@ -141,7 +141,7 @@ export default function DashboardPage() {
                         Miljøvurdering af planer og programmer
                       </h3>
                       <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                        Strategisk miljøvurdering (SMV) for kommuneplantillæg, lokalplaner, affalds- og vandplaner jf. miljøvurderingslovens § 8.
+                        Strategisk miljøvurdering (SMV) for kommuneplantillæg, lokalplaner, sektorplaner m.fl. jf. miljøvurderingslovens § 8.
                       </p>
                     </div>
                   </div>
