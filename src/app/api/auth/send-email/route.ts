@@ -52,12 +52,12 @@ export async function POST(req: Request) {
     return hookFailure("Bekræftelsesmailens signatur blev afvist.");
   }
 
-  const tokenHash =
-    data.email_data.email_action_type === "email_change" && data.email_data.token_hash_new
-      ? data.email_data.token_hash_new
-      : data.email_data.token_hash;
-
   try {
+    const tokenHash =
+      data.email_data.email_action_type === "email_change" && data.email_data.token_hash_new
+        ? data.email_data.token_hash_new
+        : data.email_data.token_hash;
+
     await sendAuthMail({
       email: data.user.email,
       token: data.email_data.token,

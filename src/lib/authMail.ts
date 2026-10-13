@@ -1,7 +1,5 @@
-import dns from "node:dns";
+import dns from "node:dns/promises";
 import nodemailer from "nodemailer";
-
-dns.setDefaultResultOrder("ipv4first");
 
 type MailAction = {
   email: string;
@@ -70,33 +68,50 @@ function envValue(name: string): string {
 }
 
 function mailError(error: unknown): Error {
-  const message = error instanceof Error ? error.message : "";
-  const text = message.toLowerCase();
-  if (text.includes("invalid login") || text.includes("authentication") || text.includes("535")) {
+  const err = error as { message?: string; response?: string; code?: string; responseCode?: number };
+  const message = `${err.message || ""} ${err.response || ""}`.toLowerCase();
+  const code = String(err.code || "");
+  if (
+    message.includes("invalid login") ||
+    message.includes("authentication") ||
+    message.includes("535") ||
+    code === "EAUTH"
+  ) {
     return new Error("one.com afviste adgangskoden til kontakt@mvai.dk.");
   }
+  const detail = (err.response || err.message || "ukendt fejl").replace(/\s+/g, " ").trim().slice(0, 140);
   if (
-    text.includes("timeout") ||
-    text.includes("econnrefused") ||
-    text.includes("econnreset") ||
-    text.includes("esocket") ||
-    text.includes("greeting never received") ||
-    text.includes("connect")
+    message.includes("timeout") ||
+    message.includes("econn") ||
+    message.includes("esocket") ||
+    message.includes("greeting") ||
+    message.includes("tls") ||
+    code === "ECONNECTION" ||
+    code === "EDNS" ||
+    code === "ETIMEDOUT" ||
+    code === "ETLS" ||
+    code === "ESOCKET"
   ) {
-    return new Error("Forbindelsen til one.com kunne ikke oprettes.");
+    return new Error(`Forbindelsen til one.com kunne ikke oprettes. ${detail}`.trim());
   }
-  return new Error("Bekræftelsesmailen kunne ikke sendes fra kontakt@mvai.dk.");
+  return new Error(`one.com: ${detail}`);
 }
 
 async function deliver(action: MailAction, port: number, password: string): Promise<void> {
   const host = envValue("SMTP_HOST") || "send.one.com";
   const user = envValue("SMTP_USER") || "kontakt@mvai.dk";
+  const addresses = await dns.resolve4(host);
+  const address = addresses[0];
+  if (!address) {
+    throw new Error("Forbindelsen til one.com kunne ikke oprettes.");
+  }
   const transporter = nodemailer.createTransport({
-    host,
+    host: address,
+    servername: host,
     port,
     secure: port === 465,
     requireTLS: port === 587,
-    family: 4,
+    name: "mvai.dk",
     connectionTimeout: 3000,
     greetingTimeout: 3000,
     socketTimeout: 4000,
@@ -105,8 +120,9 @@ async function deliver(action: MailAction, port: number, password: string): Prom
   } as Parameters<typeof nodemailer.createTransport>[0]);
   const copy = mailCopy(action);
   await transporter.sendMail({
-    from: envValue("SMTP_FROM") || "MVAI <kontakt@mvai.dk>",
+    from: { name: "MVAI", address: user },
     to: action.email,
+    envelope: { from: user, to: action.email },
     subject: copy.subject,
     text: copy.text,
     html: copy.html,
@@ -119,7 +135,7 @@ export async function sendAuthMail(action: MailAction): Promise<void> {
     throw new Error("Adgangskoden til mailen mangler på serveren.");
   }
 
-  const port = Number(envValue("SMTP_PORT") || 587);
+  const port = 587;
   try {
     await deliver(action, port, password);
   } catch (error) {
