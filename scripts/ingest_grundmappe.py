@@ -132,6 +132,7 @@ def chunk_from_lines(
     source_type: str,
     pdf_name: str,
     facts: dict,
+    scope: str = "begge",
 ) -> dict:
     pages = [page for _, page in rows]
     text = "\n".join(line for line, _ in rows).strip()
@@ -141,7 +142,7 @@ def chunk_from_lines(
         "law_section": section,
         "content": text,
         "source_type": source_type,
-        "scope": "begge",
+        "scope": scope,
         "theme": None,
         "pdf_file_name": pdf_name,
         "metadata": {
@@ -361,6 +362,102 @@ def split_guidance(rows: list[tuple[str, int]], spec: dict, facts: dict) -> list
     return [chunk for chunk in chunks if len(chunk["content"]) > 40]
 
 
+ARTICLE_LINE = re.compile(r"^Artikel\s+(\d+)$")
+ANNEX_LINE = re.compile(r"^BILAG\s+([IVX]+)$")
+OJ_HEADER = re.compile(r"^DA\s+.*Tidende")
+OJ_PAGE = re.compile(r"L\s+\d+/(\d+)")
+
+
+def directive_lines(path: Path) -> list[tuple[str, int]]:
+    reader = PdfReader(str(path))
+    rows: list[tuple[str, int]] = []
+    printed = None
+    pending: tuple[str, int] | None = None
+    for index, page in enumerate(reader.pages):
+        raw = (page.extract_text() or "").replace("\xa0", " ")
+        lines = [" ".join(line.split()) for line in raw.splitlines()]
+        lines = [line for line in lines if line]
+        for line in lines:
+            if OJ_HEADER.match(line):
+                match = OJ_PAGE.search(line)
+                if match:
+                    printed = int(match.group(1))
+        label = printed or (index + 1)
+        for compact in lines:
+            if OJ_HEADER.match(compact):
+                continue
+            if pending:
+                previous, previous_page = pending
+                pending = None
+                word = previous.rstrip("\u00ad").rstrip("-").rstrip()
+                if re.match(r"^[a-zæøå]", compact):
+                    compact = word + compact
+                else:
+                    rows.append((word.replace("\u00ad", ""), previous_page))
+            if compact.endswith("\u00ad") or compact.endswith("-"):
+                pending = (compact, label)
+                continue
+            rows.append((compact.replace("\u00ad", ""), label))
+    if pending:
+        word, previous_page = pending
+        rows.append((word.replace("\u00ad", "").rstrip("-").rstrip(), previous_page))
+    return rows
+
+
+def split_directive(rows: list[tuple[str, int]], spec: dict, facts: dict) -> list[dict]:
+    cuts = [index for index, (line, _) in enumerate(rows) if ARTICLE_LINE.match(line) or ANNEX_LINE.match(line)]
+    if len(cuts) < 3:
+        raise RuntimeError(f"Fandt for få artikler i {spec['file']}")
+    chunks: list[dict] = []
+
+    def emit(section: str, title: str, citation: str, part: list[tuple[str, int]]) -> None:
+        text = "\n".join(line for line, _ in part).strip()
+        if len(text) < 40:
+            return
+        chunks.append(
+            chunk_from_lines(
+                title,
+                citation,
+                section,
+                part,
+                spec["source_type"],
+                spec["pdf"],
+                facts,
+                spec["scope"],
+            )
+        )
+
+    if cuts[0] > 0:
+        emit(
+            "Betragtninger",
+            f"{spec['short']} betragtninger",
+            f"{spec['citation_base']}, betragtninger",
+            rows[: cuts[0]],
+        )
+    for offset, start in enumerate(cuts):
+        end = cuts[offset + 1] if offset + 1 < len(cuts) else len(rows)
+        line = rows[start][0]
+        article = ARTICLE_LINE.match(line)
+        annex = ANNEX_LINE.match(line)
+        if article:
+            number = article.group(1)
+            emit(
+                f"Artikel {number}",
+                f"{spec['short']} artikel {number}",
+                f"{spec['citation_base']}, artikel {number}",
+                rows[start:end],
+            )
+        else:
+            number = annex.group(1)
+            emit(
+                f"Bilag {number}",
+                f"{spec['short']} bilag {number}",
+                f"{spec['citation_base']}, bilag {number}",
+                rows[start:end],
+            )
+    return chunks
+
+
 DOCUMENTS = [
     {
         "file": "Lov_om_milj_vurdering_c17a.pdf",
@@ -407,6 +504,32 @@ DOCUMENTS = [
         "authority": "Ministeriet for Natur og Dyrevelfærd",
         "kind": "guidance",
     },
+    {
+        "file": "EU_VVM-direktivet_5c83.pdf",
+        "pdf": "vvm-direktiv-2011-92-eu.pdf",
+        "short": "VVM-direktivet",
+        "citation_base": "Europa-Parlamentets og Rådets direktiv 2011/92/EU af 13. december 2011",
+        "source_type": "direktiv",
+        "authority": "Europa-Parlamentet og Rådet",
+        "kind": "directive",
+        "scope": "projekt",
+        "date": "13. december 2011",
+        "journal": "EUT L 26 af 28. januar 2012",
+        "later": "Filen er kodifikationen 2011/92/EU. Ændringsdirektiv 2014/52/EU indgår ikke i teksten.",
+    },
+    {
+        "file": "SMV_EU_direktivet_374c.pdf",
+        "pdf": "smv-direktiv-2001-42-ef.pdf",
+        "short": "SMV-direktivet",
+        "citation_base": "Europa-Parlamentets og Rådets direktiv 2001/42/EF af 27. juni 2001",
+        "source_type": "direktiv",
+        "authority": "Europa-Parlamentet og Rådet",
+        "kind": "directive",
+        "scope": "plan",
+        "date": "27. juni 2001",
+        "journal": "EFT L 197 af 21. juli 2001",
+        "later": "",
+    },
 ]
 
 
@@ -417,17 +540,33 @@ def build(folder: Path) -> list[dict]:
         pages = read_pages(path)
         facts = cover_facts(pages)
         facts["authority"] = spec["authority"]
-        rows = lines_with_pages(pages)
-        if spec["kind"] == "guidance":
-            part = split_guidance(rows, spec, facts)
+        if spec["kind"] == "directive":
+            facts = {
+                "date": spec["date"],
+                "journal": spec["journal"],
+                "later": spec.get("later", ""),
+                "authority": spec["authority"],
+            }
+            part = split_directive(directive_lines(path), spec, facts)
         else:
-            part = split_statute(rows, spec, facts)
+            rows = lines_with_pages(pages)
+            if spec["kind"] == "guidance":
+                part = split_guidance(rows, spec, facts)
+            else:
+                part = split_statute(rows, spec, facts)
         chunks.extend(part)
     return chunks
 
 
+def supabase_base() -> str:
+    raw = os.environ["SUPABASE_URL"].strip().rstrip("/")
+    if raw.startswith("https://") or raw.startswith("http://"):
+        return raw
+    return f"https://{raw}.supabase.co"
+
+
 def supabase_request(method: str, path: str, body: object | None = None, prefer: str = "") -> tuple[int, str]:
-    url = os.environ["SUPABASE_URL"].rstrip("/") + path
+    url = supabase_base() + path
     key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     data = None if body is None else json.dumps(body).encode()
     headers = {
@@ -490,7 +629,13 @@ def upload(chunks: list[dict]) -> None:
 def main() -> None:
     folder = Path(sys.argv[1]) if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else DEFAULT_DIR
     do_upload = "--upload" in sys.argv
+    only: set[str] = set()
+    for arg in sys.argv:
+        if arg.startswith("--only="):
+            only.update(part for part in arg.split("=", 1)[1].split(",") if part)
     chunks = build(folder)
+    if only:
+        chunks = [chunk for chunk in chunks if chunk["pdf_file_name"] in only]
     by_file: dict[str, int] = {}
     for chunk in chunks:
         by_file[chunk["pdf_file_name"]] = by_file.get(chunk["pdf_file_name"], 0) + 1
