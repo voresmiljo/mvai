@@ -13,31 +13,46 @@ type EmailPayload = {
   };
 };
 
-function hookSecret(): string | null {
-  const raw = process.env.SEND_EMAIL_HOOK_SECRET;
-  if (!raw) return null;
-  return raw.replace(/^v1,whsec_/, "");
+export const runtime = "nodejs";
+export const maxDuration = 10;
+
+function hookSecrets(): string[] {
+  const raw = (process.env["SEND_EMAIL_HOOK_SECRET"] || "").trim().replace(/^["']|["']$/g, "");
+  if (!raw) return [];
+  return [...new Set([raw.replace(/^v1,whsec_/, ""), raw.replace(/^v1,/, ""), raw])].filter(Boolean);
+}
+
+function hookFailure(message: string) {
+  return NextResponse.json({ error: { http_code: 400, message } });
 }
 
 export async function POST(req: Request) {
   await connection();
-  const secret = hookSecret();
-  if (!secret) {
-    return NextResponse.json(
-      { error: { http_code: 500, message: "SEND_EMAIL_HOOK_SECRET mangler på serveren." } },
-      { status: 500 }
-    );
+  const secrets = hookSecrets();
+  if (secrets.length === 0) {
+    return hookFailure("Mailhemmeligheden mangler på serveren.");
   }
 
   const payload = await req.text();
-  const headers = Object.fromEntries(req.headers);
+  const headers = {
+    "webhook-id": req.headers.get("webhook-id") || "",
+    "webhook-timestamp": req.headers.get("webhook-timestamp") || "",
+    "webhook-signature": req.headers.get("webhook-signature") || "",
+  };
 
-  let data: EmailPayload;
-  try {
-    data = new Webhook(secret).verify(payload, headers) as EmailPayload;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Ugyldig signatur.";
-    return NextResponse.json({ error: { http_code: 401, message } }, { status: 401 });
+  let data: EmailPayload | null = null;
+  let verifyError = "Bekræftelsesmailens signatur blev afvist.";
+  for (const secret of secrets) {
+    try {
+      data = new Webhook(secret).verify(payload, headers) as EmailPayload;
+      break;
+    } catch (error) {
+      verifyError = error instanceof Error ? error.message : verifyError;
+    }
+  }
+  if (!data) {
+    console.error("Auth mail signature error:", verifyError);
+    return hookFailure("Bekræftelsesmailens signatur blev afvist.");
   }
 
   const tokenHash =
@@ -56,7 +71,7 @@ export async function POST(req: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Bekræftelsesmailen kunne ikke sendes.";
     console.error("Auth mail error:", message);
-    return NextResponse.json({ error: { http_code: 500, message } }, { status: 500 });
+    return hookFailure(message);
   }
 
   return NextResponse.json({});
