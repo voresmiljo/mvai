@@ -109,34 +109,29 @@ STRUKTUR PÅ DINE SVAR:
           content: h.text,
         }));
 
-        const candidateModels = process.env.ANTHROPIC_MODEL
-          ? [process.env.ANTHROPIC_MODEL]
-          : ["claude-opus-5-5", "claude-sonnet-5", "claude-3-5-sonnet-20241022"];
+        const retiredModels = new Set([
+          "claude-3-sonnet-20240229",
+          "claude-3-5-sonnet-20240620",
+          "claude-3-5-sonnet-20241022",
+          "claude-3-7-sonnet-20250219",
+        ]);
+        const configuredModel = process.env.ANTHROPIC_MODEL?.trim();
+        const model =
+          configuredModel && !retiredModels.has(configuredModel)
+            ? configuredModel
+            : "claude-sonnet-5-5";
 
-        let anthropicResponse: Anthropic.Message | undefined;
-        let usedModel = "Claude Sonnet";
-
-        for (const m of candidateModels) {
-          try {
-            anthropicResponse = await anthropic.messages.create({
-              model: m,
-              max_tokens: 2500,
-              system: systemPrompt,
-              messages: [
-                ...conversationHistory,
-                { role: "user", content: message },
-              ],
-            });
-            usedModel = m.includes("opus") ? "Claude Opus" : "Claude 3.5 Sonnet";
-            if (anthropicResponse) break;
-          } catch (err: unknown) {
-            const status = (err as { status?: number })?.status;
-            if (status === 404 && candidateModels.indexOf(m) < candidateModels.length - 1) {
-              continue;
-            }
-            throw err;
-          }
-        }
+        const anthropicResponse = await anthropic.messages.create({
+          model,
+          max_tokens: 2500,
+          system: systemPrompt,
+          output_config: { effort: "medium" },
+          messages: [
+            ...conversationHistory,
+            { role: "user", content: message },
+          ],
+        });
+        const usedModel = model.includes("opus") ? "Claude Opus" : "Claude Sonnet";
 
         const responseText =
           anthropicResponse?.content
