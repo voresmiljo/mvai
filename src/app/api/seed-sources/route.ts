@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import type { ThemeFolderId } from "@/lib/themeFolders";
 import OpenAI from "openai";
 
 interface SeedSourceItem {
@@ -9,7 +10,7 @@ interface SeedSourceItem {
   content: string;
   source_type: "lov" | "bekendtgoerelse" | "vejledning" | "naevnskendelse" | "eu_dom";
   scope: "plan" | "projekt" | "begge";
-  theme: "grund" | "natura2000" | "artsbeskyttelse" | "stoej_og_luft" | "grundvand" | "kyst_og_landskab";
+  theme: "grund" | ThemeFolderId;
   pdf_file_name: string;
   metadata: {
     date: string;

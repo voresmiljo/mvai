@@ -4,6 +4,7 @@ import { THEME_FOLDERS } from "@/lib/themeFolders";
 export type FolderCount = {
   id: string;
   name: string;
+  category: string;
   documents: number;
 };
 
@@ -24,6 +25,7 @@ function emptyCounts(configured: boolean): LibraryCounts {
     themes: THEME_FOLDERS.map((folder) => ({
       id: folder.id,
       name: folder.name,
+      category: folder.category,
       documents: 0,
     })),
   };
@@ -60,6 +62,7 @@ export async function getLibraryCounts(): Promise<LibraryCounts> {
     themes: THEME_FOLDERS.map((folder) => ({
       id: folder.id,
       name: folder.name,
+      category: folder.category,
       documents: values.filter((doc) => doc.theme === folder.id).length,
     })),
   };
