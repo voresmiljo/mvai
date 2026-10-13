@@ -10,9 +10,9 @@ export function MvLogo({ className = "", variant = "dark", size = "md" }: LogoPr
   const isLight = variant === "light";
   
   const iconSizes = {
-    sm: "w-7 h-7",
-    md: "w-9 h-9",
-    lg: "w-11 h-11",
+    sm: "h-7 px-1.5 text-[13px]",
+    md: "h-9 px-2 text-[15px]",
+    lg: "h-11 px-2.5 text-[17px]",
   };
 
   const textSizes = {
@@ -23,37 +23,25 @@ export function MvLogo({ className = "", variant = "dark", size = "md" }: LogoPr
 
   return (
     <div className={`flex items-center gap-2.5 font-bold tracking-tight select-none ${className}`}>
-      {/* Minimalist Logo Icon: Leaf & Legal Paragraph / Compass geometric interplay */}
+      {/* mv combined with the section sign */}
       <div
-        className={`${iconSizes[size]} rounded-lg flex items-center justify-center font-mono font-bold transition-transform shadow-xs ${
+        className={`${iconSizes[size]} rounded-lg flex items-center justify-center transition-transform shadow-xs ${
           isLight
             ? "bg-white text-[#0F382C] border border-white/20"
             : "bg-[#0F382C] text-[#F7FAFA] border border-[#1A4332]"
         }`}
       >
-        <svg
-          viewBox="0 0 32 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-5 h-5"
+        <span className="font-extrabold leading-none tracking-tight" aria-hidden="true">
+          mv
+        </span>
+        <span
+          className={`ml-0.5 font-serif text-[1.25em] leading-none ${
+            isLight ? "text-[#2E8B57]" : "text-[#86efac]"
+          }`}
+          aria-hidden="true"
         >
-          {/* M stylized with environmental path / paragraph marker */}
-          <path
-            d="M6 24V9L12 17L18 9V24"
-            stroke="currentColor"
-            strokeWidth="2.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {/* AI leaf/sparkle indicator */}
-          <circle cx="24" cy="11" r="2.75" fill={isLight ? "#2E8B57" : "#4ade80"} />
-          <path
-            d="M24 16V23"
-            stroke={isLight ? "#2E8B57" : "#4ade80"}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
-        </svg>
+          §
+        </span>
       </div>
 
       <div className="flex flex-col leading-none">
