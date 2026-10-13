@@ -364,7 +364,9 @@ def split_guidance(rows: list[tuple[str, int]], spec: dict, facts: dict) -> list
 
 ARTICLE_LINE = re.compile(r"^Artikel\s+(\d+)$")
 ANNEX_LINE = re.compile(r"^BILAG\s+([IVX]+)$")
-OJ_HEADER = re.compile(r"^DA\s+.*Tidende")
+OJ_HEADER = re.compile(
+    r"^(?:DA\s+.*Tidende|\d{1,2}\.\d{1,2}\.\d{4}\s+L\s+\d+/\d+\s+Den Europæiske Unions Tidende)"
+)
 OJ_PAGE = re.compile(r"L\s+\d+/(\d+)")
 
 
@@ -458,6 +460,128 @@ def split_directive(rows: list[tuple[str, int]], spec: dict, facts: dict) -> lis
     return chunks
 
 
+AMENDMENT_POINT = re.compile(r"^(\d+)\)\s+\S")
+RECITAL = re.compile(r"^\((\d+)\)\s+\S")
+
+
+def split_amending_directive(rows: list[tuple[str, int]], spec: dict, facts: dict) -> list[dict]:
+    start = next(
+        (index for index, (line, _) in enumerate(rows) if line.startswith(spec["start_line"])),
+        None,
+    )
+    if start is None:
+        raise RuntimeError(f"Fandt ikke direktivteksten i {spec['file']}")
+    end = next(
+        (index for index, (line, _) in enumerate(rows) if index > start and line == spec["stop_line"]),
+        len(rows),
+    )
+    rows = rows[start:end]
+    article_at = [index for index, (line, _) in enumerate(rows) if ARTICLE_LINE.match(line)]
+    if not article_at:
+        raise RuntimeError(f"Fandt ingen artikler i {spec['file']}")
+    annex_at = next((index for index, (line, _) in enumerate(rows) if line == "BILAG"), None)
+    chunks: list[dict] = []
+
+    def emit(section: str, title: str, part: list[tuple[str, int]]) -> None:
+        text = "\n".join(line for line, _ in part).strip()
+        if len(text) < 40:
+            return
+        chunks.append(
+            chunk_from_lines(
+                title,
+                f"{spec['citation_base']}, {section[0].lower() + section[1:]}",
+                section,
+                part,
+                spec["source_type"],
+                spec["pdf"],
+                facts,
+                spec["scope"],
+            )
+        )
+
+    preamble = rows[: article_at[0]]
+    recital_starts: list[int] = []
+    last_recital = 0
+    for index, (line, _) in enumerate(preamble):
+        match = RECITAL.match(line)
+        if not match or int(match.group(1)) != last_recital + 1:
+            continue
+        following = next(
+            (
+                later
+                for later in range(index + 1, len(preamble))
+                if RECITAL.match(preamble[later][0])
+            ),
+            len(preamble),
+        )
+        span = " ".join(item for item, _ in preamble[index:following])
+        if len(span) < 350 and ("EUT" in span or "EFT" in span):
+            continue
+        recital_starts.append(index)
+        last_recital = int(match.group(1))
+    if not recital_starts:
+        emit("Betragtninger", f"{spec['short']} betragtninger", preamble)
+    else:
+        if recital_starts[0] > 0:
+            emit(
+                "Indledning",
+                f"{spec['short']} indledning",
+                preamble[: recital_starts[0]],
+            )
+        for offset, recital_start in enumerate(recital_starts):
+            recital_end = recital_starts[offset + 1] if offset + 1 < len(recital_starts) else len(preamble)
+            number = offset + 1
+            emit(
+                f"Betragtning {number}",
+                f"{spec['short']} betragtning {number}",
+                preamble[recital_start:recital_end],
+            )
+    body_end = annex_at if annex_at is not None else len(rows)
+    points = [
+        index
+        for index, (line, _) in enumerate(rows)
+        if article_at[0] < index < body_end and AMENDMENT_POINT.match(line)
+    ]
+    first_later_article = next((index for index in article_at[1:] if index < body_end), body_end)
+    points = [index for index in points if index < first_later_article]
+    if points:
+        for offset, point_start in enumerate(points):
+            point_end = points[offset + 1] if offset + 1 < len(points) else first_later_article
+            number = AMENDMENT_POINT.match(rows[point_start][0]).group(1)
+            emit(
+                f"Artikel 1, nr. {number}",
+                f"{spec['short']} artikel 1, nr. {number}",
+                rows[point_start:point_end],
+            )
+    for offset, index in enumerate(article for article in article_at if article >= first_later_article and article < body_end):
+        number = ARTICLE_LINE.match(rows[index][0]).group(1)
+        following = [item for item in article_at if item > index and item < body_end]
+        stop = following[0] if following else body_end
+        emit(
+            f"Artikel {number}",
+            f"{spec['short']} artikel {number}",
+            rows[index:stop],
+        )
+    if annex_at is not None:
+        annex_rows = rows[annex_at:]
+        cuts = [0]
+        for index, (line, _) in enumerate(annex_rows):
+            if index > 0 and (line.startswith("»BILAG ") or line == "BILAG IV"):
+                cuts.append(index)
+        for offset, cut in enumerate(cuts):
+            stop = cuts[offset + 1] if offset + 1 < len(cuts) else len(annex_rows)
+            heading = annex_rows[cut][0]
+            if heading.startswith("»BILAG "):
+                name = heading.removeprefix("»").split()[0] + " " + heading.removeprefix("»").split()[1]
+                name = name.replace("BILAG", "Bilag")
+            elif heading == "BILAG IV":
+                name = "Bilag IV"
+            else:
+                name = "Bilag"
+            emit(name, f"{spec['short']} {name[0].lower() + name[1:]}", annex_rows[cut:stop])
+    return chunks
+
+
 DOCUMENTS = [
     {
         "file": "Lov_om_milj_vurdering_c17a.pdf",
@@ -530,6 +654,21 @@ DOCUMENTS = [
         "journal": "EFT L 197 af 21. juli 2001",
         "later": "",
     },
+    {
+        "file": "EU_VVM__ndringsdirektiv_a273.pdf",
+        "pdf": "vvm-aendringsdirektiv-2014-52-eu.pdf",
+        "short": "VVM-ændringsdirektivet",
+        "citation_base": "Europa-Parlamentets og Rådets direktiv 2014/52/EU af 16. april 2014",
+        "source_type": "direktiv",
+        "authority": "Europa-Parlamentet og Rådet",
+        "kind": "amending",
+        "scope": "projekt",
+        "date": "16. april 2014",
+        "journal": "EUT L 124 af 25. april 2014",
+        "later": "Ændrer direktiv 2011/92/EU. Tidende L 124 indeholder også andre retsakter, som ikke er taget med.",
+        "start_line": "EUROPA-PARLAMENTETS OG RÅDETS DIREKTIV 2014/52/EU",
+        "stop_line": "II",
+    },
 ]
 
 
@@ -540,14 +679,18 @@ def build(folder: Path) -> list[dict]:
         pages = read_pages(path)
         facts = cover_facts(pages)
         facts["authority"] = spec["authority"]
-        if spec["kind"] == "directive":
+        if spec["kind"] in ("directive", "amending"):
             facts = {
                 "date": spec["date"],
                 "journal": spec["journal"],
                 "later": spec.get("later", ""),
                 "authority": spec["authority"],
             }
-            part = split_directive(directive_lines(path), spec, facts)
+            rows = directive_lines(path)
+            if spec["kind"] == "amending":
+                part = split_amending_directive(rows, spec, facts)
+            else:
+                part = split_directive(rows, spec, facts)
         else:
             rows = lines_with_pages(pages)
             if spec["kind"] == "guidance":
