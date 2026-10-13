@@ -17,6 +17,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 export function danishAuthError(message: string): string {
   const text = message.toLowerCase();
+  if (text.startsWith("one.com:")) return message.replace(/\s+/g, " ").trim().slice(0, 200);
   if (text.includes("invalid login")) return "E-mail eller adgangskode er forkert.";
   if (text.includes("email not confirmed")) return "Bekræft e-mailen, før du logger ind.";
   if (text.includes("already registered") || text.includes("already been registered")) {
@@ -28,7 +29,7 @@ export function danishAuthError(message: string): string {
     return "one.com afviste adgangskoden til kontakt@mvai.dk.";
   }
   if (text.includes("forbindelsen til one.com")) {
-    return "Forbindelsen til one.com kunne ikke oprettes.";
+    return message.replace(/\s+/g, " ").trim().slice(0, 200);
   }
   if (text.includes("mailhemmeligheden mangler")) {
     return "Mailhemmeligheden mangler på serveren.";
