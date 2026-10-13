@@ -3,6 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAuthConfig } from "@/lib/supabase/env";
 
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/api/auth/send-email.") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/api/auth/send-email";
+    return NextResponse.rewrite(url);
+  }
+
   const config = getSupabaseAuthConfig();
   if (!config) return NextResponse.next();
 
@@ -31,6 +37,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth/send-email|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/auth/send-email$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
