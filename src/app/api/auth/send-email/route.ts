@@ -13,9 +13,6 @@ type EmailPayload = {
   };
 };
 
-export const runtime = "nodejs";
-export const maxDuration = 10;
-
 function hookSecrets(): string[] {
   const raw = (process.env["SEND_EMAIL_HOOK_SECRET"] || "").trim().replace(/^["']|["']$/g, "");
   if (!raw) return [];
