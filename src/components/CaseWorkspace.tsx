@@ -60,6 +60,7 @@ interface GeneratedNote {
   date: string;
   content: string;
   format: "docx" | "pdf";
+  included: boolean;
 }
 
 const AVAILABLE_THEMES: ThemeFolder[] = THEME_FOLDERS.map((folder) => ({
@@ -221,12 +222,14 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
           primaryFile,
           supplementaryFiles,
           history: messages.slice(-4).map((m) => ({ sender: m.sender, text: m.text })),
-          output: generatedNotes.map((note) => ({
-            id: note.id,
-            title: note.title,
-            content: note.content,
-            date: note.date,
-          })),
+          output: generatedNotes
+            .filter((note) => note.included)
+            .map((note) => ({
+              id: note.id,
+              title: note.title,
+              content: note.content,
+              date: note.date,
+            })),
         }),
       });
 
@@ -753,6 +756,7 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                             date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                             format: "docx",
                             content: msg.text,
+                            included: false,
                           };
                           setGeneratedNotes((prev) => [newNote, ...prev]);
                           setRightPanelTab("notater");
@@ -953,9 +957,6 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                       Output
                     </h3>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      Færdige retslige analyser i fuldt format
-                    </p>
                   </div>
 
                   <button
@@ -968,6 +969,7 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                         date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                         format: "docx",
                         content: `MILJØRET AFGØRELSESNOTAT\nSag: ${caseTitle}\n\n1. OVERSIGT\nUdarbejdet på baggrund af dialogen i MVAI arbejdsrummet.`,
+                        included: false,
                       };
                       setGeneratedNotes((prev) => [newNote, ...prev]);
                     }}
@@ -977,14 +979,42 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                   </button>
                 </div>
 
+                {generatedNotes.some((note) => note.included) && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Output indgår i analysen.</span>
+                      <p className="text-[11px] leading-tight mt-0.5">
+                        Det afkrydsede output indgår nu i kildematerialet til analysen, ligesom temamapperne. Vær opmærksom på, at det kan forringe præcisionen, fordi indholdet har en anden karakter end retskilderne.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3">
                   {generatedNotes.length > 0 ? (
                     generatedNotes.map((note) => (
                       <div
                         key={note.id}
-                        className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-3"
+                        className={`rounded-xl border bg-white p-4 shadow-xs space-y-3 ${
+                          note.included ? "border-emerald-600/40" : "border-slate-200"
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={note.included}
+                              onChange={() =>
+                                setGeneratedNotes((prev) =>
+                                  prev.map((item) =>
+                                    item.id === note.id ? { ...item, included: !item.included } : item
+                                  )
+                                )
+                              }
+                              aria-label={`Medtag ${note.title} i kildematerialet`}
+                              className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+                            />
                           <div>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-[#0F382C] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
                               {note.caseType}
@@ -994,6 +1024,7 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                             </h4>
                             <p className="text-[10px] text-slate-400 font-mono mt-0.5">{note.date}</p>
                           </div>
+                          </label>
                         </div>
 
                         <div className="max-h-36 overflow-y-auto rounded bg-[#F7FAFA] border border-slate-100 p-2 text-[11px] font-mono text-slate-700 whitespace-pre-wrap leading-relaxed">
