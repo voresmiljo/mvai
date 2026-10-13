@@ -810,7 +810,7 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                   <div className="flex items-center gap-2 text-[11px] text-slate-500">
                     <span className="inline-flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                      Claude 3.5 Sonnet RAG-analyse • Fortrolig myndighedssession
+                      Claude 3.5 Sonnet RAG-analyse
                     </span>
                   </div>
 
@@ -952,31 +952,10 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
             {/* FANE 2: GENEREREDE NOTATER / OUTPUTS */}
             {rightPanelTab === "notater" && (
               <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                      Output
-                    </h3>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newNote: GeneratedNote = {
-                        id: `note-${Date.now()}`,
-                        title: `Supplerende screeningsnotat`,
-                        caseType: scope === "plan" ? "Miljøvurdering af Plan (§ 8)" : "Konkret Projekt (§§ 15–25)",
-                        date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                        format: "docx",
-                        content: `MILJØRET AFGØRELSESNOTAT\nSag: ${caseTitle}\n\n1. OVERSIGT\nUdarbejdet på baggrund af dialogen i MVAI arbejdsrummet.`,
-                        included: false,
-                      };
-                      setGeneratedNotes((prev) => [newNote, ...prev]);
-                    }}
-                    className="inline-flex items-center gap-1 rounded bg-[#0F382C] px-2 py-1 text-[11px] font-semibold text-white hover:bg-[#14493a] transition-colors cursor-pointer"
-                  >
-                    + Nyt notat
-                  </button>
+                <div className="pb-3 border-b border-slate-200">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Output
+                  </h3>
                 </div>
 
                 {generatedNotes.some((note) => note.included) && (
@@ -985,7 +964,7 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                     <div>
                       <span className="font-bold">Output indgår i analysen.</span>
                       <p className="text-[11px] leading-tight mt-0.5">
-                        Det afkrydsede output indgår nu i kildematerialet til analysen, ligesom temamapperne. Vær opmærksom på, at det kan forringe præcisionen, fordi indholdet har en anden karakter end retskilderne.
+                        Det afkrydsede output indgår nu i kildematerialet (ligesom temamapperne)
                       </p>
                     </div>
                   </div>
@@ -1057,7 +1036,7 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                     <div className="mt-12 text-center text-slate-400 p-6">
                       <FileCode className="w-8 h-8 mx-auto mb-2 opacity-40" />
                       <p className="text-xs">
-                        Intet output endnu. Du kan oprette et nyt ovenfor eller gemme et svar fra chatten.
+                        Intet output endnu. Gem et svar fra chatten med Gem i output.
                       </p>
                     </div>
                   )}
