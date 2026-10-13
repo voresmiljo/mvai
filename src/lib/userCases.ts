@@ -49,7 +49,7 @@ function mapCase(row: CaseRow): StoredCase {
     title: row.title,
     caseNumber: row.case_number,
     scope: row.scope,
-    scopeLabel: row.scope === "plan" ? "Plan / Program" : "projekt",
+    scopeLabel: row.scope === "plan" ? "plan" : "projekt",
     lawReference: row.law_reference,
     updatedAt: formatDanishStamp(row.updated_at, true),
     createdAt: formatDanishStamp(row.created_at, false),
@@ -69,23 +69,32 @@ export function caseTableError(message: string): string | null {
   return null;
 }
 
-const LEGACY_PROJECT_TITLE = "ny vvm-sag / miljøvurdering af projekt (§§ 15–25)";
+const LEGACY_TITLE: Record<"projekt" | "plan", string> = {
+  projekt: "ny vvm-sag / miljøvurdering af projekt (§§ 15–25)",
+  plan: "ny miljøvurdering af plan / program (§ 8)",
+};
 
-function projectNumber(title: string): number | null {
-  const match = title.trim().match(/^mv projekt (\d+)$/i);
+function titleNumber(scope: "projekt" | "plan", title: string): number | null {
+  const label = scope === "plan" ? "plan" : "projekt";
+  const match = title.trim().match(new RegExp(`^mv ${label} (\\d+)$`, "i"));
   if (!match) return null;
   const number = Number(match[1]);
   return Number.isInteger(number) && number > 0 ? number : null;
 }
 
-export function formatProjectTitle(number: number): string {
-  return `mv projekt ${String(number).padStart(2, "0")}`;
+export function formatScopedTitle(scope: "projekt" | "plan", number: number): string {
+  const label = scope === "plan" ? "plan" : "projekt";
+  return `mv ${label} ${String(number).padStart(2, "0")}`;
 }
 
-function nextProjectNumber(titles: string[]): number {
+export function formatProjectTitle(number: number): string {
+  return formatScopedTitle("projekt", number);
+}
+
+function nextScopedNumber(scope: "projekt" | "plan", titles: string[]): number {
   const used = new Set<number>();
   for (const title of titles) {
-    const number = projectNumber(title);
+    const number = titleNumber(scope, title);
     if (number) used.add(number);
   }
   let number = 1;
@@ -93,26 +102,34 @@ function nextProjectNumber(titles: string[]): number {
   return number;
 }
 
-async function assignLegacyProjectTitles(
+async function assignLegacyTitles(
   supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>,
-  userId: string
+  userId: string,
+  scope: "projekt" | "plan"
 ): Promise<void> {
   const { data } = await supabase
     .from("cases")
     .select("id, title, created_at")
     .eq("user_id", userId)
-    .eq("scope", "projekt")
+    .eq("scope", scope)
     .order("created_at", { ascending: true });
 
   const rows = (data || []) as { id: string; title: string }[];
   const titles = rows.map((row) => row.title);
   for (const row of rows) {
-    if (row.title.trim().toLowerCase() !== LEGACY_PROJECT_TITLE) continue;
-    const number = nextProjectNumber(titles);
-    const title = formatProjectTitle(number);
+    if (row.title.trim().toLowerCase() !== LEGACY_TITLE[scope]) continue;
+    const title = formatScopedTitle(scope, nextScopedNumber(scope, titles));
     titles.push(title);
     await supabase.from("cases").update({ title }).eq("id", row.id).eq("user_id", userId);
   }
+}
+
+async function assignLegacyCaseTitles(
+  supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>,
+  userId: string
+): Promise<void> {
+  await assignLegacyTitles(supabase, userId, "projekt");
+  await assignLegacyTitles(supabase, userId, "plan");
 }
 
 export async function listOwnCases(): Promise<{ cases: StoredCase[]; error?: string }> {
@@ -122,7 +139,7 @@ export async function listOwnCases(): Promise<{ cases: StoredCase[]; error?: str
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { cases: [], error: "Login er ikke konfigureret." };
 
-  await assignLegacyProjectTitles(supabase, user.id);
+  await assignLegacyCaseTitles(supabase, user.id);
 
   const { data, error } = await supabase
     .from("cases")
@@ -144,7 +161,7 @@ export async function getOwnCase(id: string): Promise<StoredCase | null> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return null;
 
-  await assignLegacyProjectTitles(supabase, user.id);
+  await assignLegacyCaseTitles(supabase, user.id);
 
   const { data, error } = await supabase
     .from("cases")
@@ -167,17 +184,14 @@ export async function createOwnCase(scope: "projekt" | "plan"): Promise<{ case?:
   const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
   const year = new Date().getFullYear();
   const caseNumber = scope === "plan" ? `${year}-PLAN-${suffix}` : `${year}-VVM-${suffix}`;
-  let title = "Ny miljøvurdering af plan / program (§ 8)";
-  if (scope === "projekt") {
-    await assignLegacyProjectTitles(supabase, user.id);
-    const { data: existing } = await supabase
-      .from("cases")
-      .select("title")
-      .eq("user_id", user.id)
-      .eq("scope", "projekt");
-    const titles = ((existing || []) as { title: string }[]).map((row) => row.title);
-    title = formatProjectTitle(nextProjectNumber(titles));
-  }
+  await assignLegacyCaseTitles(supabase, user.id);
+  const { data: existing } = await supabase
+    .from("cases")
+    .select("title")
+    .eq("user_id", user.id)
+    .eq("scope", scope);
+  const titles = ((existing || []) as { title: string }[]).map((row) => row.title);
+  const title = formatScopedTitle(scope, nextScopedNumber(scope, titles));
   const lawReference =
     scope === "plan" ? "Miljøvurderingslovens § 8" : "Miljøvurderingslovens §§ 15–25";
 

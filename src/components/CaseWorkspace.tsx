@@ -96,7 +96,7 @@ export function CaseWorkspace({
   const initialTitle =
     forcedTitle ||
     existingCase?.title ||
-    (scope === "plan" ? "Ny miljøvurdering af plan / program (§ 8)" : "mv projekt 01");
+    (scope === "plan" ? "mv plan 01" : "mv projekt 01");
   const [titleDraft, setTitleDraft] = useState(initialTitle);
   const savedTitle = useRef(initialTitle);
   const skipTitleSave = useRef(false);
@@ -372,35 +372,25 @@ export function CaseWorkspace({
               }`}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${scope === "plan" ? "bg-[#2E8B57]" : "bg-slate-600"}`} />
-              <span>{scope === "plan" ? "Plan / Program (§ 8)" : "Projekt"}</span>
+              <span>{scope === "plan" ? "Plan" : "Projekt"}</span>
             </span>
 
-            {scope === "projekt" ? (
-              <input
-                aria-label="Sagens titel"
-                value={titleDraft}
-                maxLength={120}
-                onChange={(event) => setTitleDraft(event.target.value)}
-                onBlur={() => void saveTitle()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") event.currentTarget.blur();
-                  if (event.key === "Escape") {
-                    skipTitleSave.current = true;
-                    setTitleDraft(savedTitle.current);
-                    event.currentTarget.blur();
-                  }
-                }}
-                className="w-56 max-w-[42vw] rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-bold text-slate-900 outline-none hover:border-slate-200 focus:border-[#0F382C] focus:bg-white md:w-80"
-              />
-            ) : (
-              <span className="text-xs font-bold text-slate-900 truncate max-w-xs md:max-w-md">
-                {caseTitle}
-              </span>
-            )}
-
-            {scope === "plan" && (
-              <span className="text-xs text-slate-400 font-mono hidden md:inline">({caseNumber})</span>
-            )}
+            <input
+              aria-label="Sagens titel"
+              value={titleDraft}
+              maxLength={120}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              onBlur={() => void saveTitle()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+                if (event.key === "Escape") {
+                  skipTitleSave.current = true;
+                  setTitleDraft(savedTitle.current);
+                  event.currentTarget.blur();
+                }
+              }}
+              className="w-56 max-w-[42vw] rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-bold text-slate-900 outline-none hover:border-slate-200 focus:border-[#0F382C] focus:bg-white md:w-80"
+            />
           </div>
         </div>
 
