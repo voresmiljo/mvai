@@ -61,17 +61,20 @@ export default function AboutPage() {
           <header className="space-y-4">
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Om MVAI</h1>
             <p className="text-base leading-relaxed text-slate-700">
-              MVAI er et arbejdsrum til miljøvurdering af planer og projekter i Danmark. Det bruges af myndigheder, rådgivere, forskere og miljøorganisationer.
+              MVAI er et arbejdsrum til miljøvurdering af planer og projekter i Danmark.
             </p>
           </header>
 
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-slate-900">Hvorfor bruge det til arbejdet</h2>
             <p className="text-sm leading-relaxed text-slate-700">
-              En miljøvurdering skal kunne holde det primære dokument op mod loven, vejledningerne og de klagenævnsafgørelser, der ligner sagen. Plan og projekt har forskellige regler og må ikke blandes sammen. Det er det arbejde, siden er bygget til.
+              En miljøvurdering skal kunne holde det primære dokument op mod loven, vejledningerne og de klagenævnsafgørelser, der ligner sagen.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
-              Man arbejder i en sag. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes, også når formålet er at skrive en klage. Sekundære dokumenter er det materiale, det primære dokument skal sammenholdes med. Grundmappen og de valgte temamapper er retskilderne. Svaret henviser til de tekster, man kan åbne ved siden af. Hvis materialet ikke dækker spørgsmålet, skal svaret sige det.
+              Man arbejder i en sag. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes.
+            </p>
+            <p className="text-sm leading-relaxed text-slate-700">
+              Sekundære dokumenter er materiale, der supplerer eller skal sammenholdes med det primære dokument. Grundmappen og de valgte temamapper indeholder et fagligt kurateret kildekorpus, som MVAI baserer sine svar på. Kildehenvisninger gør arbejdet transparent. Hvis kildekorpuset ikke dækker spørgsmålet, vil svaret sige det.
             </p>
           </section>
 
@@ -84,17 +87,27 @@ export default function AboutPage() {
               Temamapperne er fagområder, man selv slår til, for eksempel Natura 2000, artsbeskyttelse, støj og luft, grundvand eller kyst og landskab. Analysen bruger grundmappen sammen med de mapper, der er valgt på sagen. Flere end tre mapper ad gangen gør søgningen bredere.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
-              Klagenævnsafgørelser er ikke en temamappe. En afgørelse lægges i den temamappe, den handler om, så den er med, når det fagområde er slået til.
+              Klagenævnsafgørelser ligger i de temamapper, de handler om.
             </p>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-slate-900">Sådan vælges kilderne</h2>
             <p className="text-sm leading-relaxed text-slate-700">
-              Dokumenterne i arkivet er udvalgt af fagpersoner med uddannelse i miljøvurdering. Et dokument kommer først ind, når det er læst og lagt i grundmappen eller i den temamappe, det handler om. Det er ikke et udtræk fra nettet.
+              Dokumenterne i arkivet er udvalgt af fagpersoner med uddannelse i miljøvurdering. Et dokument kommer først ind, når det er læst, godkendt og lagt i grundmappen eller i den temamappe, det handler om.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
               Primære og sekundære dokumenter, som en bruger selv lægger på en sag, bliver på den sag. De blandes ikke ind i det fælles arkiv og bruges ikke til at træne modellerne.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-bold text-slate-900">Brug af kilder</h2>
+            <p className="text-sm leading-relaxed text-slate-700">
+              Analysen bliver mere usikker, når den skal holde mange forskellige kilder sammen. Grundmappen er altid med. Hver temamappe, der slås til, lægger et andet fagområde til. Flere kilder med forskellige temaer øger usikkerheden, fordi materialet ikke længere peger samme vej.
+            </p>
+            <p className="text-sm leading-relaxed text-slate-700">
+              Det gælder også brugerens egne dokumenter. Primære og sekundære dokumenter, som er lagt på sagen, indgår i analysen. Output, som brugeren selv har oprettet, indgår kun, når det er slået til. Egne dokumenter og tilvalgt output har et andet indhold end retskilderne i arkivet. Jo flere af dem der er med, jo større er usikkerheden i svaret.
             </p>
           </section>
 
