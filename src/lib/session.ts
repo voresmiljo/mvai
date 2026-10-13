@@ -30,14 +30,29 @@ export function danishAuthError(message: string): string {
   if (text.includes("forbindelsen til one.com")) {
     return "Forbindelsen til one.com kunne ikke oprettes.";
   }
-  if (text.includes("mangler på serveren")) {
+  if (text.includes("mailhemmeligheden mangler")) {
+    return "Mailhemmeligheden mangler på serveren.";
+  }
+  if (text.includes("adgangskoden til mailen mangler") || text.includes("mangler på serveren")) {
     return "Adgangskoden til mailen mangler på serveren.";
+  }
+  if (
+    text.includes("signatur") ||
+    text.includes("authorization token") ||
+    text.includes("no matching signature")
+  ) {
+    return "Bekræftelsesmailens signatur blev afvist.";
+  }
+  if (text.includes("failed to reach hook") || text.includes("maximum time")) {
+    return "Bekræftelsesmailen nåede ikke frem i tide. Prøv igen om et øjeblik.";
   }
   if (
     text.includes("error sending") ||
     text.includes("smtp") ||
     text.includes("confirmation email") ||
-    text.includes("bekræftelsesmailen kunne ikke sendes")
+    text.includes("bekræftelsesmailen kunne ikke sendes") ||
+    text.includes("unexpected status code") ||
+    text.includes("hook")
   ) {
     return "Bekræftelsesmailen kunne ikke sendes fra kontakt@mvai.dk. Prøv igen om et øjeblik.";
   }

@@ -1,4 +1,7 @@
+import dns from "node:dns";
 import nodemailer from "nodemailer";
+
+dns.setDefaultResultOrder("ipv4first");
 
 type MailAction = {
   email: string;
@@ -86,18 +89,20 @@ function mailError(error: unknown): Error {
 }
 
 async function deliver(action: MailAction, port: number, password: string): Promise<void> {
+  const host = envValue("SMTP_HOST") || "send.one.com";
   const user = envValue("SMTP_USER") || "kontakt@mvai.dk";
   const transporter = nodemailer.createTransport({
-    host: envValue("SMTP_HOST") || "send.one.com",
+    host,
     port,
     secure: port === 465,
     requireTLS: port === 587,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
+    family: 4,
+    connectionTimeout: 3000,
+    greetingTimeout: 3000,
+    socketTimeout: 4000,
     auth: { user, pass: password },
-    tls: { servername: envValue("SMTP_HOST") || "send.one.com" },
-  });
+    tls: { servername: host },
+  } as Parameters<typeof nodemailer.createTransport>[0]);
   const copy = mailCopy(action);
   await transporter.sendMail({
     from: envValue("SMTP_FROM") || "MVAI <kontakt@mvai.dk>",
@@ -114,20 +119,10 @@ export async function sendAuthMail(action: MailAction): Promise<void> {
     throw new Error("Adgangskoden til mailen mangler på serveren.");
   }
 
-  const preferred = Number(envValue("SMTP_PORT") || 587);
-  const ports = preferred === 465 ? [465, 587] : [587, 465];
-  let lastError: unknown;
-  for (const port of ports) {
-    try {
-      await deliver(action, port, password);
-      return;
-    } catch (error) {
-      lastError = error;
-      const text = error instanceof Error ? error.message.toLowerCase() : "";
-      if (text.includes("invalid login") || text.includes("authentication") || text.includes("535")) {
-        throw mailError(error);
-      }
-    }
+  const port = Number(envValue("SMTP_PORT") || 587);
+  try {
+    await deliver(action, port, password);
+  } catch (error) {
+    throw mailError(error);
   }
-  throw mailError(lastError);
 }
