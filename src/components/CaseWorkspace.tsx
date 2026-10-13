@@ -175,7 +175,7 @@ export function CaseWorkspace({
         scope === "plan" ? "Miljøvurdering af Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
       }**.
 
-Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre panel eller ovenfor, vælge de relevante temamapper, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor.`,
+Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til venstre, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor.`,
     },
   ]);
 
@@ -429,7 +429,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mb-3">
-                Aktivér de fagområder, sagen handler om. Klagenævnsafgørelser ligger i den temamappe, de handler om.
+                Aktivér de fagområder, sagen handler om.
               </p>
 
               {/* Warning banner when >= 4 */}
@@ -846,7 +846,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                 }`}
               >
                 <FileCode className="w-3.5 h-3.5" />
-                <span>Notater / Outputs</span>
+                <span>Output</span>
                 <span className="rounded-full bg-slate-200 px-1.5 py-0.2 text-[10px] font-bold text-slate-700">
                   {generatedNotes.length}
                 </span>
@@ -942,7 +942,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                 <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                      Genererede notater
+                      Output
                     </h3>
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       Færdige retslige analyser i fuldt format
@@ -1017,7 +1017,7 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
                     <div className="mt-12 text-center text-slate-400 p-6">
                       <FileCode className="w-8 h-8 mx-auto mb-2 opacity-40" />
                       <p className="text-xs">
-                        Ingen genererede notater endnu. Du kan oprette et nyt notat ovenfor eller gemme analyser fra chatten.
+                        Intet output endnu. Du kan oprette et nyt ovenfor eller gemme et svar fra chatten.
                       </p>
                     </div>
                   )}
