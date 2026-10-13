@@ -40,6 +40,7 @@ interface SourceSnippet {
   textSnippet: string;
   pdfUrl: string;
   pdfFileName: string;
+  hasOriginal?: boolean;
   relevanceScore: number;
 }
 
@@ -159,6 +160,8 @@ export function CaseWorkspace({
 
   // Active source in right preview panel
   const [activeSnippet, setActiveSnippet] = useState<SourceSnippet | null>(null);
+  const [downloadingOriginal, setDownloadingOriginal] = useState(false);
+  const [originalError, setOriginalError] = useState("");
 
   // Copy status per message ID
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
@@ -320,6 +323,36 @@ export function CaseWorkspace({
     setTimeout(() => {
       setCopiedMsgId(null);
     }, 2000);
+  };
+
+  const handleDownloadOriginal = async (source: SourceSnippet) => {
+    if (!source.hasOriginal || downloadingOriginal) return;
+    setOriginalError("");
+    setDownloadingOriginal(true);
+    try {
+      const res = await fetch(`/api/sources/${source.id}/original`);
+      if (!res.ok) {
+        setOriginalError("Originalen kunne ikke hentes.");
+        return;
+      }
+      const blob = await res.blob();
+      const header = res.headers.get("Content-Disposition") || "";
+      const encoded = header.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+      const plain = header.match(/filename="([^"]+)"/i)?.[1];
+      const fileName = encoded ? decodeURIComponent(encoded) : plain || source.pdfFileName || "kilde.pdf";
+      const url = URL.createObjectURL(blob);
+      const element = document.createElement("a");
+      element.href = url;
+      element.download = fileName;
+      document.body.appendChild(element);
+      element.click();
+      element.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setOriginalError("Originalen kunne ikke hentes.");
+    } finally {
+      setDownloadingOriginal(false);
+    }
   };
 
   const handleDownloadPDF = (text: string, title: string = "MVAI-Analyse") => {
@@ -683,6 +716,7 @@ export function CaseWorkspace({
                             type="button"
                             onClick={() => {
                               setActiveSnippet(src);
+                              setOriginalError("");
                               setRightPanelTab("kilde");
                             }}
                             className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border text-left transition-all cursor-pointer ${
@@ -899,27 +933,29 @@ export function CaseWorkspace({
                       </p>
                     </div>
 
-                    {activeSnippet.pdfFileName && (
+                    {activeSnippet.hasOriginal && (
                     <div className="rounded-xl border-2 border-dashed border-[#0F382C]/30 bg-emerald-50/40 p-4">
                       <div className="flex items-center gap-2">
                         <FileText className="w-5 h-5 text-[#0F382C]" />
                         <div>
-                          <p className="text-xs font-bold text-[#0F382C]">Originalt dokument (PDF)</p>
+                          <p className="text-xs font-bold text-[#0F382C]">Originalt dokument</p>
                           <p className="text-[10px] text-slate-500 font-mono">{activeSnippet.pdfFileName}</p>
                         </div>
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          handleDownloadPDF(activeSnippet.textSnippet, activeSnippet.pdfFileName.replace(".pdf", ""));
-                        }}
-                        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F382C] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] transition-colors cursor-pointer"
+                        onClick={() => handleDownloadOriginal(activeSnippet)}
+                        disabled={downloadingOriginal}
+                        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F382C] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] disabled:opacity-50 transition-colors cursor-pointer"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Download original PDF</span>
+                        <span>{downloadingOriginal ? "Henter..." : "Download original"}</span>
                       </button>
+                      {originalError && (
+                        <p className="mt-1.5 text-center text-[10px] text-amber-800">{originalError}</p>
+                      )}
                       <p className="mt-1.5 text-center text-[10px] text-slate-500">
-                        Klar til vedhæftning som bilag i sagsbehandlingen.
+                        Filen hentes fra originalarkivet.
                       </p>
                     </div>
                     )}

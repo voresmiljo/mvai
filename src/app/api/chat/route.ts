@@ -64,6 +64,7 @@ export async function POST(req: Request) {
         textSnippet: item.content!.trim().slice(0, 8000),
         pdfUrl: "",
         pdfFileName: "",
+        hasOriginal: false,
         relevanceScore: 100,
       }));
     const sources = [...savedOutput, ...retrievedSources];

@@ -11,8 +11,9 @@ create table if not exists legal_sources (
   source_type text not null default 'lov',   -- 'lov', 'bekendtgoerelse', 'vejledning', 'naevnskendelse', 'eu_dom'
   scope text default 'begge',                -- 'plan', 'projekt', 'begge'
   theme text,                                -- f.eks. 'natura2000', 'artsbeskyttelse', 'naevnspraksis', 'stoej_og_luft', 'grundvand'
-  pdf_file_name text,                        -- Originalt PDF filnavn til download
-  pdf_url text,                              -- URL til original PDF
+  pdf_file_name text,                        -- Filnavn på originalen, vist ved download
+  pdf_url text,                              -- Udgået som søgefelt. Download sker via original_path
+  original_path text,                        -- Sti i det private arkiv source-originals. Indgår ikke i søgningen
   metadata jsonb default '{}'::jsonb,        -- Ekstra metadata (dato, myndighed, sagsnr osv.)
   embedding vector(1536),                    -- Vektor fra text-embedding-3-small (OpenAI)
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
@@ -73,3 +74,11 @@ begin
   limit match_count;
 end;
 $$;
+
+-- 6. Originalarkiv. Kør denne del i Supabase SQL Editor på en eksisterende database.
+-- Filen ligger i det private bucket source-originals. Søgefunktionen læser den ikke.
+alter table legal_sources add column if not exists original_path text;
+
+insert into storage.buckets (id, name, public)
+values ('source-originals', 'source-originals', false)
+on conflict (id) do update set public = false;
