@@ -10,6 +10,7 @@ export interface RetrievedSource {
   textSnippet: string;
   pdfUrl: string;
   pdfFileName: string;
+  location: string;
   relevanceScore: number;
 }
 
@@ -51,7 +52,7 @@ export async function searchSupabaseLegalSources(
             content: string;
             pdf_file_name: string;
             pdf_url: string;
-            metadata?: { date?: string };
+            metadata?: SourceMeta;
             similarity: number;
           }) => ({
             id: row.id,
@@ -62,6 +63,7 @@ export async function searchSupabaseLegalSources(
             textSnippet: row.content,
             pdfUrl: row.pdf_url || "#",
             pdfFileName: row.pdf_file_name || "retskilde.pdf",
+            location: sourceLocation(row.metadata),
             relevanceScore: Math.round(row.similarity * 100),
           }));
         }
@@ -93,6 +95,7 @@ export async function searchSupabaseLegalSources(
         textSnippet: row.content,
         pdfUrl: row.pdf_url || "#",
         pdfFileName: row.pdf_file_name || "retskilde.pdf",
+        location: sourceLocation(row.metadata),
         relevanceScore: 92,
       }));
     }
@@ -101,4 +104,34 @@ export async function searchSupabaseLegalSources(
   }
 
   return [];
+}
+
+type SourceMeta = {
+  date?: string;
+  page?: number | string;
+  pages?: number | string | Array<number | string>;
+  location?: string;
+};
+
+export function sourceLocation(metadata?: SourceMeta | null): string {
+  if (!metadata) return "";
+  if (typeof metadata.location === "string" && metadata.location.trim()) {
+    return metadata.location.trim();
+  }
+
+  const raw = metadata.pages ?? metadata.page;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return `s. ${raw}`;
+  if (typeof raw === "string") {
+    const text = raw.trim().replace(/\s*-\s*/g, "–");
+    if (!text) return "";
+    if (/^s\.?\s/i.test(text)) return text.replace(/^s\.?\s*/i, "s. ");
+    return `s. ${text}`;
+  }
+  if (Array.isArray(raw)) {
+    const pages = raw.map((item) => String(item).trim()).filter(Boolean);
+    if (pages.length === 0) return "";
+    if (pages.length === 1) return `s. ${pages[0]}`;
+    return `s. ${pages[0]}–${pages[pages.length - 1]}`;
+  }
+  return "";
 }
