@@ -66,15 +66,15 @@ export default function AboutPage() {
           </header>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-bold text-slate-900">Hvorfor bruge det til arbejdet</h2>
+            <h2 className="text-xl font-bold text-slate-900">Formål</h2>
             <p className="text-sm leading-relaxed text-slate-700">
               En miljøvurdering skal kunne holde det primære dokument op mod loven, vejledningerne og de klagenævnsafgørelser, der ligner sagen.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
-              Man arbejder i en sag. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes.
+              Arbejdet foregår i en sag. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
-              Sekundære dokumenter er materiale, der supplerer eller skal sammenholdes med det primære dokument. Grundmappen og de valgte temamapper indeholder et fagligt kurateret kildekorpus, som MVAI baserer sine svar på. Kildehenvisninger gør arbejdet transparent. Hvis kildekorpuset ikke dækker spørgsmålet, vil svaret sige det.
+              Sekundære dokumenter supplerer det primære dokument eller skal sammenholdes med det. Grundmappen og de valgte temamapper indeholder et fagligt kurateret kildekorpus, som svarene bygger på. Kildehenvisninger gør arbejdet transparent. Hvis kildekorpuset ikke dækker spørgsmålet, siger svaret det.
             </p>
           </section>
 
@@ -84,7 +84,7 @@ export default function AboutPage() {
               Grundmappen er altid med. Den indeholder lov, bekendtgørelser og vejledninger, som gælder for alle sager.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
-              Temamapperne er fagområder, man selv slår til, for eksempel Natura 2000, artsbeskyttelse, støj og luft, grundvand eller kyst og landskab. Analysen bruger grundmappen sammen med de mapper, der er valgt på sagen. Flere end tre mapper ad gangen gør søgningen bredere.
+              Temamapperne er fagområder, der slås til på sagen, for eksempel Natura 2000, artsbeskyttelse, støj og luft, grundvand eller kyst og landskab. Analysen bruger grundmappen sammen med de valgte mapper. Flere end tre mapper ad gangen gør søgningen bredere.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
               Klagenævnsafgørelser ligger i de temamapper, de handler om.
@@ -97,7 +97,7 @@ export default function AboutPage() {
               Dokumenterne i arkivet er udvalgt af fagpersoner med uddannelse i miljøvurdering. Et dokument kommer først ind, når det er læst, godkendt og lagt i grundmappen eller i den temamappe, det handler om.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
-              Primære og sekundære dokumenter, som en bruger selv lægger på en sag, bliver på den sag. De blandes ikke ind i det fælles arkiv og bruges ikke til at træne modellerne.
+              Primære og sekundære dokumenter, som brugeren lægger på en sag, bliver på den sag. De blandes ikke ind i det fælles arkiv og bruges ikke til at træne modellerne.
             </p>
           </section>
 
