@@ -88,7 +88,7 @@ export default function AboutPage() {
                 <span className="font-semibold text-slate-900">Grundmappe:</span> Er altid aktiv som det juridiske fundament. Den indeholder miljøvurderingsloven, gældende bekendtgørelser og de overordnede officielle vejledninger.
               </li>
               <li>
-                <span className="font-semibold text-slate-900">Temamapper:</span> Gør det muligt at tilkoble de fagområder, sagen handler om: natur, miljø, landskab og kultur, særlige anlægstyper og proces. Relevante klagenævnsafgørelser ligger i den temamappe, de handler om.
+                <span className="font-semibold text-slate-900">Temamapper:</span> Gør det muligt at tilkoble de fagområder, sagen handler om. De er delt i Natur & Miljø og Projekter & Proces. Relevante klagenævnsafgørelser ligger i den temamappe, de handler om.
               </li>
               <li>
                 <span className="font-semibold text-slate-900">Transparens og kildehenvisninger:</span> Alle besvarelser bygger på det valgte kildekorpus og forsynes med præcise kildehenvisninger. Hvis kildegrundlaget ikke indeholder tilstrækkelige oplysninger til at besvare et spørgsmål, oplyser systemet direkte om dette.
