@@ -58,13 +58,6 @@ export default function AboutPage() {
 
       <main className="flex-1 py-10 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl space-y-10">
-          <header className="space-y-4">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Om MVAI</h1>
-            <p className="text-base leading-relaxed text-slate-700">
-              MVAI er et arbejdsrum til miljøvurdering af planer og projekter i Danmark.
-            </p>
-          </header>
-
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-slate-900">Formål</h2>
             <p className="text-sm leading-relaxed text-slate-700">
@@ -74,7 +67,7 @@ export default function AboutPage() {
               Arbejdet foregår i en sag. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes.
             </p>
             <p className="text-sm leading-relaxed text-slate-700">
-              Sekundære dokumenter supplerer det primære dokument eller skal sammenholdes med det. Grundmappen og de valgte temamapper indeholder et fagligt kurateret kildekorpus, som svarene bygger på. Kildehenvisninger gør arbejdet transparent. Hvis kildekorpuset ikke dækker spørgsmålet, siger svaret det.
+              Sekundære dokumenter supplerer det primære dokument eller skal sammenholdes med det. Grundmappen og de valgte temamapper indeholder et fagligt kurateret kildekorpus. Dette kildekorpus sammen med brugerens egne uploadede og genererede dokumenter udgør det kildemiljø svarene bygger på. Kildehenvisninger gør arbejdet transparent og hvis kildekorpuset ikke dækker spørgsmålet, siger svaret det.
             </p>
           </section>
 
