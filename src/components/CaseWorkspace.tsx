@@ -40,6 +40,7 @@ interface SourceSnippet {
   textSnippet: string;
   pdfUrl: string;
   pdfFileName: string;
+  location?: string;
   relevanceScore: number;
 }
 
@@ -693,6 +694,9 @@ export function CaseWorkspace({
                           >
                             <FileCheck className="w-3 h-3 text-[#2E8B57]" />
                             <span className="truncate max-w-[220px]">{src.title}</span>
+                            {src.location ? (
+                              <span className="text-[10px] font-normal opacity-60 shrink-0">{src.location}</span>
+                            ) : null}
                             <span className="text-[10px] opacity-75">({src.relevanceScore}%)</span>
                           </button>
                         ))}
@@ -875,6 +879,9 @@ export function CaseWorkspace({
                       </h4>
                       <p className="mt-1 text-xs text-slate-500 font-mono">
                         {activeSnippet.citation}
+                        {activeSnippet.location ? (
+                          <span className="text-slate-400"> · {activeSnippet.location}</span>
+                        ) : null}
                       </p>
                       <div className="mt-2 text-[11px] text-slate-600">
                         <span className="font-semibold text-slate-700">Afsnit:</span> {activeSnippet.lawSection}

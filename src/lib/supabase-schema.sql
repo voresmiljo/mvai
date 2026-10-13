@@ -13,7 +13,7 @@ create table if not exists legal_sources (
   theme text,                                -- f.eks. 'natura2000', 'artsbeskyttelse', 'naevnspraksis', 'stoej_og_luft', 'grundvand'
   pdf_file_name text,                        -- Originalt PDF filnavn til download
   pdf_url text,                              -- URL til original PDF
-  metadata jsonb default '{}'::jsonb,        -- Ekstra metadata (dato, myndighed, sagsnr osv.)
+  metadata jsonb default '{}'::jsonb,        -- Ekstra metadata (dato, side, myndighed, sagsnr)
   embedding vector(1536),                    -- Vektor fra text-embedding-3-small (OpenAI)
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
