@@ -172,11 +172,7 @@ export function CaseWorkspace({
       id: "welcome-1",
       sender: "ai",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      text: `Velkommen til sagsrummet for **${
-        scope === "plan" ? "Miljøvurdering af Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
-      }**.
-
-Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til venstre, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor.`,
+      text: "Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til venstre, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor. Til højre finder du både kildehenvisninger og de output du selv producerer undervejs.",
     },
   ]);
 
