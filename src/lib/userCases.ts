@@ -243,3 +243,24 @@ export async function updateOwnCaseTitle(
 
   return { case: mapCase(data as CaseRow) };
 }
+
+export async function deleteOwnCase(id: string): Promise<{ error?: string }> {
+  const user = await getSessionUser();
+  if (!user) return { error: "Log ind, før du sletter sagen." };
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { error: "Login er ikke konfigureret." };
+
+  const { data, error } = await supabase
+    .from("cases")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("id");
+
+  if (error) {
+    return { error: caseTableError(error.message) || "Sagen kunne ikke slettes." };
+  }
+  if (!data || data.length === 0) return { error: "Sagen blev ikke fundet." };
+  return {};
+}

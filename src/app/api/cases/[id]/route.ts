@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { updateOwnCaseTitle } from "@/lib/userCases";
+import { deleteOwnCase, updateOwnCaseTitle } from "@/lib/userCases";
 
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -15,4 +15,21 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   }
 
   return NextResponse.json({ case: result.case });
+}
+
+export async function DELETE(_req: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  const result = await deleteOwnCase(id);
+
+  if (result.error === "Log ind, før du sletter sagen.") {
+    return NextResponse.json({ error: result.error }, { status: 401 });
+  }
+  if (result.error === "Sagen blev ikke fundet.") {
+    return NextResponse.json({ error: result.error }, { status: 404 });
+  }
+  if (result.error) {
+    return NextResponse.json({ error: result.error }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }
