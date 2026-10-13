@@ -23,6 +23,7 @@ type DashboardCase = {
   scopeLabel: string;
   lawReference: string;
   updatedAt: string;
+  createdAt: string;
   previewSummary: string;
   primaryDocument?: string | null;
 };
@@ -200,7 +201,7 @@ export default function DashboardPage() {
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Søg i sagsnummer, titel..."
+                    placeholder="Søg i titel..."
                     className="w-48 sm:w-64 rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs placeholder-slate-400 focus:border-[#0F382C] focus:outline-none"
                   />
                 </div>
@@ -278,9 +279,6 @@ export default function DashboardPage() {
                   >
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-slate-500">
-                          {c.caseNumber}
-                        </span>
                         <span
                           className={`rounded px-2 py-0.5 text-[10px] font-bold ${
                             c.scope === "projekt"
@@ -290,9 +288,6 @@ export default function DashboardPage() {
                         >
                           {c.scopeLabel}
                         </span>
-                        <span className="text-[11px] text-slate-400 font-mono">
-                          • {c.lawReference}
-                        </span>
                       </div>
 
                       <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0F382C] transition-colors truncate">
@@ -300,18 +295,17 @@ export default function DashboardPage() {
                       </h3>
 
                       <p className="text-xs text-slate-600 line-clamp-1">
-                        {c.previewSummary}
+                        Oprettet {c.createdAt}
                       </p>
 
-                      <div className="flex flex-wrap items-center gap-4 pt-1 text-[11px] text-slate-400">
-                        {c.primaryDocument && (
+                      {c.primaryDocument && (
+                        <div className="flex flex-wrap items-center gap-4 pt-1 text-[11px] text-slate-400">
                           <span className="inline-flex items-center gap-1 text-slate-600 font-medium truncate max-w-xs">
                             <FileText className="w-3 h-3 text-[#2E8B57]" />
                             {c.primaryDocument}
                           </span>
-                        )}
-                        <span>Gemt på din konto</span>
-                      </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 text-xs">

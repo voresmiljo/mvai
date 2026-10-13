@@ -9,6 +9,7 @@ export type StoredCase = {
   scopeLabel: string;
   lawReference: string;
   updatedAt: string;
+  createdAt: string;
   previewSummary: string;
   primaryDocument: string | null;
 };
@@ -21,28 +22,37 @@ type CaseRow = {
   law_reference: string;
   preview_summary: string | null;
   primary_document: string | null;
+  created_at: string;
   updated_at: string;
 };
 
-function mapCase(row: CaseRow): StoredCase {
-  const updated = new Date(row.updated_at);
-  const updatedAt = Number.isNaN(updated.getTime())
-    ? row.updated_at
-    : updated.toLocaleString("da-DK", {
+function formatDanishStamp(value: string, withTime: boolean): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return withTime
+    ? date.toLocaleString("da-DK", {
         day: "numeric",
         month: "short",
         hour: "2-digit",
         minute: "2-digit",
+      })
+    : date.toLocaleDateString("da-DK", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
       });
+}
 
+function mapCase(row: CaseRow): StoredCase {
   return {
     id: row.id,
     title: row.title,
     caseNumber: row.case_number,
     scope: row.scope,
-    scopeLabel: row.scope === "plan" ? "Plan / Program" : "Konkret projekt",
+    scopeLabel: row.scope === "plan" ? "Plan / Program" : "projekt",
     lawReference: row.law_reference,
-    updatedAt,
+    updatedAt: formatDanishStamp(row.updated_at, true),
+    createdAt: formatDanishStamp(row.created_at, false),
     previewSummary: row.preview_summary || "Sagen er oprettet og klar til dokumenter.",
     primaryDocument: row.primary_document,
   };
@@ -116,7 +126,7 @@ export async function listOwnCases(): Promise<{ cases: StoredCase[]; error?: str
 
   const { data, error } = await supabase
     .from("cases")
-    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, updated_at")
+    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, created_at, updated_at")
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
 
@@ -138,7 +148,7 @@ export async function getOwnCase(id: string): Promise<StoredCase | null> {
 
   const { data, error } = await supabase
     .from("cases")
-    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, updated_at")
+    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, created_at, updated_at")
     .eq("user_id", user.id)
     .eq("id", id)
     .maybeSingle();
@@ -181,7 +191,7 @@ export async function createOwnCase(scope: "projekt" | "plan"): Promise<{ case?:
       law_reference: lawReference,
       preview_summary: "",
     })
-    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, updated_at")
+    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, created_at, updated_at")
     .single();
 
   if (error || !data) {
@@ -210,7 +220,7 @@ export async function updateOwnCaseTitle(
     .update({ title: trimmed, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("user_id", user.id)
-    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, updated_at")
+    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, created_at, updated_at")
     .maybeSingle();
 
   if (error || !data) {
