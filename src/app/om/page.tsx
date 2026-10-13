@@ -8,7 +8,7 @@ import { Mail, ArrowRight } from "lucide-react";
 export const metadata = {
   title: "Om MVAI.dk",
   description:
-    "Hvorfor MVAI bruges til miljøvurdering, hvordan grundmappen og temamapperne virker, og hvor mange kilder der ligger i arkivet.",
+    "Formålet med Miljøvurderingsvejen, brugerfladen, kvalitetssikringen og hvordan kildevalget påvirker præcisionen.",
 };
 
 function LibraryFigures({ library }: { library: LibraryCounts }) {
@@ -61,47 +61,53 @@ export default function AboutPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-slate-900">Formål</h2>
             <p className="text-sm leading-relaxed text-slate-700">
-              En miljøvurdering skal kunne holde det primære dokument op mod loven, vejledningerne og de klagenævnsafgørelser, der ligner sagen.
-            </p>
-            <p className="text-sm leading-relaxed text-slate-700">
-              Arbejdet foregår i en sag. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes.
-            </p>
-            <p className="text-sm leading-relaxed text-slate-700">
-              Sekundære dokumenter supplerer det primære dokument eller skal sammenholdes med det. Grundmappen og de valgte temamapper indeholder et fagligt kurateret kildekorpus. Dette kildekorpus sammen med brugerens egne uploadede og genererede dokumenter udgør det kildemiljø svarene bygger på. Kildehenvisninger gør arbejdet transparent og hvis kildekorpuset ikke dækker spørgsmålet, siger svaret det.
+              Formålet med Miljøvurderingsvejen (MVAI) er at styrke kvaliteten, overblikket og gennemskueligheden i arbejdet med miljøvurderinger. Platformen gør det muligt hurtigt, objektivt og præcist at holde sagsdokumenter op mod det gældende retsgrundlag, officielle vejledninger og relevant klagenævnspraksis. Ved altid at forankre analyserne direkte i et fagligt kurateret kildekorpus sikres det, at besvarelserne er juridisk underbyggede, sporbare og fri for opdigtede antagelser.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-bold text-slate-900">Grundmappe og temamapper</h2>
+            <h2 className="text-xl font-bold text-slate-900">Brugerflade</h2>
             <p className="text-sm leading-relaxed text-slate-700">
-              Grundmappen er altid med. Den indeholder lov, bekendtgørelser og vejledninger, som gælder for alle sager.
+              Arbejdet på MVAI tilrettelægges i strukturerede sager, hvor brugeren har fuld kontrol over det aktiverede kildegrundlag:
             </p>
-            <p className="text-sm leading-relaxed text-slate-700">
-              Temamapperne er fagområder, der slås til på sagen, for eksempel Natura 2000, artsbeskyttelse, støj og luft, grundvand eller kyst og landskab. Analysen bruger grundmappen sammen med de valgte mapper. Flere end tre mapper ad gangen gør søgningen bredere.
-            </p>
-            <p className="text-sm leading-relaxed text-slate-700">
-              Klagenævnsafgørelser ligger i de temamapper, de handler om.
-            </p>
+            <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-700">
+              <li>
+                <span className="font-semibold text-slate-900">Sagsdokumenter:</span> Enhver analyse tager udgangspunkt i et <span className="font-semibold text-slate-900">primært dokument</span> — f.eks. et planudkast, en miljørapport, en afgørelse eller en screeningsansøgning. Dette kan suppleres af <span className="font-semibold text-slate-900">sekundære dokumenter</span>, som giver ekstra kontekst eller skal sammenholdes med primærdokumentet.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-900">Grundmappe:</span> Er altid aktiv som det juridiske fundament. Den indeholder miljøvurderingsloven, gældende bekendtgørelser og de overordnede officielle vejledninger.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-900">Temamapper:</span> Gør det muligt at tilkoble fagspecifikke emneområder efter behov — f.eks. Natura 2000, artsbeskyttelse, støj og luft, grundvand eller kyst og landskab. Relevante klagenævnsafgørelser er placeret direkte i de temamapper, de omhandler.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-900">Transparens og kildehenvisninger:</span> Alle besvarelser bygger på det valgte kildekorpus og forsynes med præcise kildehenvisninger. Hvis kildegrundlaget ikke indeholder tilstrækkelige oplysninger til at besvare et spørgsmål, oplyser systemet direkte om dette.
+              </li>
+            </ul>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-bold text-slate-900">Sådan vælges kilderne</h2>
-            <p className="text-sm leading-relaxed text-slate-700">
-              Dokumenterne i arkivet er udvalgt af fagpersoner med uddannelse i miljøvurdering. Et dokument kommer først ind, når det er læst, godkendt og lagt i grundmappen eller i den temamappe, det handler om.
-            </p>
-            <p className="text-sm leading-relaxed text-slate-700">
-              Primære og sekundære dokumenter, som brugeren lægger på en sag, bliver på den sag. De blandes ikke ind i det fælles arkiv og bruges ikke til at træne modellerne.
-            </p>
+            <h2 className="text-xl font-bold text-slate-900">Kvalitetssikring og datasikkerhed</h2>
+            <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-700">
+              <li>
+                <span className="font-semibold text-slate-900">Faglig kuratering:</span> Alle dokumenter i det fælles arkiv er udvalgt og kvalitetssikret af fagpersoner med specialistuddannelse inden for miljøvurdering. Et dokument inkluderes først i grundmappen eller temamapperne, når det er gennemlæst og godkendt.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-900">Fuld fortrolighed:</span> Primære og sekundære dokumenter, som brugeren lægger på en specifik sag, forbliver fortrolige og tilknyttet den enkelte sag. De blandes aldrig ind i det fælles arkiv og anvendes <span className="font-semibold text-slate-900">ikke</span> til at træne AI-modellerne.
+              </li>
+            </ul>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-bold text-slate-900">Brug af kilder</h2>
-            <p className="text-sm leading-relaxed text-slate-700">
-              Analysen bliver mere usikker, når den skal holde mange forskellige kilder sammen. Grundmappen er altid med. Hver temamappe, der slås til, lægger et andet fagområde til. Flere kilder med forskellige temaer øger usikkerheden, fordi materialet ikke længere peger samme vej.
-            </p>
-            <p className="text-sm leading-relaxed text-slate-700">
-              Det gælder også brugerens egne dokumenter. Primære og sekundære dokumenter, som er lagt på sagen, indgår i analysen. Output, som brugeren selv har oprettet, indgår kun, når det er slået til. Egne dokumenter og tilvalgt output har et andet indhold end retskilderne i arkivet. Jo flere af dem der er med, jo større er usikkerheden i svaret.
-            </p>
+            <h2 className="text-xl font-bold text-slate-900">Kildeomfang og præcision</h2>
+            <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-700">
+              <li>
+                <span className="font-semibold text-slate-900">Fokuseret kildevalg:</span> Analysens præcision er højest, når kildegrundlaget er skarpt afgrænset. Grundmappen udgør altid det faste fundament, mens hver tilvalgt temamappe tilføjer et specifikt fagområde. Aktivering af mere end tre temamapper ad gangen gør søgningen bredere, hvilket kan øge usikkerheden, da kilderne berører mange forskellige faglige emner.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-900">Inddragelse af egne dokumenter:</span> Brugerens egne oprettede dokumenter og notater indgår kun i analysen, når de aktivt er slået til på sagen. Da egne dokumenter har en anden karakter end de officielle retskilder i arkivet, anbefales det at holde kildevalget så præcist som muligt for at opnå de mest entydige analyser.
+              </li>
+            </ul>
           </section>
 
           <section className="space-y-3">
