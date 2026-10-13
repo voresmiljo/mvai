@@ -12,6 +12,7 @@ interface RequestBody {
   primaryFile?: string | null;
   supplementaryFiles?: string[];
   history?: Array<{ sender: "user" | "ai"; text: string }>;
+  output?: Array<{ id?: string; title?: string; content?: string; date?: string }>;
 }
 
 export async function POST(req: Request) {
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
       primaryFile,
       supplementaryFiles = [],
       history = [],
+      output = [],
     } = body;
 
     if (!message || typeof message !== "string") {
@@ -50,6 +52,21 @@ export async function POST(req: Request) {
     // Hent retskilder via semantisk vektorsøgning i Supabase
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
     const retrievedSources = await searchSupabaseLegalSources(message, scope, themes);
+    const savedOutput = (Array.isArray(output) ? output : [])
+      .filter((item) => item && typeof item.title === "string" && typeof item.content === "string" && item.content.trim())
+      .slice(0, 8)
+      .map((item, index) => ({
+        id: item.id || `output-${index}`,
+        title: item.title!.trim(),
+        citation: `Output: ${item.title!.trim()}`,
+        lawSection: "Gemt output",
+        date: item.date || "",
+        textSnippet: item.content!.trim().slice(0, 8000),
+        pdfUrl: "",
+        pdfFileName: "",
+        relevanceScore: 100,
+      }));
+    const sources = [...savedOutput, ...retrievedSources];
 
     const sourcesContext = retrievedSources.length > 0
       ? retrievedSources
@@ -59,6 +76,15 @@ export async function POST(req: Request) {
           )
           .join("\n\n")
       : "Der er på nuværende tidspunkt ikke uploadet eller indekseret specifikke retskildedokumenter i databasen for de valgte temamapper.";
+
+    const outputContext = savedOutput.length > 0
+      ? savedOutput
+          .map(
+            (item) =>
+              `[OUTPUT: ${item.title}]\nHenvisning: ${item.citation}\nDato: ${item.date || "Ikke angivet"}\nTekst:\n"${item.textSnippet}"`
+          )
+          .join("\n\n")
+      : "Der er ikke gemt output i sagen endnu.";
 
     const systemPrompt = `Du er MVAI – en specialiseret, objektiv og fagligt funderet digital assistent til miljøvurdering af planer, programmer og konkrete projekter i Danmark. Du betjener myndigheder, rådgivere, forskere og miljøorganisationer.
 
@@ -71,10 +97,13 @@ DIT RETSLIGE ARBEJDSOMRÅDE FOR DENNE SAG ER:
 MEDFØLGENDE RETSKILDER OG NÆVNSPRAKSIS FRA SYSTEMETS KILDEMATRIX:
 ${sourcesContext}
 
+GEMT OUTPUT FRA DENNE SAG:
+${outputContext}
+
 DINE PRIMÆRE PRINCIPPER:
 
 1. STRICT KILDEFORANKRING (NUL HALLUCINATIONER):
-Du skal forankre dine svar i ovenstående medfølgende retskilder, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande.
+Du skal forankre dine svar i ovenstående medfølgende retskilder, gemt output fra sagen, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Gemt output bruges som kildemateriale i denne sag og henvises som [Output: titel]. Det er ikke en almindelig retskilde og lægges ikke i temamapperne. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande.
 
 2. HÅNDTERING AF TVIVL OG MANGLER:
 Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte.
@@ -156,7 +185,7 @@ STRUKTUR PÅ DINE SVAR:
         return NextResponse.json({
           text: responseText,
           warning,
-          sources: retrievedSources,
+          sources,
           modelUsed: usedModel,
           isLiveLLM: true,
         });
@@ -204,7 +233,7 @@ STRUKTUR PÅ DINE SVAR:
         return NextResponse.json({
           text: responseText,
           warning,
-          sources: retrievedSources,
+          sources,
           modelUsed: "GPT-4o (Fallback)",
           isLiveLLM: true,
         });
@@ -223,8 +252,16 @@ STRUKTUR PÅ DINE SVAR:
       primaryFile
     );
 
+    const outputNote = savedOutput.length
+      ? `\n\n### Gemt output\n${savedOutput
+          .map((item) => `- [${item.citation}] ${item.textSnippet}`)
+          .join("\n")}`
+      : "";
+
     return NextResponse.json({
       ...dynamicResponse,
+      text: `${dynamicResponse.text}${outputNote}`,
+      sources,
       modelUsed: "Offline Retskildematrix",
       isLiveLLM: false,
     });
