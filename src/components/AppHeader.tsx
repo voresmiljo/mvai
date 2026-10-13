@@ -32,7 +32,16 @@ export function AppHeader() {
       <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Brand & Left Navigation */}
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link
+            href="/"
+            className="flex items-center gap-2 group"
+            onClick={(event) => {
+              if (pathname === "/") {
+                event.preventDefault();
+                window.location.assign("/");
+              }
+            }}
+          >
             <MvLogo size="sm" />
           </Link>
 

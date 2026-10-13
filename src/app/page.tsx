@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
@@ -36,6 +36,12 @@ export default function DashboardPage() {
   const [casesError, setCasesError] = useState("");
   const [creating, setCreating] = useState<"plan" | "projekt" | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  useLayoutEffect(() => {
+    return () => {
+      setCreating(null);
+    };
+  }, []);
   const [selectedFilter, setSelectedFilter] = useState<"alle" | "projekt" | "plan">("alle");
 
   useEffect(() => {
