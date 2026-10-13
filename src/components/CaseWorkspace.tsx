@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { INITIAL_CASES } from "@/lib/casesData";
@@ -92,12 +92,47 @@ export function CaseWorkspace({
     existingCase?.scope ||
     (caseId.includes("plan") ? "plan" : "projekt");
 
-  const caseTitle =
+  const initialTitle =
     forcedTitle ||
     existingCase?.title ||
-    (scope === "plan"
-      ? "Ny Miljøvurdering af Plan / Program (§ 8)"
-      : "Ny VVM-sag / Miljøvurdering af Projekt (§§ 15–25)");
+    (scope === "plan" ? "Ny miljøvurdering af plan / program (§ 8)" : "mv projekt 01");
+  const [titleDraft, setTitleDraft] = useState(initialTitle);
+  const savedTitle = useRef(initialTitle);
+  const skipTitleSave = useRef(false);
+  const caseTitle = titleDraft;
+
+  const saveTitle = async () => {
+    if (skipTitleSave.current) {
+      skipTitleSave.current = false;
+      return;
+    }
+    const next = titleDraft.trim().replace(/\s+/g, " ");
+    if (!next) {
+      setTitleDraft(savedTitle.current);
+      return;
+    }
+    if (next === savedTitle.current) {
+      setTitleDraft(next);
+      return;
+    }
+    const previous = savedTitle.current;
+    setTitleDraft(next);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId)) {
+      savedTitle.current = next;
+      return;
+    }
+    const res = await fetch(`/api/cases/${caseId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: next }),
+    });
+    if (!res.ok) {
+      savedTitle.current = previous;
+      setTitleDraft(previous);
+      return;
+    }
+    savedTitle.current = next;
+  };
 
   const caseNumber =
     forcedCaseNumber ||
@@ -332,16 +367,35 @@ Kildedatabasen er nulstillet og klar. Du kan uploade sagens dokumenter i venstre
               }`}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${scope === "plan" ? "bg-[#2E8B57]" : "bg-slate-600"}`} />
-              <span>{scope === "plan" ? "Plan / Program (§ 8)" : "Projekt (§§ 15–25)"}</span>
+              <span>{scope === "plan" ? "Plan / Program (§ 8)" : "Projekt"}</span>
             </span>
 
-            <span className="text-xs font-bold text-slate-900 truncate max-w-xs md:max-w-md">
-              {caseTitle}
-            </span>
+            {scope === "projekt" ? (
+              <input
+                aria-label="Sagens titel"
+                value={titleDraft}
+                maxLength={120}
+                onChange={(event) => setTitleDraft(event.target.value)}
+                onBlur={() => void saveTitle()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  if (event.key === "Escape") {
+                    skipTitleSave.current = true;
+                    setTitleDraft(savedTitle.current);
+                    event.currentTarget.blur();
+                  }
+                }}
+                className="w-56 max-w-[42vw] rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-bold text-slate-900 outline-none hover:border-slate-200 focus:border-[#0F382C] focus:bg-white md:w-80"
+              />
+            ) : (
+              <span className="text-xs font-bold text-slate-900 truncate max-w-xs md:max-w-md">
+                {caseTitle}
+              </span>
+            )}
 
-            <span className="text-xs text-slate-400 font-mono hidden md:inline">
-              ({caseNumber})
-            </span>
+            {scope === "plan" && (
+              <span className="text-xs text-slate-400 font-mono hidden md:inline">({caseNumber})</span>
+            )}
           </div>
         </div>
 
