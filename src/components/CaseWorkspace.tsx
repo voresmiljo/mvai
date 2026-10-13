@@ -221,6 +221,12 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
           primaryFile,
           supplementaryFiles,
           history: messages.slice(-4).map((m) => ({ sender: m.sender, text: m.text })),
+          output: generatedNotes.map((note) => ({
+            id: note.id,
+            title: note.title,
+            content: note.content,
+            date: note.date,
+          })),
         }),
       });
 
@@ -753,7 +759,7 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                         }}
                         className="text-[11px] font-medium text-[#2E8B57] hover:underline"
                       >
-                        + Gem som notat
+                        + Gem i output
                       </button>
                     </div>
                   )}
@@ -897,11 +903,13 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                         {activeSnippet.textSnippet}
                       </div>
                       <p className="mt-2 text-[10px] text-slate-400 italic">
-                        Uddraget er hentet direkte fra den officielle kildetekst og indekseret uden fortolkende omskrivning.
+                        {activeSnippet.citation.startsWith("Output:")
+                          ? "Teksten er gemt output fra denne sag og bruges som kildemateriale i de næste svar."
+                          : "Uddraget er hentet direkte fra den officielle kildetekst og indekseret uden fortolkende omskrivning."}
                       </p>
                     </div>
 
-                    {/* PDF Download Button (Direkte originalkilde) */}
+                    {activeSnippet.pdfFileName && (
                     <div className="rounded-xl border-2 border-dashed border-[#0F382C]/30 bg-emerald-50/40 p-4">
                       <div className="flex items-center gap-2">
                         <FileText className="w-5 h-5 text-[#0F382C]" />
@@ -924,6 +932,7 @@ Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til ven
                         Klar til vedhæftning som bilag i sagsbehandlingen.
                       </p>
                     </div>
+                    )}
                   </div>
                 ) : (
                   <div className="mt-12 text-center text-slate-400 p-6">
