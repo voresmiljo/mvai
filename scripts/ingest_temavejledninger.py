@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Læg temavejledninger og notater i de mapper, de er tildelt.
+"""Læg vejledninger, notater, love og direktiver i de mapper, de er tildelt.
 
 Hvert afsnit lægges i hver af dokumentets mapper, så det kan findes, når
 mappen er slået til. Tema null er grundmappen. Scope er begge.
@@ -18,6 +18,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+import pymupdf
 from pypdf import PdfReader
 
 DEFAULT_DIR = Path("/home/ubuntu/.cursor/projects/workspace/uploads")
@@ -85,6 +86,71 @@ DOCUMENTS = [
         "note": "",
         "kind": "notat",
         "source_type": "notat",
+    },
+    {
+        "file": "Habitatvejledningen_3f51.pdf",
+        "pdf": "habitatvejledningen-vej-48-2020.pdf",
+        "short": "Habitatvejledningen",
+        "citation_base": "Habitatvejledningen, vejledning nr. 48, december 2020, til bekendtgørelse nr. 1595 af 6. december 2018, Miljøstyrelsen",
+        "date": "december 2020",
+        "authority": "Miljøstyrelsen",
+        "journal": "ISBN 978-87-7038-248-9",
+        "themes": ["natura2000", "artsbeskyttelse"],
+        "note": "",
+        "kind": "habitatvej",
+    },
+    {
+        "file": "Naturbeskyttelsesloven_22be.pdf",
+        "pdf": "naturbeskyttelsesloven-lbk-927-2024.pdf",
+        "short": "Naturbeskyttelsesloven",
+        "citation_base": "Bekendtgørelse af lov om naturbeskyttelse, LBK nr 927 af 28. juni 2024",
+        "date": "28. juni 2024",
+        "authority": "Ministeriet for Natur og Dyrevelfærd",
+        "journal": "Miljømin., j.nr. 2022-10402",
+        "themes": ["artsbeskyttelse", "paragraf_3_natur", "kyst_og_landskab"],
+        "note": "LOV nr 1467 af 10/12/2024 § 1. LOV nr 695 af 20/06/2025 § 1. LOV nr 1761 af 29/12/2025 § 12. LOV nr 263 af 11/02/2026 § 4. LOV nr 355 af 03/03/2026 § 4.",
+        "kind": "retsinfo",
+        "source_type": "lov",
+        "min_chars": 15,
+    },
+    {
+        "file": "Artsfredningsbekendtg_relsen_cb55.pdf",
+        "pdf": "artsfredningsbekendtgoerelsen-bek-521-2021.pdf",
+        "short": "Artsfredningsbekendtgørelsen",
+        "citation_base": "Bekendtgørelse om fredning af visse dyre- og plantearter og pleje af tilskadekommet vildt, BEK nr 521 af 25. marts 2021",
+        "date": "25. marts 2021",
+        "authority": "Ministeriet for Natur og Dyrevelfærd",
+        "journal": "Miljømin., j.nr. 2019-11434",
+        "themes": ["artsbeskyttelse"],
+        "note": "BEK nr 1005 af 02/07/2025.",
+        "kind": "retsinfo",
+        "source_type": "bekendtgoerelse",
+        "min_chars": 15,
+    },
+    {
+        "file": "Vejledning_om_streng_beskyttelse_af_dyrearter_af_f_llesskabsbetydning_i_henhold_til_habitatdirektivet_de5a.pdf",
+        "pdf": "vejledning-streng-beskyttelse-bilag-iv-2021-c-496.pdf",
+        "short": "Vejledning om streng beskyttelse af bilag IV-arter",
+        "citation_base": "Europa-Kommissionens vejledning om streng beskyttelse af dyrearter af fællesskabsbetydning i henhold til habitatdirektivet, 2021/C 496/01, EUT C 496 af 9. december 2021",
+        "date": "9. december 2021",
+        "authority": "Europa-Kommissionen",
+        "journal": "2021/C 496/01",
+        "themes": ["artsbeskyttelse"],
+        "note": "",
+        "kind": "kommission",
+    },
+    {
+        "file": "EU_direktiv_for_bevaring_af_naturtyper_samt_vilde_dyr_og_planter_7e60.pdf",
+        "pdf": "habitatdirektiv-92-43-eoef.pdf",
+        "short": "Habitatdirektivet",
+        "citation_base": "Rådets direktiv 92/43/EØF af 21. maj 1992 om bevaring af naturtyper samt vilde dyr og planter, EFT L 206 af 22. juli 1992",
+        "date": "21. maj 1992",
+        "authority": "Rådet for De Europæiske Fællesskaber",
+        "journal": "EFT L 206 af 22. juli 1992",
+        "themes": ["artsbeskyttelse", "natura2000"],
+        "note": "Filen er direktivet fra 1992. Senere ændringer er ikke indarbejdet i teksten.",
+        "kind": "habitatdir",
+        "source_type": "direktiv",
     },
 ]
 
@@ -369,7 +435,7 @@ def glue_short(sections: list[tuple[str, list[tuple[str, int]]]]) -> list[tuple[
     pending: list[tuple[str, int]] = []
     for heading, section_rows in sections:
         text = "\n".join(line for line, _page in section_rows).strip()
-        if len(text) < 180:
+        if len(text) < 100:
             pending.extend(section_rows)
             continue
         if pending:
@@ -526,19 +592,446 @@ def split_notat(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, 
     return glue_short(sections)
 
 
+RETSINFO_FOOTER = re.compile(r"^(LBK|BEK|VEJ|LOV)\s+nr\s+.+\s(\d+)\s*$")
+RETSINFO_SECTION = re.compile(r"^§\s*(\d+)(?:\s+([a-z]))?\.\s+\S")
+RETSINFO_ANNEX = re.compile(r"^Bilag\s+(\d+)\b")
+RETSINFO_CHAPTER = re.compile(r"^Kapitel\s+\d+")
+RETSINFO_AMENDMENT = re.compile(r"^Lov nr\.\s+\d+\b")
+HABITAT_CHAPTER = re.compile(r"^(10|[1-9])\.\s+[A-ZÆØÅ]")
+HABITAT_NUMBER_ONLY = re.compile(r"^\d+(?:\.\d+){1,6}\.?$")
+HABITAT_NUMBER_TITLE = re.compile(r"^\d+(?:\.\d+){1,6}\s+[A-ZÆØÅ]")
+COMMISSION_NUMBER = re.compile(r"^\d+(?:\.\d+)*\.$")
+COMMISSION_DATE = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}$")
+DIRECTIVE_ARTICLE = re.compile(r"^Artikel\s+(\d+)$")
+DIRECTIVE_ANNEX = re.compile(r"^BILAG\s+([IVX]+)$")
+DIRECTIVE_FOOTNOTE = re.compile(r"^\(\s*[\d»«>\*][^)]{0,3}\)")
+DIRECTIVE_GLUE = (
+    ("bevaringssstatus", "bevaringsstatus"),
+    ("arteraffællesskabsbetydning", "arter af fællesskabsbetydning"),
+    ("affællesskabsbetydning", "af fællesskabsbetydning"),
+    ("^rtikel", "Artikel"),
+    ("herafer", "heraf er"),
+    ("afdem", "af dem"),
+    ("derer", "der er"),
+)
+
+
+def join_hyphen_rows(rows: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    joined: list[tuple[str, int]] = []
+    for line, page in rows:
+        if joined:
+            merged = join_break(joined[-1][0], line)
+            if merged:
+                joined[-1] = (merged, joined[-1][1])
+                continue
+        joined.append((line, page))
+    return joined
+
+
+def read_retsinfo(path: Path) -> list[tuple[str, int]]:
+    reader = PdfReader(str(path))
+    rows: list[tuple[str, int]] = []
+    for page in reader.pages:
+        raw = (page.extract_text() or "").replace("\xa0", " ")
+        if "Udskriftsdato" in raw and "Senere ændringer" in raw:
+            continue
+        printed = None
+        kept: list[str] = []
+        for line in raw.splitlines():
+            compact = " ".join(line.replace("\u00ad", "").split())
+            if not compact:
+                continue
+            footer = RETSINFO_FOOTER.match(compact)
+            if footer:
+                printed = int(footer.group(2))
+                continue
+            kept.append(re.sub(r"([a-zæøå])(\d+\))", r"\1 \2", compact))
+        label = printed or 0
+        for line in kept:
+            if rows and rows[-1][0].endswith("-") and re.match(r"^[a-zæøå]", line):
+                rows[-1] = (rows[-1][0][:-1] + line, rows[-1][1])
+            else:
+                rows.append((line, label))
+    return rows
+
+
+def split_retsinfo(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+    sections: list[tuple[str, list[tuple[str, int]]]] = []
+    preamble: list[tuple[str, int]] = []
+    chapter: list[tuple[str, int]] = []
+    current_key = ""
+    current: list[tuple[str, int]] = []
+    amendment: list[tuple[str, int]] = []
+    in_amendment = False
+    seen_annex = False
+
+    def flush() -> None:
+        nonlocal current_key, current
+        if current_key and current:
+            sections.append((current_key, current))
+        current_key = ""
+        current = []
+
+    for line, page in rows:
+        if in_amendment:
+            if RETSINFO_ANNEX.match(line):
+                if amendment:
+                    sections.append(("Overgangsbestemmelser", amendment))
+                in_amendment = False
+                amendment = []
+                seen_annex = True
+                current_key = f"Bilag {RETSINFO_ANNEX.match(line).group(1)}"
+                current = [(line, page)]
+                continue
+            amendment.append((line, page))
+            continue
+
+        annex = RETSINFO_ANNEX.match(line)
+        section = RETSINFO_SECTION.match(line)
+        if not current_key and not chapter and not annex and not section and not RETSINFO_CHAPTER.match(line):
+            preamble.append((line, page))
+            continue
+
+        if RETSINFO_CHAPTER.match(line):
+            flush()
+            chapter = [(line, page)]
+            continue
+        if chapter and not annex and not section:
+            chapter.append((line, page))
+            continue
+        if not seen_annex and not annex and RETSINFO_AMENDMENT.match(line):
+            flush()
+            in_amendment = True
+            amendment = [(line, page)]
+            chapter = []
+            continue
+        if annex or section:
+            flush()
+            if annex:
+                seen_annex = True
+                current_key = f"Bilag {annex.group(1)}"
+            else:
+                number, letter = section.group(1), section.group(2)
+                current_key = f"§ {number} {letter}" if letter else f"§ {number}"
+            current = chapter + [(line, page)]
+            chapter = []
+            continue
+        if current_key:
+            current.append((line, page))
+
+    flush()
+    if amendment:
+        sections.append(("Overgangsbestemmelser", amendment))
+    if preamble and len("\n".join(line for line, _ in preamble)) > 40:
+        sections.insert(0, ("Indledning", preamble))
+    return sections
+
+
+def habitatvej_page(text: str, fallback: int) -> int:
+    match = re.search(r"(\d{1,3})\s+Miljøstyrelsen\s*/\s*Habitatvejledningen", text)
+    if not match:
+        match = re.search(r"Habitatvejledningen\s*/\s*2020\s+(\d{1,3})", text)
+    return int(match.group(1)) if match else fallback
+
+
+def title_continuation(previous: str, nxt: str) -> bool:
+    if not nxt or HABITAT_CHAPTER.match(nxt) or HABITAT_NUMBER_ONLY.match(nxt) or HABITAT_NUMBER_TITLE.match(nxt):
+        return False
+    if re.match(r"^[a-zæøå]", nxt):
+        return True
+    if previous.rstrip().endswith("(") or previous.rstrip().endswith("bilag"):
+        return True
+    return len(nxt) <= 30 and not re.search(r"\b(skal|kan|må|er|har)\b", nxt)
+
+
+def short_title(line: str) -> bool:
+    if not line or len(line) > 120 or not re.match(r"^[A-ZÆØÅ]", line):
+        return False
+    if line.endswith("-") or line.endswith(","):
+        return False
+    return not ("," in line and re.search(r"\b(at|når|hvis|som|der)\b", line))
+
+
+def read_habitatvej(path: Path) -> list[tuple[str, int]]:
+    document = pymupdf.open(path)
+    rows: list[tuple[str, int]] = []
+    skipping_toc = False
+    for index, page in enumerate(document):
+        raw = page.get_text("text") or ""
+        label = habitatvej_page(raw, index + 1)
+        lines = [" ".join(line.split()) for line in raw.splitlines()]
+        lines = [line for line in lines if line and "Miljøstyrelsen / Habitatvejledningen" not in line]
+        kept: list[str] = []
+        for line_index, line in enumerate(lines):
+            if line == "Indholdsfortegnelse":
+                skipping_toc = True
+                continue
+            if skipping_toc:
+                following = lines[line_index + 1] if line_index + 1 < len(lines) else ""
+                if line == "1. Indledning" and not re.fullmatch(r"\d{1,3}", following):
+                    skipping_toc = False
+                else:
+                    continue
+            if re.fullmatch(r"\d{1,3}", line):
+                continue
+            line = re.sub(r"([a-zæøå]{3,})(\d{1,3})\b", r"\1 \2", line)
+            kept.append(line)
+        for line in kept:
+            rows.append((line, label))
+    return join_hyphen_rows(rows)
+
+
+def split_habitatvej(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+    sections: list[tuple[str, list[tuple[str, int]]]] = []
+    heading = ""
+    current: list[tuple[str, int]] = []
+
+    def flush() -> None:
+        nonlocal heading, current
+        if heading and current:
+            sections.append((heading, current))
+        heading = ""
+        current = []
+
+    index = 0
+    while index < len(rows):
+        line, page = rows[index]
+        number_only = HABITAT_NUMBER_ONLY.match(line)
+        chapter = HABITAT_CHAPTER.match(line) and " kan " not in line and not re.search(r"\.\d{2,}$", line)
+        numbered = HABITAT_NUMBER_TITLE.match(line)
+        start = line == "Forord" or chapter or numbered or number_only
+        if number_only:
+            nxt = rows[index + 1][0] if index + 1 < len(rows) else ""
+            start = short_title(nxt)
+        if start and (current or line == "Forord"):
+            flush()
+            parts = [line]
+            index += 1
+            if number_only and index < len(rows):
+                parts.append(rows[index][0])
+                page = rows[index][1]
+                index += 1
+            while index < len(rows) and title_continuation(parts[-1], rows[index][0]):
+                parts.append(rows[index][0])
+                index += 1
+            heading = " ".join(parts).strip()
+            current = [(heading, page)]
+            continue
+        if not heading and line == "Forord":
+            heading = line
+        if heading or line == "Forord":
+            if not heading:
+                heading = "Forord"
+            current.append((line, page))
+        index += 1
+    flush()
+    return glue_short(sections)
+
+
+def commission_page(text: str, fallback: int) -> int:
+    match = re.search(r"C\s*496/(\d+)", text)
+    return int(match.group(1)) if match else fallback
+
+
+def read_kommission(path: Path) -> list[tuple[str, int]]:
+    document = pymupdf.open(path)
+    rows: list[tuple[str, int]] = []
+    started = False
+    for index, page in enumerate(document):
+        raw = page.get_text("text") or ""
+        label = commission_page(raw, index + 1)
+        for raw_line in raw.splitlines():
+            line = " ".join(raw_line.split())
+            if not line or line == "DA" or line.startswith("Den Europæiske Unions Tidende"):
+                continue
+            if re.match(r"^C\s*496/", line) or COMMISSION_DATE.match(line):
+                continue
+            if line == "FORORD":
+                started = True
+            if started:
+                rows.append((line, label))
+    return join_hyphen_rows(rows)
+
+
+def split_kommission(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+    sections: list[tuple[str, list[tuple[str, int]]]] = []
+    heading = ""
+    current: list[tuple[str, int]] = []
+    annex_name = ""
+
+    def flush() -> None:
+        nonlocal heading, current
+        if heading and current:
+            sections.append((heading, current))
+        heading = ""
+        current = []
+
+    index = 0
+    while index < len(rows):
+        line, page = rows[index]
+        annex = re.match(r"^BILAG\s+[IVX]+$", line)
+        number = COMMISSION_NUMBER.match(line) and not COMMISSION_DATE.match(line)
+        if annex or number or line == "FORORD":
+            nxt = rows[index + 1][0] if index + 1 < len(rows) else ""
+            accept = True
+            if number:
+                multi = "." in line[:-1]
+                accept = not nxt.startswith("(") and len(nxt) <= (145 if multi else 100)
+            if accept:
+                if current:
+                    flush()
+                if line == "FORORD":
+                    heading = line
+                    current = [(line, page)]
+                    index += 1
+                    continue
+                title = nxt if nxt and len(nxt) <= 145 and not nxt.startswith("(") else ""
+                if annex:
+                    annex_name = line
+                heading = f"{line} {title}".strip() if title else line
+                if number and annex_name == "BILAG III":
+                    heading = f"Bilag III, {heading}"
+                current = [(heading, page)]
+                index += 2 if title else 1
+                continue
+        if heading:
+            current.append((line, page))
+        index += 1
+    flush()
+    return glue_short(sections)
+
+
+def tidy_directive_line(line: str) -> str:
+    line = re.sub(r"\s+([,.;:)])", r"\1", line)
+    line = re.sub(r"(\()\s+", r"\1", line)
+    line = re.sub(r"(?i)(artikel\s+)(\d)\s+(\d)\b", r"\1\2\3", line)
+    for source, target in DIRECTIVE_GLUE:
+        line = line.replace(source, target)
+    return line
+
+
+def read_habitatdir(path: Path) -> list[tuple[str, int]]:
+    document = pymupdf.open(path)
+    rows: list[tuple[str, int]] = []
+    for index, page in enumerate(document):
+        raw = page.get_text("text") or ""
+        match = re.search(r"L\s*206\s*/\s*(\d+)", raw)
+        label = int(match.group(1)) if match else index + 1
+        collected: list[tuple[float, float, str]] = []
+        for block in (page.get_text("dict").get("blocks") or []):
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines") or []:
+                x0, y0, _x1, _y1 = line["bbox"]
+                if y0 < 82:
+                    continue
+                text = tidy_directive_line(" ".join("".join(span["text"] for span in line["spans"]).split()))
+                if not text or ("Tidende" in text and len(text) < 70):
+                    continue
+                collected.append((y0, x0, text))
+        leftish = [item for item in collected if item[1] < 100]
+        rightish = [item for item in collected if item[1] > 280]
+        two = len(leftish) >= 3 and len(rightish) >= 3
+        if not two:
+            ordered = [item[2] for item in sorted(collected, key=lambda item: (item[0], item[1]))]
+        else:
+            body_y = min(item[0] for item in leftish + rightish)
+            pre = [item for item in collected if item[0] < body_y - 2]
+            left = [item for item in collected if item[0] >= body_y - 2 and item[1] < 270]
+            right = [item for item in collected if item[0] >= body_y - 2 and item[1] >= 270]
+            ordered = [item[2] for item in sorted(pre, key=lambda item: item[0])]
+            body_lines: list[str] = []
+            note_lines: list[str] = []
+            for item in sorted(left, key=lambda item: item[0]) + sorted(right, key=lambda item: item[0]):
+                if DIRECTIVE_FOOTNOTE.match(item[2]):
+                    note_lines.append(item[2])
+                else:
+                    body_lines.append(item[2])
+            ordered.extend(body_lines)
+            ordered.extend(note_lines)
+        for line in ordered:
+            rows.append((line, label))
+    return repair_directive_breaks(rows)
+
+
+def repair_directive_breaks(rows: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    marker = re.compile(r"^(?:\d+\.|\d+\)|\d+\.\d+(?:\s+x\s+\d+\.\d+)?)$")
+    current = rows
+    for _ in range(6):
+        joined: list[tuple[str, int]] = []
+        index = 0
+        changed = False
+        while index < len(current):
+            line, page = current[index]
+            broken = line.endswith("-") or line.endswith("\u00ad")
+            if broken and index + 2 < len(current) and marker.match(current[index + 1][0]) and re.match(r"^[a-zæøå]", current[index + 2][0]):
+                merged = join_break(line, current[index + 2][0])
+                if merged:
+                    joined.append(current[index + 1])
+                    joined.append((merged, page))
+                    index += 3
+                    changed = True
+                    continue
+            if broken and index + 1 < len(current) and re.match(r"^\d{4}\b", current[index + 1][0]):
+                joined.append((line[:-1] + "-" + current[index + 1][0], page))
+                index += 2
+                changed = True
+                continue
+            if broken and index + 1 < len(current):
+                merged = join_break(line, current[index + 1][0])
+                if merged:
+                    joined.append((merged, page))
+                    index += 2
+                    changed = True
+                    continue
+            joined.append((line, page))
+            index += 1
+        current = joined
+        if not changed:
+            break
+    return current
+
+
+def split_habitatdir(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+    cuts = [index for index, (line, _page) in enumerate(rows) if DIRECTIVE_ARTICLE.match(line) or DIRECTIVE_ANNEX.match(line)]
+    if len(cuts) < 10:
+        raise RuntimeError(f"Fandt for få artikler i habitatdirektivet ({len(cuts)})")
+    sections: list[tuple[str, list[tuple[str, int]]]] = []
+    if cuts[0] > 0:
+        sections.append(("Betragtninger", rows[: cuts[0]]))
+    for offset, start in enumerate(cuts):
+        end = cuts[offset + 1] if offset + 1 < len(cuts) else len(rows)
+        line = rows[start][0]
+        article = DIRECTIVE_ARTICLE.match(line)
+        annex = DIRECTIVE_ANNEX.match(line)
+        heading = f"Artikel {article.group(1)}" if article else f"Bilag {annex.group(1)}"
+        sections.append((heading, rows[start:end]))
+    return sections
+
+
 def build(folder: Path) -> list[dict]:
     chunks: list[dict] = []
     for spec in DOCUMENTS:
-        if spec["kind"] == "notat":
+        kind = spec["kind"]
+        if kind == "notat":
             rows = merge_wraps(read_notat(folder / spec["file"]), "notat")
             sections = split_notat(rows)
+        elif kind == "retsinfo":
+            sections = split_retsinfo(read_retsinfo(folder / spec["file"]))
+        elif kind == "habitatvej":
+            sections = split_habitatvej(read_habitatvej(folder / spec["file"]))
+        elif kind == "kommission":
+            sections = split_kommission(read_kommission(folder / spec["file"]))
+        elif kind == "habitatdir":
+            sections = split_habitatdir(read_habitatdir(folder / spec["file"]))
         else:
-            rows = merge_wraps(read_rows(folder / spec["file"], spec["kind"]), spec["kind"])
-            sections = split_wildlife(rows) if spec["kind"] == "wildlife" else split_numbered(rows, spec["kind"])
+            rows = merge_wraps(read_rows(folder / spec["file"], kind), kind)
+            sections = split_wildlife(rows) if kind == "wildlife" else split_numbered(rows, kind)
+        minimum = spec.get("min_chars", 80)
         for heading, section_rows in sections:
             for label, part in pack(heading, section_rows):
                 text = "\n".join(line for line, _page in part).strip()
-                if len(text) < 80:
+                if len(text) < minimum:
                     continue
                 title = f"{spec['short']} {label}"
                 if len(title) > 140:
