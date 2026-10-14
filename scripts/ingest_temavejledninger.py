@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Læg tre temavejledninger i de mapper, de er tildelt.
+"""Læg temavejledninger og notater i de mapper, de er tildelt.
 
 Hvert afsnit lægges i hver af dokumentets mapper, så det kan findes, når
-mappen er slået til. Scope er begge. Ordlyden følger filen.
+mappen er slået til. Tema null er grundmappen. Scope er begge.
+Ordlyden følger filen.
 """
 
 from __future__ import annotations
@@ -58,6 +59,32 @@ DOCUMENTS = [
         "themes": ["ve_anlaeg", "byudvikling"],
         "note": "Primært til planlægning.",
         "kind": "wildlife",
+    },
+    {
+        "file": "Notat_om_de_juridiske_rammer_for_vurdering_af_p_virkning_af_bilag_IV_-_arters_levesteder_558d.pdf",
+        "pdf": "notat-bilag-iv-arters-levesteder-2024.pdf",
+        "short": "Notat om bilag IV-arters levesteder",
+        "citation_base": "Notat om de juridiske rammer for vurdering af påvirkning af bilag IV-arters levesteder, Styrelsen for Grøn Arealomlægning og Vandmiljø, 25. oktober 2024, j.nr. 2024-63244",
+        "date": "25. oktober 2024",
+        "authority": "Styrelsen for Grøn Arealomlægning og Vandmiljø",
+        "journal": "j.nr. 2024-63244",
+        "themes": ["artsbeskyttelse"],
+        "note": "",
+        "kind": "notat",
+        "source_type": "notat",
+    },
+    {
+        "file": "Officialprincippet_i_miljoevurderingskontekst_17._december_2025_819c.pdf",
+        "pdf": "notat-officialprincippet-miljoevurdering-2024.pdf",
+        "short": "Officialprincippet i miljøvurderingskontekst",
+        "citation_base": "Notat om officialprincippet i miljøvurderingskontekst, Styrelsen for Grøn Arealomlægning og Vandmiljø, 17. december 2024, j.nr. 2024-63244",
+        "date": "17. december 2024",
+        "authority": "Styrelsen for Grøn Arealomlægning og Vandmiljø",
+        "journal": "j.nr. 2024-63244",
+        "themes": [None, "sagsbehandling", "artsbeskyttelse"],
+        "note": "",
+        "kind": "notat",
+        "source_type": "notat",
     },
 ]
 
@@ -166,9 +193,91 @@ def read_rows(path: Path, kind: str) -> list[tuple[str, int]]:
     return rows
 
 
+def is_letterhead(line: str) -> bool:
+    if line == "NOTAT" or line.startswith("NOTAT ") or line in {"Vandmiljø", "Miljøvurdering og Plan"} or re.fullmatch(r"20(?:24|25)", line):
+        return True
+    prefixes = (
+        "Styrelsen for Grøn Arealomlægning",
+        "og Vandmiljø",
+        "Tlf.",
+        "J.nr.",
+        "Ref.",
+        "Den 25. oktober",
+        "Den 17. december",
+    )
+    return any(line.startswith(prefix) for prefix in prefixes)
+
+
+def read_notat(path: Path) -> list[tuple[str, int]]:
+    reader = PdfReader(str(path))
+    marked: list[tuple[str, int, bool]] = []
+    for index, page in enumerate(reader.pages):
+        raw_text = page.extract_text(extraction_mode="layout") or ""
+        collapsed: list[tuple[str, bool]] = []
+        for raw in raw_text.splitlines():
+            line = " ".join(raw.replace("\xa0", " ").split())
+            if line:
+                collapsed.append((line, is_hyphen_break(raw)))
+        page_no = next((int(line) for line, _broken in collapsed if re.fullmatch(r"\d{1,2}", line)), index + 1)
+        for line, broken in collapsed:
+            if is_letterhead(line) or re.fullmatch(r"\d{1,2}", line):
+                continue
+            marked.append((line, page_no, broken))
+    rows: list[tuple[str, int]] = []
+    index = 0
+    while index < len(marked):
+        line, page, broken = marked[index]
+        if broken and index + 1 < len(marked):
+            nxt = marked[index + 1][0]
+            first = re.split(r"[\s,.;:]", nxt, maxsplit=1)[0].lower()
+            if line.rstrip().endswith("-") and first in {"eller", "og", "samt"}:
+                joined = line.rstrip()[:-1].rstrip() + "- " + nxt
+            else:
+                joined = join_break(line, nxt)
+            if joined:
+                marked[index + 1] = (joined, page, marked[index + 1][2])
+                index += 1
+                continue
+        rows.append((repair_notat_line(line), page))
+        index += 1
+    return rows
+
+
+def repair_notat_line(line: str) -> str:
+    line = re.sub(r"\b([A-E]\.\d+)\.\s+(\d+)\.", r"\1.\2.", line)
+    for old, new in (
+        ("yngleeller", "yngle- eller"),
+        ("a rters", "arters"),
+        ("p rojektets", "projektets"),
+        ("grundlæggend e ", "grundlæggende "),
+        ("gør e ", "gøre "),
+        ("screenin g ", "screening "),
+        ("se s bort", "ses bort"),
+        ("de t areal", "det areal"),
+        ("f andtes", "fandtes"),
+        ("t ilgang", "tilgang"),
+        ("fasts ætter", "fastsætter"),
+        ("IV -art", "IV-art"),
+    ):
+        line = line.replace(old, new)
+    return line
+
+
+def is_notat_heading(line: str) -> bool:
+    if re.match(r"^Del\s+[A-C]\.", line) or re.match(r"^Trin\s+\d", line) or re.match(r"^[A-E]\.\d", line):
+        return True
+    if not re.match(r"^[A-E]\.\s+[A-ZÆØÅ]", line):
+        return False
+    letters = [char for char in line if char.isalpha()]
+    upper = sum(1 for char in letters if char.isupper())
+    return bool(letters) and upper >= max(8, int(len(letters) * 0.6))
+
+
 def is_heading(line: str, kind: str) -> bool:
     if kind == "wildlife":
         return bool(re.fullmatch(r"Section\s+\d+(?:\.\d+)?", line))
+    if kind == "notat":
+        return is_notat_heading(line)
     if kind == "sgav" and (line in {"Forord", "Læsevejledning"} or re.fullmatch(r"Bilag\s+\d+", line)):
         return True
     if kind == "vind" and re.match(r"^TILLÆG\s+[A-Z]\b", line) and len(line) < 160:
@@ -191,6 +300,10 @@ def is_heading(line: str, kind: str) -> bool:
 
 
 def continuation(line: str, nxt: str, kind: str) -> bool:
+    if kind == "notat":
+        if is_heading(nxt, kind) or len(nxt) > 140:
+            return False
+        return bool(re.match(r"^[a-zæøå]", nxt) or (nxt.isupper() and len(nxt) < 90))
     if kind == "wildlife" or is_heading(nxt, kind):
         return False
     if len(nxt) > 70 or nxt.endswith(".") or nxt.endswith("?"):
@@ -395,11 +508,33 @@ def pack(heading: str, rows: list[tuple[str, int]]) -> list[tuple[str, list[tupl
     return pieces
 
 
+def split_notat(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+    sections: list[tuple[str, list[tuple[str, int]]]] = []
+    heading = "Indledning"
+    current: list[tuple[str, int]] = []
+    for line, page in rows:
+        if is_notat_heading(line) and current:
+            sections.append((heading, current))
+            heading = line
+            current = [(line, page)]
+        else:
+            if is_notat_heading(line):
+                heading = line
+            current.append((line, page))
+    if current:
+        sections.append((heading, current))
+    return glue_short(sections)
+
+
 def build(folder: Path) -> list[dict]:
     chunks: list[dict] = []
     for spec in DOCUMENTS:
-        rows = merge_wraps(read_rows(folder / spec["file"], spec["kind"]), spec["kind"])
-        sections = split_wildlife(rows) if spec["kind"] == "wildlife" else split_numbered(rows, spec["kind"])
+        if spec["kind"] == "notat":
+            rows = merge_wraps(read_notat(folder / spec["file"]), "notat")
+            sections = split_notat(rows)
+        else:
+            rows = merge_wraps(read_rows(folder / spec["file"], spec["kind"]), spec["kind"])
+            sections = split_wildlife(rows) if spec["kind"] == "wildlife" else split_numbered(rows, spec["kind"])
         for heading, section_rows in sections:
             for label, part in pack(heading, section_rows):
                 text = "\n".join(line for line, _page in part).strip()
@@ -421,7 +556,7 @@ def build(folder: Path) -> list[dict]:
                     "citation": f"{spec['citation_base']}, {label}",
                     "law_section": label,
                     "content": text,
-                    "source_type": "vejledning",
+                    "source_type": spec.get("source_type", "vejledning"),
                     "scope": "begge",
                     "pdf_file_name": spec["pdf"],
                     "metadata": metadata,
@@ -496,11 +631,18 @@ def upload(chunks: list[dict]) -> None:
 
 def main() -> None:
     folder = Path(sys.argv[1]) if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else DEFAULT_DIR
+    only = None
+    for arg in sys.argv[1:]:
+        if arg.startswith("--only="):
+            only = {part.strip() for part in arg.split("=", 1)[1].split(",") if part.strip()}
     chunks = build(folder)
+    if only:
+        chunks = [chunk for chunk in chunks if chunk["pdf_file_name"] in only]
     summary: dict[str, dict[str, int]] = {}
     for chunk in chunks:
         slot = summary.setdefault(chunk["pdf_file_name"], {})
-        slot[chunk["theme"]] = slot.get(chunk["theme"], 0) + 1
+        theme = chunk["theme"] or "grundmappe"
+        slot[theme] = slot.get(theme, 0) + 1
     lengths = [len(chunk["content"]) for chunk in chunks]
     print(json.dumps({
         "rows": len(chunks),
