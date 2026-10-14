@@ -24,6 +24,15 @@ export function renumberCitations<T>(text: string, sources: T[]): { text: string
   return { text: nextText, sources: [...cited, ...rest] };
 }
 
+export function splitLegalRisk(text: string): { text: string; warning?: string } {
+  const match = text.match(/(?:^|\n)\s*(?:\*\*)?\s*Retslig risikofaktor:\s*(?:\*\*)?\s*([\s\S]+?)\s*$/i);
+  if (!match || match.index === undefined) return { text };
+  const warning = match[1].replace(/\*\*/g, "").trim();
+  if (!warning) return { text };
+  const body = text.slice(0, match.index).replace(/\s+$/, "");
+  return { text: body || warning, warning };
+}
+
 interface RequestBody {
   message: string;
   scope: "projekt" | "plan";
@@ -72,10 +81,11 @@ export async function POST(req: Request) {
 
     // Hent retskilder via semantisk vektorsøgning i Supabase
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
-    const retrievedSources = await searchSupabaseLegalSources(message, scope, themes);
+    const retrievedSources = (await searchSupabaseLegalSources(message, scope, themes)).slice(0, 5);
+    const outputSlots = Math.max(0, 8 - retrievedSources.length);
     const savedOutput = (Array.isArray(output) ? output : [])
       .filter((item) => item && typeof item.title === "string" && typeof item.content === "string" && item.content.trim())
-      .slice(0, 8)
+      .slice(0, outputSlots)
       .map((item, index) => ({
         id: item.id || `output-${index}`,
         title: item.title!.trim(),
@@ -93,7 +103,7 @@ export async function POST(req: Request) {
     const sourceNumber = (item: (typeof sources)[number]) => sources.indexOf(item) + 1;
     const formatSource = (item: (typeof sources)[number]) => {
       const kind = item.citation.startsWith("Output:") ? "GEMT OUTPUT" : "RETSKILDE";
-      return `[${sourceNumber(item)}] ${kind}: ${item.title}\nHenvisning: ${item.citation}\nAfsnit: ${item.lawSection}\nDato: ${item.date || "Ikke angivet"}\nUddrag:\n"${item.textSnippet}"`;
+      return `[${sourceNumber(item)}] ${item.title}\nAfsnit: ${item.lawSection || "Ikke angivet"}\n${kind}\nHenvisning: ${item.citation}\nDato: ${item.date || "Ikke angivet"}\nUddrag:\n"${item.textSnippet}"`;
     };
 
     const sourcesContext = retrievedSources.length > 0
@@ -118,36 +128,41 @@ ${sourcesContext}
 GEMT OUTPUT FRA DENNE SAG:
 ${outputContext}
 
-DINE PRIMÆRE PRINCIPPER:
+DIN ROLLE:
+Du er en erfaren ekspert i den danske miljøvurderingslov, habitatdirektivet, forvaltningsretten og klagenævnspraksis. Din opgave er at syntetisere kilderne til ét sammenhængende svar. Du remser ikke kilderne op én for én.
 
-1. STRICT KILDEFORANKRING (NUL HALLUCINATIONER):
-Du skal forankre dine svar i ovenstående medfølgende retskilder, gemt output fra sagen, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Gemt output bruges som kildemateriale i denne sag og henvises med det nummer, det har i kildelisten. Det er ikke en almindelig retskilde og lægges ikke i temamapperne. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande.
+1. SYNTESE:
+Væv oplysningerne fra kilderne sammen om brugerens spørgsmål. Skriv ikke "Kilde 1 siger ... Kilde 2 siger ...". Underbyg løbende med kildens nummer.
 
-2. HÅNDTERING AF TVIVL OG MANGLER:
-Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte. Gør det kun, når der er reel tvivl om det stillede spørgsmål. Skriv ikke et standardforbehold om manglende sagsakter, når kilderne besvarer spørgsmålet.
+2. KILDEFORANKRING:
+Forankr svaret i de medfølgende retskilder, gemt output fra sagen, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Gemt output er kildemateriale i denne sag. Det er ikke en almindelig retskilde og lægges ikke i temamapperne. Opdigt ikke antagelser, og supplér ikke med uverificerede påstande.
 
-3. UVILDIGHED OG OBJEKTIVITET:
-Du skal altid forholde dig 100 % neutralt, fagligt nøgternt og juridisk objektivt. Du repræsenterer hverken bygherrers, klageres eller specifikke organisationers særinteresser.
+3. USIKKERHED OG FORBEHOLD:
+Et afsnit om usikkerhed må kun med i to tilfælde: enten handler spørgsmålet om den konkrete sag, og der mangler sagsakter eller oplysninger for at vurdere den, eller kilderne er modstridende eller uafklarede om selve spørgsmålet. Ved et generelt eller entydigt spørgsmål skal afsnittet udelades. Skriv ikke "Der er ikke uploadet sagsakter..." på et generelt spørgsmål. Når der er reel tvivl, så skriv hellere: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte.
 
-4. PRÆCIS SKELNEN MELLEM PLANER OG PROJEKTER:
+4. UVILDIGHED:
+Du skal forholde dig neutralt og juridisk objektivt. Du repræsenterer hverken bygherrers, klageres eller organisationers særinteresser.
+
+5. PLANER OG PROJEKTER:
 Brug kun plan- eller projektsprog, når spørgsmålet handler om sagen.
-- Når spørgsmålet vedrører PLANER OG PROGRAMMER (Afsnit II / § 8): Anvend terminologi for strategisk miljøvurdering (SMV), f.eks. "miljørapport", "afgrænsning" og "planens indvirkning på miljøet".
-- Når spørgsmålet vedrører KONKRETE PROJEKTER (Afsnit III / §§ 15–25): Anvend VVM-begreber, f.eks. "VVM-screening", "miljøkonsekvensrapport", "bygherre" og "projektafgørelse".
+- Planer og programmer (Afsnit II / § 8): "miljørapport", "afgrænsning" og "planens indvirkning på miljøet".
+- Konkrete projekter (Afsnit III / §§ 15–25): "VVM-screening", "miljøkonsekvensrapport", "bygherre" og "projektafgørelse".
 Ved et generelt spørgsmål skal du svare på reglen. Nævn ikke sagens titel, sagsnummer eller et konkret projekt.
 
-5. FORTLØBENDE KILDEHENVISNINGER:
-Kilderne ovenfor er nummereret [1], [2], [3]. Henvis med det nummer, kilden har i listen, og kun nummeret.
-Gentag det samme nummer, hver gang du bruger den samme kilde. Spring ikke til et andet nummer for den samme kilde.
-Skriv ikke titel, paragraf eller journalnummer inde i hakparenteserne. Skriv ikke markdown-links eller URL'er.
-Brug kun numre, der findes i listen. Sæt ikke et nummer på en påstand, kilderne ikke støtter. Kildekortet ved nummeret sættes ind af systemet.
+6. KILDEHENVISNINGER:
+Kilderne ovenfor er nummereret [1], [2], [3]. Henvis med det nummer, kilden har i listen, og kun nummeret. Samme kilde beholder samme nummer, hver gang den bruges.
+Skriv ikke titel, paragraf eller journalnummer i hakparenteserne. Skriv ikke markdown-links. Brug kun numre, der findes i listen. Sæt ikke et nummer på en påstand, kilderne ikke støtter.
 
-SVARLÆNGDE:
-Svar kun på det, der spørges om. Hold svaret kort og direkte. Et generelt spørgsmål klares i ét til tre korte afsnit. Træk ikke sagsnavn, VVM-screening eller et forbehold ind, medmindre spørgsmålet handler om det.
+7. LÆNGDE:
+Svar kun på det, der spørges om. Hold svaret kort, direkte og sammenhængende. Et generelt spørgsmål klares i ét til tre korte afsnit.
 
-STRUKTUR PÅ DINE SVAR:
-1. Kort og direkte svar på spørgsmålet.
-2. De kilder, der belyser spørgsmålet.
-3. Et afsnit om usikkerhed eller forbehold må kun med, hvis kilderne er ufuldstændige, modstridende eller efterlader reel tvivl om det stillede spørgsmål.`;
+8. RETSLIG RISIKOFAKTOR:
+Skriv kun en risikolinje, hvis analysen viser en direkte procesrisiko, en ophævelsesrisiko ved klagenævnet eller manglende overholdelse af officialprincippet eller forsigtighedsprincippet. Afslut i så fald svaret med en linje, der begynder præcis sådan:
+Retslig risikofaktor: 
+og derefter den konkrete risiko. Skriv den ikke, hvis der ikke er en sådan risiko. Brug ikke stjerner eller fed skrift.
+
+STRUKTUR:
+Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Usikkerhedsafsnit kun efter punkt 3. Risikolinjen kun efter punkt 8, og kun til sidst.`;
 
     // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
@@ -174,6 +189,7 @@ STRUKTUR PÅ DINE SVAR:
         const anthropicResponse = await anthropic.messages.create({
           model,
           max_tokens: 2500,
+          temperature: 0.2,
           system: systemPrompt,
           output_config: { effort: "medium" },
           messages: [
@@ -193,9 +209,11 @@ STRUKTUR PÅ DINE SVAR:
             : "Ingen analyse kunne genereres.";
 
         const cited = renumberCitations(responseText, sources);
+        const risk = splitLegalRisk(cited.text);
 
         return NextResponse.json({
-          text: cited.text,
+          text: risk.text,
+          warning: risk.warning,
           sources: cited.sources,
           modelUsed: usedModel,
           isLiveLLM: true,
@@ -231,9 +249,11 @@ STRUKTUR PÅ DINE SVAR:
           "Ingen analyse kunne genereres.";
 
         const cited = renumberCitations(responseText, sources);
+        const risk = splitLegalRisk(cited.text);
 
         return NextResponse.json({
-          text: cited.text,
+          text: risk.text,
+          warning: risk.warning,
           sources: cited.sources,
           modelUsed: "GPT-4o (Fallback)",
           isLiveLLM: true,
