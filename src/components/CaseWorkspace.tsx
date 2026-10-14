@@ -143,6 +143,20 @@ function DocumentMenu({
   );
 }
 
+type CaseDocument = {
+  id: string;
+  name: string;
+  included: boolean;
+};
+
+function newCaseDocument(name: string): CaseDocument {
+  return {
+    id: `dok-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    included: true,
+  };
+}
+
 function isStoredCaseId(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
@@ -244,10 +258,12 @@ export function CaseWorkspace({
 
   // Uploaded files: empty until the user picks a file in this case
   const isNewCase = draftCase || caseId.startsWith("ny-");
-  const [primaryFile, setPrimaryFile] = useState<string | null>(
-    isNewCase ? null : existingCase?.primaryDocument || null
+  const [primaryFile, setPrimaryFile] = useState<CaseDocument | null>(
+    !isNewCase && existingCase?.primaryDocument
+      ? { id: "primary-existing", name: existingCase.primaryDocument, included: true }
+      : null
   );
-  const [supplementaryFiles, setSupplementaryFiles] = useState<string[]>([]);
+  const [supplementaryFiles, setSupplementaryFiles] = useState<CaseDocument[]>([]);
   const primaryInputRef = useRef<HTMLInputElement>(null);
   const supplementaryInputRef = useRef<HTMLInputElement>(null);
   const primaryAnchorRef = useRef<HTMLDivElement>(null);
@@ -400,8 +416,8 @@ export function CaseWorkspace({
           themes: selectedThemes,
           caseTitle: savedTitle.current,
           caseNumber: caseNumberRef.current,
-          primaryFile,
-          supplementaryFiles,
+          primaryFile: primaryFile?.included ? primaryFile.name : null,
+          supplementaryFiles: supplementaryFiles.filter((file) => file.included).map((file) => file.name),
           history: messages.slice(-4).map((m) => ({ sender: m.sender, text: m.text })),
           output: generatedNotes
             .filter((note) => note.included)
@@ -470,7 +486,7 @@ export function CaseWorkspace({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    setPrimaryFile(file.name);
+    setPrimaryFile(newCaseDocument(file.name));
     void tagUploadedDocument(file.name);
   };
 
@@ -478,8 +494,18 @@ export function CaseWorkspace({
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
-    setSupplementaryFiles((prev) => [...prev, ...files.map((file) => file.name)]);
+    setSupplementaryFiles((prev) => [...prev, ...files.map((file) => newCaseDocument(file.name))]);
     for (const file of files) void tagUploadedDocument(file.name);
+  };
+
+  const togglePrimaryFile = () => {
+    setPrimaryFile((current) => (current ? { ...current, included: !current.included } : current));
+  };
+
+  const toggleSupplementaryFile = (id: string) => {
+    setSupplementaryFiles((current) =>
+      current.map((file) => (file.id === id ? { ...file, included: !file.included } : file))
+    );
   };
 
   const handleCopyText = (text: string, msgId: string) => {
@@ -696,56 +722,85 @@ export function CaseWorkspace({
               </div>
 
               <div className="space-y-2">
-                {/* Primært dokument */}
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#0F382C] flex items-center gap-1.5 truncate">
-                      <FileText className="w-3.5 h-3.5 text-[#2E8B57] shrink-0" />
-                      <span className="truncate">{primaryFile || "Intet primært dokument"}</span>
+                {primaryFile ? (
+                  <label
+                    data-case-file="primary"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      togglePrimaryFile();
+                    }}
+                    className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                      primaryFile.included
+                        ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
+                        : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={primaryFile.included}
+                      onChange={() => {}}
+                      className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+                    />
+                    <span className={`min-w-0 flex-1 truncate font-semibold ${primaryFile.included ? "text-[#0F382C]" : "text-slate-700"}`}>
+                      {primaryFile.name}
                     </span>
                     <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono shrink-0">
                       Primært
                     </span>
+                  </label>
+                ) : (
+                  <div className="rounded-lg border border-slate-200 bg-white/60 p-2.5 text-xs text-slate-500">
+                    Intet primært dokument
                   </div>
+                )}
+                <button
+                  type="button"
+                  data-upload="primary-side"
+                  onClick={() => primaryInputRef.current?.click()}
+                  className="text-[10px] text-emerald-800 font-semibold hover:underline cursor-pointer"
+                >
+                  {primaryFile ? "Skift primært dokument" : "Tilføj primært dokument"} &rarr;
+                </button>
+
+                <div className="flex items-center justify-end pt-1">
                   <button
                     type="button"
-                    data-upload="primary-side"
-                    onClick={() => primaryInputRef.current?.click()}
-                    className="mt-2 text-[10px] text-emerald-800 font-semibold hover:underline cursor-pointer"
+                    data-upload="secondary-side"
+                    onClick={() => supplementaryInputRef.current?.click()}
+                    className="text-[#2E8B57] hover:underline cursor-pointer text-[10px] font-semibold"
                   >
-                    Skift primært dokument &rarr;
+                    + Tilføj sekundært
                   </button>
                 </div>
-
-                {/* Sekundære dokumenter */}
-                <div className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs space-y-2">
-                  <div className="flex items-center justify-between text-slate-600 font-semibold text-[11px]">
-                    <span>Sekundære dokumenter ({supplementaryFiles.length})</span>
-                    <button
-                      type="button"
-                      data-upload="secondary-side"
-                      onClick={() => supplementaryInputRef.current?.click()}
-                      className="text-[#2E8B57] hover:underline cursor-pointer text-[10px]"
+                {supplementaryFiles.length > 0 ? (
+                  supplementaryFiles.map((file) => (
+                    <label
+                      key={file.id}
+                      data-case-file={file.id}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        toggleSupplementaryFile(file.id);
+                      }}
+                      className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                        file.included
+                          ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
+                          : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
+                      }`}
                     >
-                      + Tilføj
-                    </button>
-                  </div>
-                  {supplementaryFiles.length > 0 ? (
-                    <div className="space-y-1">
-                      {supplementaryFiles.map((file, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-1.5 text-[11px] text-slate-600 truncate py-0.5"
-                        >
-                          <FileText className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className="truncate">{file}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-slate-400 italic">Ingen sekundære dokumenter tilføjet</p>
-                  )}
-                </div>
+                      <input
+                        type="checkbox"
+                        checked={file.included}
+                        onChange={() => {}}
+                        className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+                      />
+                      <span className={`min-w-0 flex-1 truncate font-semibold ${file.included ? "text-[#0F382C]" : "text-slate-700"}`}>
+                        {file.name}
+                      </span>
+                    </label>
+                  ))
+                ) : (
+                  <p className="text-[10px] text-slate-400 italic">Ingen sekundære dokumenter tilføjet</p>
+                )}
               </div>
             </div>
           </div>
@@ -781,12 +836,10 @@ export function CaseWorkspace({
                     type="button"
                     data-upload="primary"
                     onClick={() => primaryInputRef.current?.click()}
-                    className="inline-flex max-w-xs items-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3.5 py-1.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
+                    className="inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border-2 border-[#0F382C] bg-white px-3.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5 shrink-0 text-[#2E8B57]" />
-                    <span className="truncate">
-                      {primaryFile || "1. Primært dokument"}
-                    </span>
+                    <span>1. Primært dokument</span>
                     <span className="shrink-0 rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono">
                       Fokus
                     </span>
@@ -794,7 +847,7 @@ export function CaseWorkspace({
                   <DocumentMenu
                     open={primaryMenuOpen}
                     anchorRef={primaryAnchorRef}
-                    lines={primaryFile ? [primaryFile] : []}
+                    lines={primaryFile ? [primaryFile.name] : []}
                     menuId="primary"
                     onMouseEnter={holdPrimaryMenu}
                     onMouseLeave={releasePrimaryMenu}
@@ -818,18 +871,18 @@ export function CaseWorkspace({
                     type="button"
                     data-upload="secondary"
                     onClick={() => supplementaryInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                    className="inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
                   >
-                    <Upload className="w-3.5 h-3.5 text-slate-400" />
+                    <Upload className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                     <span>2. Sekundære dokumenter</span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="inline-block w-8 text-center text-[10px] tabular-nums text-slate-400">
                       ({supplementaryFiles.length})
                     </span>
                   </button>
                   <DocumentMenu
                     open={secondaryMenuOpen}
                     anchorRef={secondaryAnchorRef}
-                    lines={supplementaryFiles}
+                    lines={supplementaryFiles.map((file) => file.name)}
                     menuId="secondary"
                     onMouseEnter={holdSecondaryMenu}
                     onMouseLeave={releaseSecondaryMenu}
