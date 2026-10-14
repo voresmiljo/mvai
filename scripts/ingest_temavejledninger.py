@@ -322,6 +322,76 @@ DOCUMENTS = [
         "chapters": "del2",
         "min_chars": 40,
     },
+    {
+        "file": "Beskyttelse_af_flagermus_og_milj_vurderinger_6ef0.pdf",
+        "pdf": "notat-beskyttelse-flagermus-miljoevurderinger-2020.pdf",
+        "short": "Beskyttelse af flagermus og miljøvurderinger",
+        "citation_base": "Beskyttelse af flagermus og miljøvurderinger, Morten Elmeros, Aarhus Universitet, DCE – Nationalt Center for Miljø og Energi, notat nr. 55, 4. september 2020",
+        "date": "4. september 2020",
+        "authority": "Aarhus Universitet, DCE – Nationalt Center for Miljø og Energi",
+        "journal": "Notat nr. 55",
+        "themes": ["artsbeskyttelse", "ve_anlaeg", "byudvikling"],
+        "note": "",
+        "kind": "dce55",
+        "source_type": "notat",
+        "original_path": "sources/notat-beskyttelse-flagermus-miljoevurderinger-2020.pdf",
+    },
+    {
+        "file": "Flagermus_og_havvindmoeller_a266.pdf",
+        "pdf": "flagermus-og-havvind-2023.pdf",
+        "short": "Flagermus og havvind",
+        "citation_base": "Flagermus og havvind, Morten Christensen og Birte Hansen, WSP, 23. februar 2023, udarbejdet for Energistyrelsen",
+        "date": "23. februar 2023",
+        "authority": "WSP",
+        "journal": "Version 01",
+        "themes": ["ve_anlaeg", "artsbeskyttelse"],
+        "note": "",
+        "kind": "havvind",
+        "source_type": "rapport",
+        "original_path": "sources/flagermus-og-havvind-2023.pdf",
+    },
+    {
+        "file": "Flagermus__vindm_ller_og_solceller_03a2.pdf",
+        "pdf": "notat-flagermus-vindmoeller-solceller-2025.pdf",
+        "short": "Flagermus, vindmøller og solceller",
+        "citation_base": "Flagermus, vindmøller og solceller. Uddybning af udvalgte emner i Håndbog om dyrearter på habitatdirektivets bilag IV, del 2, Morten Elmeros og Julie Dahl Møller, Aarhus Universitet, DCE – Nationalt Center for Miljø og Energi, fagligt notat nr. 2025|07, 10. februar 2025",
+        "date": "10. februar 2025",
+        "authority": "Aarhus Universitet, DCE – Nationalt Center for Miljø og Energi",
+        "journal": "Fagligt notat nr. 2025|07",
+        "themes": ["ve_anlaeg", "artsbeskyttelse"],
+        "note": "",
+        "kind": "dce07",
+        "source_type": "notat",
+        "original_path": "sources/notat-flagermus-vindmoeller-solceller-2025.pdf",
+    },
+    {
+        "file": "Opdatering_af_h_ndbog_om_dyrearter_p__Habitatdirektivets_bilag_IV__del_2_6e43.pdf",
+        "pdf": "qa-haandbog-bilag-iv-del-2-2025.pdf",
+        "short": "Q&A om håndbogen og DCE-notatet",
+        "citation_base": "Q&A vedrørende opdatering af Håndbog om dyrearter på habitatdirektivets bilag IV, del 2, samt DCE-notatet om flagermus, vindmøller og solceller, Styrelsen for Grøn Arealomlægning og Vandmiljø, 13. februar 2025",
+        "date": "13. februar 2025",
+        "authority": "Styrelsen for Grøn Arealomlægning og Vandmiljø",
+        "journal": "Ref. MOP",
+        "themes": ["artsbeskyttelse", "ve_anlaeg"],
+        "note": "Udgivet 20. juni 2024.",
+        "kind": "qaflagermus",
+        "source_type": "notat",
+        "original_path": "sources/qa-haandbog-bilag-iv-del-2-2025.pdf",
+    },
+    {
+        "file": "Potential_impacts_of_solar_geothermal_and_ocean_energy_b8f7.pdf",
+        "pdf": "potential-impacts-solar-geothermal-ocean-energy-2020.pdf",
+        "short": "Potential impacts of solar, geothermal and ocean energy",
+        "citation_base": "Potential impacts of solar, geothermal and ocean energy on habitats and species protected under the Birds and Habitats Directives, Lammerant, L., Laureysens, I. and Driesen, K., European Commission, September 2020",
+        "date": "September 2020",
+        "authority": "European Commission",
+        "journal": "ENV.D.3/SER/2017/0002",
+        "themes": ["ve_anlaeg", "natura2000", "artsbeskyttelse"],
+        "note": "",
+        "kind": "euenergy",
+        "source_type": "rapport",
+        "original_path": "sources/potential-impacts-solar-geothermal-ocean-energy-2020.pdf",
+    },
 ]
 
 WILDLIFE_BANNERS = {
@@ -599,13 +669,16 @@ def split_numbered(rows: list[tuple[str, int]], kind: str) -> list[tuple[str, li
     return glue_short(sections)
 
 
-def glue_short(sections: list[tuple[str, list[tuple[str, int]]]]) -> list[tuple[str, list[tuple[str, int]]]]:
+def glue_short(
+    sections: list[tuple[str, list[tuple[str, int]]]],
+    limit: int = 100,
+) -> list[tuple[str, list[tuple[str, int]]]]:
     """Læg en overskrift uden brødtekst foran det følgende afsnit."""
     glued: list[tuple[str, list[tuple[str, int]]]] = []
     pending: list[tuple[str, int]] = []
     for heading, section_rows in sections:
         text = "\n".join(line for line, _page in section_rows).strip()
-        if len(text) < 100:
+        if len(text) < limit:
             pending.extend(section_rows)
             continue
         if pending:
@@ -1860,6 +1933,309 @@ def split_haandbog(
     return folded
 
 
+SUPERSCRIPT_DIGITS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+EU_HEADING = 4485828
+EU_SUBHEADING = 3101846
+QA_LETTERHEAD = (
+    "tolderlundsvej",
+    "cvr",
+    "mst@mst.dk",
+    "www.mst.dk",
+    "www.ens.dk",
+    "carsten niebuhr",
+    "ens@ens.dk",
+    "kontor/afdeling",
+    "j nr.",
+    "j.nr.",
+    "ref. jaekb",
+    "ref. mop",
+)
+
+
+def visual_lines(page) -> list[dict]:
+    """Linjer i læserækkefølge. Ord på samme linje samles, og notehenvisninger bliver hævet."""
+    spans = []
+    for block in page.get_text("dict")["blocks"]:
+        if block.get("type") != 0:
+            continue
+        for line in block["lines"]:
+            for span in line["spans"]:
+                raw = span["text"].replace("\xa0", " ").replace("\u00ad", "")
+                if not raw.strip():
+                    continue
+                spans.append({
+                    "x0": span["bbox"][0],
+                    "y0": span["bbox"][1],
+                    "x1": span["bbox"][2],
+                    "y1": span["bbox"][3],
+                    "size": span["size"],
+                    "text": raw,
+                    "font": span["font"],
+                    "color": span.get("color") or 0,
+                })
+    attach_superscripts(spans)
+    spans.sort(key=lambda span: (span["y1"], span["x0"]))
+    groups: list[list[dict]] = []
+    for span in spans:
+        if groups and abs(span["y1"] - groups[-1][0]["y1"]) <= 0.9:
+            groups[-1].append(span)
+        else:
+            groups.append([span])
+    rows = []
+    for group in groups:
+        group.sort(key=lambda span: span["x0"])
+        pieces = ""
+        prev = None
+        prev_trailing = False
+        bold = total = italic = 0
+        size = 0.0
+        colors: list[int] = []
+        y = group[0]["y0"]
+        for span in group:
+            core = " ".join(span["text"].split())
+            if not core:
+                if pieces and not span["text"].strip():
+                    prev_trailing = True
+                continue
+            leading = span["text"][:1].isspace()
+            trailing = span["text"][-1:].isspace()
+            is_super = (
+                prev is not None
+                and span["size"] <= prev["size"] * 0.8
+                and re.fullmatch(r"[\d*]+", core)
+                and span["y1"] < prev["y1"] - 0.6
+            )
+            if not pieces:
+                pieces = core.translate(SUPERSCRIPT_DIGITS) if is_super else core
+            elif is_super or span.get("super"):
+                pieces += core.translate(SUPERSCRIPT_DIGITS)
+            else:
+                gap = span["x0"] - prev["x1"]
+                if gap >= 1.3 or prev_trailing or leading:
+                    pieces += " "
+                pieces += core
+            count = len(core)
+            total += count
+            if "Bold" in span["font"]:
+                bold += count
+            if "Italic" in span["font"]:
+                italic += count
+            size = max(size, span["size"])
+            colors.append(span["color"])
+            prev = span
+            prev_trailing = trailing
+        text = re.sub(r" {2,}", " ", pieces).strip()
+        if not text:
+            continue
+        rows.append({
+            "text": text,
+            "size": size,
+            "bold": total > 0 and bold / total >= 0.7,
+            "italic": total > 0 and italic / total >= 0.7,
+            "color": max(set(colors), key=colors.count) if colors else 0,
+            "y": y,
+        })
+    return rows
+
+
+def attach_superscripts(spans: list[dict]) -> None:
+    """Sæt en hævet notehenvisning på samme grundlinje som ordet, den hører til."""
+    hosts = [span for span in spans if span["size"] >= 9]
+    for span in spans:
+        core = span["text"].strip()
+        if span["size"] > 8.5 or not re.fullmatch(r"[\d*]+", core):
+            continue
+        best = None
+        best_distance = 99.0
+        for host in hosts:
+            distance = host["y1"] - span["y1"]
+            if not 1 < distance < 8:
+                continue
+            if span["x0"] < host["x0"] - 6 or span["x0"] > host["x1"] + 14:
+                continue
+            if distance < best_distance:
+                best = host
+                best_distance = distance
+        if best:
+            span["y0"] = best["y0"]
+            span["y1"] = best["y1"]
+            span["super"] = True
+
+
+def page_marker(text: str, kind: str) -> int | None:
+    cleaned = re.sub(r"wsp\.com", "", text, flags=re.IGNORECASE).strip(" |-")
+    if kind == "qaflagermus":
+        match = re.fullmatch(r"(\d{1,3})\s*/\s*22", cleaned)
+        return int(match.group(1)) if match else None
+    match = re.fullmatch(r"(?:Side\s+)?(\d{1,3})(?:\s*/\s*\d{1,3})?", cleaned, flags=re.IGNORECASE)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def read_flow(path: Path, kind: str) -> list[dict]:
+    document = pymupdf.open(path)
+    rows: list[dict] = []
+    try:
+        for index, page in enumerate(document):
+            lines = visual_lines(page)
+            height = page.rect.height
+            printed = None
+            kept = []
+            for line in lines:
+                marker = page_marker(line["text"], kind)
+                in_margin = line["y"] < 72 or line["y"] > height - 72
+                bare_number = bool(re.fullmatch(r"(?:Side\s+)?\d{1,3}(?:\s*/\s*\d{1,3})?", line["text"], flags=re.IGNORECASE))
+                if in_margin and line["size"] <= 12 and (marker is not None or bare_number):
+                    if marker is not None:
+                        printed = marker
+                    continue
+                if is_flow_chrome(line["text"], kind):
+                    continue
+                kept.append(line)
+            label = printed or index + 1
+            for line in kept:
+                line["page"] = label
+                rows.append(line)
+    finally:
+        document.close()
+    return join_flow_hyphens(rows, kind)
+
+
+def is_flow_chrome(text: str, kind: str) -> bool:
+    lowered = text.lower()
+    if re.fullmatch(r"k{4,}", lowered):
+        return True
+    if "wsp.com" in lowered:
+        return True
+    if kind in {"dce55", "dce07"} and (
+        lowered.startswith("notat fra dce")
+        or lowered.startswith("fagligt notat fra dce")
+        or lowered.startswith("dato:")
+    ):
+        return True
+    if kind == "euenergy" and (
+        lowered.startswith("potential impacts of solar")
+        or lowered in {"final report", "getting in touch with the eu", "contents"}
+    ):
+        return True
+    if kind == "qaflagermus" and any(part in lowered for part in QA_LETTERHEAD):
+        return True
+    if kind == "qaflagermus" and lowered in {"notat", "energistyrelsen", "kontor/afdeling", "dato"}:
+        return True
+    return False
+
+
+def join_flow_hyphens(rows: list[dict], kind: str) -> list[dict]:
+    joined: list[dict] = []
+    for row in rows:
+        if joined:
+            merged = join_break(joined[-1]["text"], row["text"])
+            if merged is None and joined[-1]["text"].endswith("-") and re.search(r"\d-$", joined[-1]["text"]) and re.match(r"^\d", row["text"]):
+                merged = joined[-1]["text"] + row["text"]
+            if merged and not flow_heading(row, kind):
+                joined[-1]["text"] = merged
+                continue
+        joined.append(row)
+    return joined
+
+
+def flow_heading(row: dict, kind: str) -> bool:
+    text = row["text"]
+    if kind == "dce55":
+        if re.match(r"^1\.[1-3](?:\s+\S|$)", text):
+            return True
+        return bool(row["bold"] and re.match(r"^(?:\d{1,2}\s*&\s*\d{1,2}|\d{1,2})\.\s+[A-ZÆØÅ]", text))
+    if kind == "dce07":
+        return bool(row["bold"] and row["size"] >= 11.5 and re.match(r"^\d+(?:\.\d+)?\s+[A-ZÆØÅ]", text))
+    if kind == "havvind":
+        return bool(row["size"] >= 13.5 and re.match(r"^\d+(?:\.\d+)?\s+[A-ZÆØÅ]", text))
+    if kind == "qaflagermus":
+        if row["bold"] and re.match(r"^(?:DEL\s+\d+:|[1-4](?:\.\d+)?\.\s+[A-ZÆØÅ]|[A-J]\.\s+[A-ZÆØÅ])", text):
+            return True
+        if re.match(r"^(?:[A-J]\.\d+|[A-J]\d+)\.\s+[A-ZÆØÅ]", text):
+            return True
+        if re.match(r"^[1-4]\.\d+\.\s+[A-ZÆØÅ][\wÆØÅæøå]*$", text) and len(text) < 40:
+            return True
+        if text.startswith("Spørgsmål til DCE") or text.startswith("Supplerende spørgsmål til DCE"):
+            return True
+        return bool(
+            row["bold"]
+            and 3 < len(text) <= 55
+            and text[:1].isupper()
+            and not text.endswith((".", ":", "?", ","))
+        )
+    if kind == "euenergy":
+        if row["color"] == EU_HEADING and row["size"] >= 11 and not text.upper().startswith("POTENTIAL IMPACTS"):
+            return True
+        if row["color"] == EU_SUBHEADING and re.match(r"^\d+(?:\.\d+)+\s+\S", text):
+            return True
+        return bool(row["italic"] and re.match(r"^\d+(?:\.\d+){2,}\s+[A-Za-z]", text))
+    return False
+
+
+def flow_continues(row: dict, kind: str, label: str) -> bool:
+    text = row["text"]
+    if flow_heading(row, kind):
+        return False
+    if kind == "dce55":
+        if re.match(r"^1\.[1-3]\b", label):
+            return bool(re.fullmatch(r"1\.[1-3]", label) and row["bold"] and len(text) < 90)
+        return bool(row["bold"] and "?" not in label)
+    if kind == "dce07":
+        return bool(row["bold"] and row["size"] >= 11.5 and not re.match(r"^\d", text))
+    if kind == "havvind":
+        return bool(row["size"] >= 13.5 and text.upper() == text and len(text) < 90)
+    if kind == "qaflagermus":
+        if label.endswith((".", "?", ":")):
+            return False
+        return bool(row["bold"] and len(text) < 80 and not text.endswith("."))
+    if kind == "euenergy":
+        if re.search(r"\d\s+\S", label):
+            return False
+        return row["color"] in {EU_HEADING, EU_SUBHEADING} and len(text) < 90
+    return False
+
+
+def flow_starts(row: dict, kind: str) -> bool:
+    if kind == "euenergy":
+        return row["text"].strip() == "INTRODUCTION" and row["color"] == EU_HEADING
+    if kind == "qaflagermus":
+        return row["text"].strip() == "1. Introduktion"
+    return flow_heading(row, kind)
+
+
+def split_flow(rows: list[dict], kind: str) -> list[tuple[str, list[tuple[str, int]]]]:
+    start = next((index for index, row in enumerate(rows) if flow_starts(row, kind)), 0)
+    rows = rows[start:]
+    sections: list[tuple[str, list[tuple[str, int]]]] = []
+    heading = ""
+    current: list[tuple[str, int]] = []
+    index = 0
+    while index < len(rows):
+        row = rows[index]
+        if flow_heading(row, kind):
+            if current and heading:
+                sections.append((heading, current))
+            label = row["text"]
+            consumed = [row]
+            probe = index + 1
+            while probe < len(rows) and flow_continues(rows[probe], kind, label):
+                label = f"{label} {rows[probe]['text']}"
+                consumed.append(rows[probe])
+                probe += 1
+            heading = re.sub(r"\s+", " ", label).strip(" -")
+            current = [(item["text"], item["page"]) for item in consumed]
+            index = probe
+            continue
+        if heading:
+            current.append((row["text"], row["page"]))
+        index += 1
+    if current and heading:
+        sections.append((heading, current))
+    return glue_short(sections, 70)
+
+
 def build(folder: Path, only: set[str] | None = None) -> list[dict]:
     chunks: list[dict] = []
     for spec in DOCUMENTS:
@@ -1887,6 +2263,8 @@ def build(folder: Path, only: set[str] | None = None) -> list[dict]:
             paths = [folder / name for name in spec.get("files", [spec["file"]])]
             chapters = HAANDBOG_DEL2_CHAPTERS if spec.get("chapters") == "del2" else HAANDBOG_CHAPTERS
             sections = split_haandbog(haandbog_lines(paths), chapters)
+        elif kind in {"dce55", "dce07", "havvind", "qaflagermus", "euenergy"}:
+            sections = split_flow(read_flow(folder / spec["file"], kind), kind)
         else:
             rows = merge_wraps(read_rows(folder / spec["file"], kind), kind)
             sections = split_wildlife(rows) if kind == "wildlife" else split_numbered(rows, kind)
@@ -2028,7 +2406,38 @@ def main() -> None:
         missing = [name for name in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "OPENAI_API_KEY") if not os.environ.get(name)]
         if missing:
             raise SystemExit("Mangler " + ", ".join(missing))
+        upload_originals(folder, only)
         upload(chunks)
+
+
+def upload_originals(folder: Path, only: set[str] | None) -> None:
+    for spec in DOCUMENTS:
+        if only and spec["pdf"] not in only:
+            continue
+        path_key = spec.get("original_path")
+        if not path_key:
+            continue
+        payload = (folder / spec["file"]).read_bytes()
+        if not payload.startswith(b"%PDF"):
+            raise RuntimeError(f"{spec['file']} er ikke en pdf")
+        request = urllib.request.Request(
+            supabase_base() + "/storage/v1/object/source-originals/" + urllib.parse.quote(path_key),
+            data=payload,
+            headers={
+                "apikey": os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+                "Authorization": f"Bearer {os.environ['SUPABASE_SERVICE_ROLE_KEY']}",
+                "Content-Type": "application/pdf",
+                "x-upsert": "true",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=180) as response:
+                response.read()
+        except urllib.error.HTTPError as error:
+            detail = error.read().decode()[:300]
+            raise RuntimeError(f"Original kunne ikke lægges op: {error.code} {detail}") from error
+        print(f"original {path_key} {len(payload)}", file=sys.stderr)
 
 
 if __name__ == "__main__":
