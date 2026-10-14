@@ -933,7 +933,7 @@ export function CaseWorkspace({
                       <p className="mt-2 text-[10px] text-slate-400 italic">
                         {activeSnippet.citation.startsWith("Output:")
                           ? "Teksten er gemt output fra denne sag og bruges som kildemateriale i de næste svar."
-                          : "Teksten er en forhåndsvisning. Knappen henter den originale fil."}
+                          : "Teksten er en forhåndsvisning."}
                       </p>
                     </div>
 
