@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { INITIAL_CASES } from "@/lib/casesData";
+import { documentCitation, documentTitle, excerptBlocks } from "@/lib/sourceExcerpt";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
 import {
   FileText,
@@ -913,10 +914,10 @@ export function CaseWorkspace({
                         Retskilde
                       </span>
                       <h4 className="mt-1 font-bold text-sm text-slate-900 leading-snug">
-                        {activeSnippet.title}
+                        {documentTitle(activeSnippet.title, activeSnippet.lawSection)}
                       </h4>
-                      <p className="mt-1 text-xs text-slate-500 font-mono">
-                        {activeSnippet.citation}
+                      <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+                        {documentCitation(activeSnippet.citation, activeSnippet.lawSection)}
                       </p>
                       <div className="mt-2 text-[11px] text-slate-600">
                         <span className="font-semibold text-slate-700">Afsnit:</span> {activeSnippet.lawSection}
@@ -925,14 +926,25 @@ export function CaseWorkspace({
 
                     {/* Excerpt / text quotation */}
                     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between gap-3 mb-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                           Gældende ordlyd / Citat
                         </span>
-                        <span className="text-[10px] text-slate-400 font-mono">{activeSnippet.date}</span>
+                        <span className="shrink-0 text-[10px] text-slate-400 font-mono">{activeSnippet.date}</span>
                       </div>
-                      <div className="rounded-md border border-slate-100 bg-[#F7FAFA] p-3 text-xs leading-relaxed text-slate-700 font-mono whitespace-pre-wrap">
-                        {activeSnippet.textSnippet}
+                      <div className="rounded-md border border-slate-100 bg-[#F7FAFA] p-3 text-sm leading-relaxed text-slate-700 space-y-3">
+                        {excerptBlocks(
+                          activeSnippet.textSnippet,
+                          documentTitle(activeSnippet.title, activeSnippet.lawSection)
+                        ).map((block, index) =>
+                          block.kind === "heading" ? (
+                            <p key={index} className="font-bold text-slate-900">
+                              {block.text}
+                            </p>
+                          ) : (
+                            <p key={index}>{block.text}</p>
+                          )
+                        )}
                       </div>
                       <p className="mt-2 text-[10px] text-slate-400 italic">
                         {activeSnippet.citation.startsWith("Output:")
