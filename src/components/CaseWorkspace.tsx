@@ -820,11 +820,7 @@ export function CaseWorkspace({
                   rows={3}
                   value={inputPrompt}
                   onChange={(e) => setInputPrompt(e.target.value)}
-                  placeholder={`Stil spørgsmål til ${
-                    scope === "projekt"
-                      ? "projektets screening eller miljøkonsekvensrapport (f.eks. 'Hvilke krav stiller klagenævnet til kumulationsvurdering ved screening efter § 21?')"
-                      : "planens miljøvurdering (f.eks. 'Hvornår skal en plan miljøvurderes efter § 8?')"
-                  }...`}
+                  placeholder="Tekstfelt"
                   className="w-full resize-none border-0 bg-transparent p-3 text-sm placeholder-slate-400 focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -871,7 +867,7 @@ export function CaseWorkspace({
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>Kildelæser</span>
+                <span>Kilder</span>
               </button>
 
               <button
@@ -894,16 +890,13 @@ export function CaseWorkspace({
             {/* FANE 1: KILDELÆSER */}
             {rightPanelTab === "kilde" && (
               <div className="p-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                    Verifikation af retskilder
-                  </h3>
-                  {activeSnippet && (
+                {activeSnippet && (
+                  <div className="flex items-center justify-end pb-3 border-b border-slate-200">
                     <span className="rounded bg-emerald-100 text-emerald-800 font-bold text-[10px] px-1.5 py-0.5">
                       {activeSnippet.relevanceScore}% Match
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {activeSnippet ? (
                   <div className="mt-4 space-y-4">
@@ -982,12 +975,6 @@ export function CaseWorkspace({
             {/* FANE 2: GENEREREDE NOTATER / OUTPUTS */}
             {rightPanelTab === "notater" && (
               <div className="p-4 space-y-4">
-                <div className="pb-3 border-b border-slate-200">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                    Output
-                  </h3>
-                </div>
-
                 {generatedNotes.some((note) => note.included) && (
                   <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
