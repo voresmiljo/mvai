@@ -7,7 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { CitationText } from "@/components/CitationText";
 import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
-import { buildQuestion, EXAMPLE_QUESTIONS } from "@/lib/promptSupport";
+import { buildQuestion } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
 import {
@@ -351,6 +351,30 @@ export function CaseWorkspace({
   const [builderPurpose, setBuilderPurpose] = useState("");
   const [builderProblem, setBuilderProblem] = useState("");
   const [enhancing, setEnhancing] = useState(false);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    const history = messages
+      .filter((message) => message.id !== "welcome-1" && message.text.trim())
+      .map((message) => ({ sender: message.sender, text: message.text }));
+    if (!history.some((message) => message.sender === "user") || isAnalyzing) return;
+    let cancelled = false;
+    void fetch("/api/suggest-questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: history }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !Array.isArray(data?.questions)) return;
+        const next = data.questions.filter((item: unknown) => typeof item === "string" && item.trim()).slice(0, 3);
+        if (next.length === 3) setSuggestedQuestions(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, isAnalyzing]);
 
   useEffect(() => {
     const snapshot = JSON.stringify({
@@ -1143,19 +1167,21 @@ export function CaseWorkspace({
           {/* Chat input box */}
           <div className="border-t border-slate-200 bg-white p-4">
             <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {EXAMPLE_QUESTIONS.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    data-prompt-chip={item.label}
-                    onClick={() => setInputPrompt(item.question)}
-                    className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0F382C] hover:bg-emerald-50 cursor-pointer"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+              {suggestedQuestions.length === 3 && (
+                <div className="mb-2 flex flex-col gap-1.5">
+                  {suggestedQuestions.map((question) => (
+                    <button
+                      key={question}
+                      type="button"
+                      data-prompt-chip={question}
+                      onClick={() => setInputPrompt(question)}
+                      className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-left text-[11px] font-semibold leading-snug text-[#0F382C] hover:bg-emerald-50 cursor-pointer"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="relative rounded-xl border border-slate-300 bg-white shadow-xs focus-within:border-[#0F382C] focus-within:ring-1 focus-within:ring-[#0F382C]">
                 <textarea
                   rows={3}

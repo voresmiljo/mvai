@@ -1,25 +1,7 @@
-export const EXAMPLE_QUESTIONS = [
-  {
-    label: "VVM-Screening (§ 21)",
-    question:
-      "Tjek om etablering af solcelleanlæg i landzone kræver fuld miljøkonsekvensrapport jf. bilag 2, pkt. 10.",
-  },
-  {
-    label: "Artsbeskyttelse (Bilag IV)",
-    question:
-      "Gennemgå kravene til vurdering af den økologiske funktionalitet for bilag IV-arter jf. artikel 12.",
-  },
-  {
-    label: "Natura 2000 & Habitat",
-    question:
-      "Hvilke formkrav og bevisbyrder stiller MFKN til væsentlighedsscreening jf. § 8, stk. 1, nr. 2?",
-  },
-  {
-    label: "Støj & Gener",
-    question:
-      "Hvilke støjgrænser og afstandskrav finder anvendelse ved vindmøller nær samlet bebyggelse?",
-  },
-] as const;
+export type PromptTurn = {
+  sender: "user" | "ai";
+  text: string;
+};
 
 export function buildQuestion(topic: string, purpose: string, problem: string): string {
   const emne = topic.trim().replace(/\s+/g, " ");
@@ -49,4 +31,54 @@ export function enhanceQuestionLocally(raw: string): string {
     .trim();
   const subject = core || text.replace(/[?？.]+$/g, "");
   return `Hvilke krav stiller gældende praksis og vejledninger til ${subject}, og hvad skal vurderingen tage stilling til?`;
+}
+
+function subjectOf(raw: string): string {
+  const text = raw.trim().replace(/\s+/g, " ").replace(/[?？.]+$/g, "");
+  const core = text
+    .replace(/^(hvad med|hvad siger loven om|hvad siger|hvordan med|hvordan|hvad)\s+/i, "")
+    .trim();
+  const subject = core || text;
+  return subject.length > 160 ? `${subject.slice(0, 157).trim()}…` : subject;
+}
+
+export function userTurns(messages: PromptTurn[]): string[] {
+  return messages
+    .filter((message) => message.sender === "user")
+    .map((message) => message.text.trim().replace(/\s+/g, " "))
+    .filter(Boolean);
+}
+
+export function suggestQuestionsLocally(messages: PromptTurn[]): string[] {
+  const users = userTurns(messages);
+  if (!users.length) return [];
+  const newest = subjectOf(users[users.length - 1]);
+  const previous = users.length > 1 ? subjectOf(users[users.length - 2]) : "";
+  const third =
+    previous && previous.toLowerCase() !== newest.toLowerCase()
+      ? `Hvordan skal ${newest} ses i lyset af det tidligere spørgsmål om ${previous}?`
+      : `Hvilke forhold ved ${newest} er stadig uafklarede?`;
+  return [
+    `Hvilke krav stiller gældende praksis og vejledninger til ${newest}?`,
+    `Hvad skal vurderingen tage stilling til om ${newest}?`,
+    third,
+  ];
+}
+
+export function takeThreeQuestions(raw: string, fallback: string[]): string[] {
+  let source = raw.trim();
+  if (source.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(source);
+      if (Array.isArray(parsed)) source = parsed.filter((item) => typeof item === "string").join("\n");
+    } catch {
+      source = raw;
+    }
+  }
+  const lines = source
+    .split(/\n+/)
+    .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/, "").replace(/^["“]|["”]$/g, "").trim())
+    .filter((line) => line.length > 12);
+  const unique = [...new Set([...lines, ...fallback])];
+  return unique.slice(0, 3);
 }
