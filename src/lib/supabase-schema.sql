@@ -11,9 +11,9 @@ create table if not exists legal_sources (
   source_type text not null default 'lov',   -- 'lov', 'bekendtgoerelse', 'vejledning', 'naevnskendelse', 'eu_dom'
   scope text default 'begge',                -- 'plan', 'projekt', 'begge'
   theme text,                                -- f.eks. 'natura2000', 'artsbeskyttelse', 'naevnspraksis', 'stoej_og_luft', 'grundvand'
-  pdf_file_name text,                        -- Originalt PDF filnavn til download
-  pdf_url text,                              -- URL til original PDF
-  metadata jsonb default '{}'::jsonb,        -- Ekstra metadata (dato, myndighed, sagsnr osv.)
+  pdf_file_name text,                        -- Filnavn på originalen, vist ved download
+  pdf_url text,                              -- Udgået som download-link
+  metadata jsonb default '{}'::jsonb,        -- Ekstra metadata. original_path er stien i det private arkiv source-originals og indgår ikke i søgningen
   embedding vector(1536),                    -- Vektor fra text-embedding-3-small (OpenAI)
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -73,3 +73,6 @@ begin
   limit match_count;
 end;
 $$;
+
+-- Originalfilen ligger i det private bucket source-originals.
+-- Stien gemmes i metadata.original_path. Søgefunktionen læser den ikke.

@@ -1,3 +1,4 @@
+import { originalSourceIds } from "@/lib/sourceOriginals";
 import { supabase } from "@/lib/supabase";
 import OpenAI from "openai";
 
@@ -10,6 +11,7 @@ export interface RetrievedSource {
   textSnippet: string;
   pdfUrl: string;
   pdfFileName: string;
+  hasOriginal: boolean;
   relevanceScore: number;
 }
 
@@ -43,7 +45,7 @@ export async function searchSupabaseLegalSources(
         });
 
         if (!error && data && Array.isArray(data) && data.length > 0) {
-          return data.map((row: {
+          return withOriginals(data.map((row: {
             id: string;
             title: string;
             citation: string;
@@ -60,10 +62,11 @@ export async function searchSupabaseLegalSources(
             lawSection: row.law_section,
             date: row.metadata?.date || "Gældende praksis",
             textSnippet: row.content,
-            pdfUrl: row.pdf_url || "#",
+            pdfUrl: "",
             pdfFileName: row.pdf_file_name || "retskilde.pdf",
+            hasOriginal: false,
             relevanceScore: Math.round(row.similarity * 100),
-          }));
+          })));
         }
       }
     } catch (err) {
@@ -84,21 +87,31 @@ export async function searchSupabaseLegalSources(
 
     const { data, error } = await query;
     if (!error && data && Array.isArray(data) && data.length > 0) {
-      return data.map((row) => ({
+      return withOriginals(data.map((row) => ({
         id: row.id,
         title: row.title,
         citation: row.citation,
         lawSection: row.law_section || "",
         date: row.metadata?.date || "Ajourført",
         textSnippet: row.content,
-        pdfUrl: row.pdf_url || "#",
+        pdfUrl: "",
         pdfFileName: row.pdf_file_name || "retskilde.pdf",
+        hasOriginal: false,
         relevanceScore: 92,
-      }));
+      })));
     }
   } catch (err) {
     console.error("Supabase direct query error:", err);
   }
 
   return [];
+}
+
+async function withOriginals(sources: RetrievedSource[]): Promise<RetrievedSource[]> {
+  const archived = await originalSourceIds(sources.map((source) => source.id));
+  return sources.map((source) => ({
+    ...source,
+    hasOriginal: archived.has(source.id),
+    pdfUrl: archived.has(source.id) ? `/api/sources/${source.id}/original` : "",
+  }));
 }
