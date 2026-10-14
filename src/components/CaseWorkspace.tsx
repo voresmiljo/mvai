@@ -756,30 +756,8 @@ export function CaseWorkspace({
                       Primært
                     </span>
                   </label>
-                ) : (
-                  <div className="rounded-lg border border-slate-200 bg-white/60 p-2.5 text-xs text-slate-500">
-                    Intet primært dokument
-                  </div>
-                )}
-                <label
-                  htmlFor="mvai-primary-file"
-                  data-upload="primary-side"
-                  className="inline-block cursor-pointer py-1 text-xs font-semibold text-emerald-800 hover:underline"
-                >
-                  {primaryFile ? "Skift primært dokument" : "Tilføj primært dokument"} &rarr;
-                </label>
-
-                <div className="flex items-center justify-end pt-1">
-                  <label
-                    htmlFor="mvai-secondary-file"
-                    data-upload="secondary-side"
-                    className="cursor-pointer py-1 text-xs font-semibold text-[#2E8B57] hover:underline"
-                  >
-                    + Tilføj
-                  </label>
-                </div>
-                {supplementaryFiles.length > 0 ? (
-                  supplementaryFiles.map((file) => (
+                ) : null}
+                {supplementaryFiles.map((file) => (
                     <label
                       key={file.id}
                       data-case-file={file.id}
@@ -803,10 +781,7 @@ export function CaseWorkspace({
                         {file.name}
                       </span>
                     </label>
-                  ))
-                ) : (
-                  <p className="text-[10px] text-slate-400 italic">Ingen sekundære dokumenter tilføjet</p>
-                )}
+                ))}
               </div>
             </div>
           </div>
