@@ -1,9 +1,5 @@
 import Link from "next/link";
-import { connection } from "next/server";
-import { Suspense } from "react";
 import { AppHeader } from "@/components/AppHeader";
-import { getLibraryCounts, type LibraryCounts } from "@/lib/libraryCounts";
-import { THEME_CATEGORIES } from "@/lib/themeFolders";
 import { Mail, ArrowRight } from "lucide-react";
 
 export const metadata = {
@@ -11,50 +7,6 @@ export const metadata = {
   description:
     "Formålet med Miljøvurderingsvejen, brugerfladen, kvalitetssikringen og hvordan kildevalget påvirker præcisionen.",
 };
-
-function LibraryFigures({ library }: { library: LibraryCounts }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <p className="text-sm font-bold text-slate-900">
-        {library.totalDocuments === 0
-          ? "Arkivet er tomt lige nu."
-          : `Arkivet indeholder ${library.totalDocuments} dokument${library.totalDocuments === 1 ? "" : "er"}.`}
-      </p>
-      {library.totalDocuments === 0 && (
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
-          Dokumenterne kommer ind, når de er udvalgt og lagt i en mappe. Tallet opdateres derfra.
-        </p>
-      )}
-      <ul className="mt-4 space-y-2 text-sm text-slate-700">
-        <li className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
-          <span>Grundmappe</span>
-          <span className="font-mono text-xs text-slate-500">{library.groundDocuments}</span>
-        </li>
-        {THEME_CATEGORIES.map((category) => (
-          <li key={category.id} className="space-y-2 border-b border-slate-100 pb-2">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{category.name}</p>
-            <ul className="space-y-2">
-              {library.themes
-                .filter((folder) => folder.category === category.id)
-                .map((folder) => (
-                  <li key={folder.id} className="flex items-center justify-between gap-4">
-                    <span>{folder.name}</span>
-                    <span className="font-mono text-xs text-slate-500">{folder.documents}</span>
-                  </li>
-                ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-async function LibraryCount() {
-  await connection();
-  const library = await getLibraryCounts();
-  return <LibraryFigures library={library} />;
-}
 
 export default function AboutPage() {
   return (
@@ -113,13 +65,6 @@ export default function AboutPage() {
                 <span className="font-semibold text-slate-900">Inddragelse af egne dokumenter:</span> Brugerens egne oprettede dokumenter og producerede notater indgår kun i analysen, når de aktivt er slået til på sagen. Da egne dokumenter har en anden karakter end de officielle retskilder i arkivet, anbefales det at holde kildevalget så præcist som muligt for at opnå de mest entydige analyser.
               </li>
             </ul>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-xl font-bold text-slate-900">Kilder i arkivet</h2>
-            <Suspense fallback={<p className="text-sm text-slate-500">Henter antallet af kilder...</p>}>
-              <LibraryCount />
-            </Suspense>
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-6 space-y-3">

@@ -29,7 +29,7 @@ type CaseRow = {
 function formatDanishStamp(value: string, withTime: boolean): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  const zone = { timeZone: "UTC" };
+  const zone = { timeZone: "Europe/Copenhagen" };
   return withTime
     ? date.toLocaleString("da-DK", {
         ...zone,
