@@ -7,6 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { CitationText } from "@/components/CitationText";
 import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
+import { buildQuestion, EXAMPLE_QUESTIONS } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
 import {
@@ -25,6 +26,8 @@ import {
   FileCode,
   ThumbsUp,
   ThumbsDown,
+  ClipboardList,
+  WandSparkles,
 } from "lucide-react";
 
 type ScopeType = "projekt" | "plan";
@@ -343,6 +346,11 @@ export function CaseWorkspace({
   const [storedCaseTick, setStoredCaseTick] = useState(0);
 
   const [inputPrompt, setInputPrompt] = useState("");
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [builderTopic, setBuilderTopic] = useState("");
+  const [builderPurpose, setBuilderPurpose] = useState("");
+  const [builderProblem, setBuilderProblem] = useState("");
+  const [enhancing, setEnhancing] = useState(false);
 
   useEffect(() => {
     const snapshot = JSON.stringify({
@@ -519,6 +527,33 @@ export function CaseWorkspace({
       setMessages((prev) => [...prev, aiMsg]);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const insertBuiltQuestion = () => {
+    const next = buildQuestion(builderTopic, builderPurpose, builderProblem);
+    if (next) setInputPrompt(next);
+    setBuilderOpen(false);
+  };
+
+  const handleEnhanceQuestion = async () => {
+    const current = inputPrompt.trim();
+    if (!current || enhancing || isAnalyzing) return;
+    setEnhancing(true);
+    try {
+      const res = await fetch("/api/enhance-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: current }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && typeof data.question === "string" && data.question.trim()) {
+        setInputPrompt(data.question.trim());
+      }
+    } catch {
+      setInputPrompt(current);
+    } finally {
+      setEnhancing(false);
     }
   };
 
@@ -1108,6 +1143,19 @@ export function CaseWorkspace({
           {/* Chat input box */}
           <div className="border-t border-slate-200 bg-white p-4">
             <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {EXAMPLE_QUESTIONS.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    data-prompt-chip={item.label}
+                    onClick={() => setInputPrompt(item.question)}
+                    className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0F382C] hover:bg-emerald-50 cursor-pointer"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <div className="relative rounded-xl border border-slate-300 bg-white shadow-xs focus-within:border-[#0F382C] focus-within:ring-1 focus-within:ring-[#0F382C]">
                 <textarea
                   rows={3}
@@ -1123,22 +1171,43 @@ export function CaseWorkspace({
                   }}
                 />
 
-                <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 bg-slate-50/50 rounded-b-xl">
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                    <span className="inline-flex items-center gap-1">
+                <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2 bg-slate-50/50 rounded-b-xl">
+                  <div className="flex min-w-0 items-center gap-2 text-[11px] text-slate-500">
+                    <button
+                      type="button"
+                      data-prompt-builder
+                      onClick={() => setBuilderOpen(true)}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-[#0F382C] hover:bg-emerald-50 cursor-pointer"
+                    >
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      Byg spørgsmål
+                    </button>
+                    <span className="hidden items-center gap-1 sm:inline-flex">
                       <ShieldCheck className="w-3 h-3 text-emerald-600" />
                       Claude 3.5 Sonnet RAG-analyse
                     </span>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={!inputPrompt.trim() || isAnalyzing}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F382C] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-                  >
-                    <span>{isAnalyzing ? "Analyserer..." : "Analysér"}</span>
-                    <CornerDownLeft className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      data-prompt-enhance
+                      aria-label="Forbedr spørgsmål"
+                      disabled={!inputPrompt.trim() || enhancing || isAnalyzing}
+                      onClick={() => void handleEnhanceQuestion()}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-[#0F382C] hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <WandSparkles className={`w-3.5 h-3.5 ${enhancing ? "animate-spin" : ""}`} />
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!inputPrompt.trim() || isAnalyzing}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F382C] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    >
+                      <span>{isAnalyzing ? "Analyserer..." : "Analysér"}</span>
+                      <CornerDownLeft className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </form>
@@ -1385,6 +1454,68 @@ export function CaseWorkspace({
           </div>
         </aside>
       </div>
+      {builderOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          onClick={() => setBuilderOpen(false)}
+        >
+          <form
+            data-prompt-builder-dialog
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              insertBuiltQuestion();
+            }}
+            className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-lg"
+          >
+            <h2 className="text-sm font-bold text-[#0F382C]">Byg spørgsmål</h2>
+            <label className="mt-3 block text-[11px] font-semibold text-slate-700">
+              Emne / Miljøfaktor
+              <input
+                value={builderTopic}
+                onChange={(event) => setBuilderTopic(event.target.value)}
+                placeholder="Flagermus, Støj, Grundvand, Natura 2000"
+                className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-normal text-slate-800 focus:outline-none focus:border-[#0F382C]"
+              />
+            </label>
+            <label className="mt-3 block text-[11px] font-semibold text-slate-700">
+              Formål / Produkttype
+              <input
+                value={builderPurpose}
+                onChange={(event) => setBuilderPurpose(event.target.value)}
+                placeholder="Screeningsafgørelse, Lokalplannotat, Præcedens-tjek"
+                className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-normal text-slate-800 focus:outline-none focus:border-[#0F382C]"
+              />
+            </label>
+            <label className="mt-3 block text-[11px] font-semibold text-slate-700">
+              Konkret problemstilling
+              <textarea
+                rows={3}
+                value={builderProblem}
+                onChange={(event) => setBuilderProblem(event.target.value)}
+                placeholder="Fældning af 3 hule løvtræer i en skovbryn"
+                className="mt-1 w-full resize-none rounded border border-slate-300 px-2 py-1.5 text-xs font-normal text-slate-800 focus:outline-none focus:border-[#0F382C]"
+              />
+            </label>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBuilderOpen(false)}
+                className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Luk
+              </button>
+              <button
+                type="submit"
+                data-builder-insert
+                className="rounded-md bg-[#0F382C] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#14493a] cursor-pointer"
+              >
+                Indsæt i chat
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

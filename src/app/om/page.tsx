@@ -22,6 +22,21 @@ export default function AboutPage() {
             </p>
           </section>
 
+          <section className="rounded-2xl border-2 border-[#0F382C] bg-white p-6 space-y-3">
+            <h2 className="text-xl font-bold text-slate-900">De 3 gyldne regler for spørgsmål på MVAI.dk</h2>
+            <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed text-slate-700">
+              <li>
+                <span className="font-semibold text-slate-900">Vær specifik på art og lovhjemmel:</span> Spørg om &quot;bilag IV-flagermus og artikel 12&quot; i stedet for blot &quot;hvad med dyrene?&quot;.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-900">Angiv det ønskede output-format:</span> Præciser om du ønsker et &quot;3-punkts resumé til et byrådsnotat&quot; eller en &quot;juridisk tjekliste til en VVM-screening&quot;.
+              </li>
+              <li>
+                <span className="font-semibold text-slate-900">Tag ét emne ad gangen:</span> Stil fokuserede spørgsmål frem for at blande støj, Natura 2000 og bilag IV sammen i én lang sætning.
+              </li>
+            </ol>
+          </section>
+
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-slate-900">Brugerflade</h2>
             <p className="text-sm leading-relaxed text-slate-700">
