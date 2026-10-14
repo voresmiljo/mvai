@@ -17,6 +17,7 @@ async function CaseRoom({ params }: { params: Promise<{ id: string }> }) {
       forcedScope={storedCase?.scope}
       forcedTitle={storedCase?.title}
       forcedCaseNumber={storedCase?.caseNumber}
+      forcedRoom={storedCase?.room ?? null}
     />
   );
 }

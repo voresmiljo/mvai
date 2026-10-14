@@ -8,7 +8,7 @@ create table if not exists public.cases (
   case_number text not null,
   scope text not null check (scope in ('projekt', 'plan')),
   law_reference text not null,
-  preview_summary text not null default '',
+  preview_summary text not null default '', -- sagslokalet: chat, dokumentnavne, noter og temaer som JSON
   primary_document text,
   created_at timestamptz not null default timezone('utc'::text, now()),
   updated_at timestamptz not null default timezone('utc'::text, now())

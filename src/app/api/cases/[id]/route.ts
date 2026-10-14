@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteOwnCase, retitleOwnCaseFromQuestion, touchOwnCase, updateOwnCaseTitle } from "@/lib/userCases";
+import { deleteOwnCase, retitleOwnCaseFromQuestion, saveOwnCaseRoom, touchOwnCase, updateOwnCaseTitle } from "@/lib/userCases";
 
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -13,6 +13,18 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
       return NextResponse.json({ error: touched.error || "Sagen kunne ikke opdateres." }, { status: 400 });
     }
     return NextResponse.json({ case: touched.case });
+  }
+
+  if (body?.room && typeof body.room === "object") {
+    const primaryDocument = typeof body.primaryDocument === "string" ? body.primaryDocument : null;
+    const saved = await saveOwnCaseRoom(id, body.room, primaryDocument);
+    if (saved.error === "Du er ikke logget ind.") {
+      return NextResponse.json({ error: saved.error }, { status: 401 });
+    }
+    if (saved.error) {
+      return NextResponse.json({ error: saved.error }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
   }
 
   const result =

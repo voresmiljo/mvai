@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { CitationText } from "@/components/CitationText";
+import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
@@ -173,16 +174,30 @@ function touchStoredCase(id: string): void {
   }).catch(() => undefined);
 }
 
+const WELCOME_TEXT =
+  "Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til venstre, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor. Til højre finder du både kildehenvisninger og de output du selv producerer undervejs.";
+
+function welcomeMessage(): ChatMessage {
+  return {
+    id: "welcome-1",
+    sender: "ai",
+    timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    text: WELCOME_TEXT,
+  };
+}
+
 export function CaseWorkspace({
   forcedCaseId,
   forcedScope,
   forcedTitle,
   forcedCaseNumber,
+  forcedRoom,
 }: {
   forcedCaseId?: string;
   forcedScope?: ScopeType;
   forcedTitle?: string;
   forcedCaseNumber?: string;
+  forcedRoom?: CaseRoom | null;
 }) {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -254,18 +269,26 @@ export function CaseWorkspace({
   const caseNumberRef = useRef(initialCaseNumber);
 
   // Selected themes (Max 3, warn on 4+)
+  const restored = forcedRoom && forcedRoom.messages.length > 0 ? forcedRoom : null;
   const [selectedThemes, setSelectedThemes] = useState<string[]>(
-    scope === "plan" ? ["natura2000"] : ["artsbeskyttelse"]
+    restored?.themes.length
+      ? restored.themes
+      : scope === "plan"
+        ? ["natura2000"]
+        : ["artsbeskyttelse"]
   );
 
   // Uploaded files: empty until the user picks a file in this case
   const isNewCase = draftCase || caseId.startsWith("ny-");
   const [primaryFile, setPrimaryFile] = useState<CaseDocument | null>(
-    !isNewCase && existingCase?.primaryDocument
-      ? { id: "primary-existing", name: existingCase.primaryDocument, included: true }
-      : null
+    restored?.primaryFile ??
+      (!isNewCase && existingCase?.primaryDocument
+        ? { id: "primary-existing", name: existingCase.primaryDocument, included: true }
+        : null)
   );
-  const [supplementaryFiles, setSupplementaryFiles] = useState<CaseDocument[]>([]);
+  const [supplementaryFiles, setSupplementaryFiles] = useState<CaseDocument[]>(
+    restored?.supplementaryFiles ?? []
+  );
   const primaryInputRef = useRef<HTMLInputElement>(null);
   const supplementaryInputRef = useRef<HTMLInputElement>(null);
   const primaryAnchorRef = useRef<HTMLDivElement>(null);
@@ -313,19 +336,47 @@ export function CaseWorkspace({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Chat message state: starter altid helt rent med en velkomsthilsen
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome-1",
-      sender: "ai",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      text: "Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til venstre, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor. Til højre finder du både kildehenvisninger og de output du selv producerer undervejs.",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(restored?.messages ?? [welcomeMessage()]);
 
   // Generated long-form notes / outputs in studio
-  const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>([]);
+  const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>(restored?.notes ?? []);
+  const roomSnapshot = useRef("");
+  const [storedCaseTick, setStoredCaseTick] = useState(0);
 
   const [inputPrompt, setInputPrompt] = useState("");
+
+  useEffect(() => {
+    const snapshot = JSON.stringify({
+      messages,
+      primaryFile,
+      supplementaryFiles,
+      notes: generatedNotes,
+      themes: selectedThemes,
+    });
+    if (!roomSnapshot.current) {
+      roomSnapshot.current = snapshot;
+      return;
+    }
+    if (snapshot === roomSnapshot.current) return;
+    const id = activeCaseIdRef.current;
+    if (!isStoredCaseId(id)) return;
+    roomSnapshot.current = snapshot;
+    void fetch(`/api/cases/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        room: {
+          messages,
+          primaryFile,
+          supplementaryFiles,
+          notes: generatedNotes,
+          themes: selectedThemes,
+        },
+        primaryDocument: primaryFile?.name ?? null,
+      }),
+      keepalive: true,
+    }).catch(() => undefined);
+  }, [messages, primaryFile, supplementaryFiles, generatedNotes, selectedThemes, storedCaseTick]);
 
   const handleToggleTheme = (themeId: string) => {
     if (selectedThemes.includes(themeId)) {
@@ -345,6 +396,7 @@ export function CaseWorkspace({
       caseNumberRef.current = number;
       setCaseNumber(number);
     }
+    setStoredCaseTick((tick) => tick + 1);
   };
 
   const ensureSavedCase = async (question: string) => {
@@ -854,12 +906,11 @@ export function CaseWorkspace({
                   <label
                     htmlFor="mvai-primary-file"
                     data-upload="primary"
-                    className="relative inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border-2 border-[#0F382C] bg-white px-3.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs"
+                    className="relative inline-flex h-8 w-[13.5rem] shrink-0 cursor-pointer items-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs"
                   >
                     <Upload className="w-3.5 h-3.5 shrink-0 text-[#2E8B57]" />
-                    <span>1. Primært dokument</span>
-                    <span className="shrink-0 rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono">
-                      Fokus
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {primaryFile?.name || "1. Primært dokument"}
                     </span>
                     <input
                       id="mvai-primary-file"

@@ -1,3 +1,4 @@
+import { parseCaseRoom, sanitizeCaseRoom, type CaseRoom } from "@/lib/caseRoom";
 import { topicFromQuestion, uniqueCaseTitle } from "@/lib/caseTitles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/session";
@@ -13,6 +14,7 @@ export type StoredCase = {
   createdAt: string;
   previewSummary: string;
   primaryDocument: string | null;
+  room: CaseRoom | null;
 };
 
 type CaseRow = {
@@ -21,7 +23,7 @@ type CaseRow = {
   case_number: string;
   scope: "projekt" | "plan";
   law_reference: string;
-  preview_summary: string | null;
+  preview_summary?: string | null;
   primary_document: string | null;
   created_at: string;
   updated_at: string;
@@ -57,8 +59,11 @@ function mapCase(row: CaseRow): StoredCase {
     lawReference: row.law_reference,
     updatedAt: formatDanishStamp(row.updated_at, true),
     createdAt: formatDanishStamp(row.created_at, false),
-    previewSummary: row.preview_summary || "Sagen er oprettet og klar til dokumenter.",
+    previewSummary: row.preview_summary && !row.preview_summary.startsWith("{")
+      ? row.preview_summary
+      : "Sagen er oprettet og klar til dokumenter.",
     primaryDocument: row.primary_document,
+    room: parseCaseRoom(row.preview_summary),
   };
 }
 
@@ -147,7 +152,7 @@ export async function listOwnCases(): Promise<{ cases: StoredCase[]; error?: str
 
   const { data, error } = await supabase
     .from("cases")
-    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, created_at, updated_at")
+    .select("id, title, case_number, scope, law_reference, primary_document, created_at, updated_at")
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
 
@@ -176,6 +181,33 @@ export async function getOwnCase(id: string): Promise<StoredCase | null> {
 
   if (error || !data) return null;
   return mapCase(data as CaseRow);
+}
+
+export async function saveOwnCaseRoom(
+  id: string,
+  room: unknown,
+  primaryDocument: string | null
+): Promise<{ error?: string }> {
+  const user = await getSessionUser();
+  if (!user) return { error: "Du er ikke logget ind." };
+
+  const clean = sanitizeCaseRoom(room);
+  if (!clean) return { error: "Samtalen kunne ikke gemmes." };
+  const payload = JSON.stringify(clean);
+  if (payload.length > 350000) return { error: "Samtalen er for lang til at gemme." };
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { error: "Login er ikke konfigureret." };
+
+  const name = primaryDocument?.trim().slice(0, 180) || null;
+  const { error } = await supabase
+    .from("cases")
+    .update({ preview_summary: payload, primary_document: name })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) return { error: caseTableError(error.message) || "Samtalen kunne ikke gemmes." };
+  return {};
 }
 
 async function titlesForUser(
