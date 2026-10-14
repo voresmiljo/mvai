@@ -22,7 +22,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Vælg plan eller projekt." }, { status: 400 });
   }
 
-  const result = await createOwnCase(scope);
+  const question = typeof body?.question === "string" ? body.question : undefined;
+  const result = await createOwnCase(scope, question);
   if (result.error === "Log ind, før du opretter en sag.") {
     return NextResponse.json({ error: result.error }, { status: 401 });
   }

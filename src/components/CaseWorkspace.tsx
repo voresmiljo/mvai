@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { CitationText } from "@/components/CitationText";
+import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
 import {
@@ -100,6 +101,8 @@ export function CaseWorkspace({
   const searchParams = useSearchParams();
 
   const caseId = forcedCaseId || (params?.id as string) || "sag-biogas-2026";
+  const draftCase = caseId === "ny";
+  const activeCaseIdRef = useRef(caseId);
   const existingCase = INITIAL_CASES.find((c) => c.id === caseId);
 
   // Scope: derive from URL query ?scope=plan or existing case or fallback
@@ -113,10 +116,11 @@ export function CaseWorkspace({
   const initialTitle =
     forcedTitle ||
     existingCase?.title ||
-    (scope === "plan" ? "mv plan 01" : "mv projekt 01");
+    (draftCase ? "Ny sag" : scope === "plan" ? "mv plan 01" : "mv projekt 01");
   const [titleDraft, setTitleDraft] = useState(initialTitle);
   const savedTitle = useRef(initialTitle);
   const skipTitleSave = useRef(false);
+  const titledFromQuestion = useRef(isStoredCaseId(caseId) && !isPlaceholderTitle(initialTitle));
   const caseTitle = titleDraft;
 
   const saveTitle = async () => {
@@ -135,27 +139,32 @@ export function CaseWorkspace({
     }
     const previous = savedTitle.current;
     setTitleDraft(next);
-    if (!isStoredCaseId(caseId)) {
+    if (!isStoredCaseId(activeCaseIdRef.current)) {
       savedTitle.current = next;
       return;
     }
-    const res = await fetch(`/api/cases/${caseId}`, {
+    const res = await fetch(`/api/cases/${activeCaseIdRef.current}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: next }),
     });
-    if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.case?.title) {
       savedTitle.current = previous;
       setTitleDraft(previous);
       return;
     }
-    savedTitle.current = next;
+    savedTitle.current = data.case.title;
+    setTitleDraft(data.case.title);
+    titledFromQuestion.current = true;
   };
 
-  const caseNumber =
+  const initialCaseNumber =
     forcedCaseNumber ||
     existingCase?.caseNumber ||
     `2026-${scope === "plan" ? "PLAN" : "VVM"}-${caseId.slice(-4)}`;
+  const [caseNumber, setCaseNumber] = useState(initialCaseNumber);
+  const caseNumberRef = useRef(initialCaseNumber);
 
   // Selected themes (Max 3, warn on 4+)
   const [selectedThemes, setSelectedThemes] = useState<string[]>(
@@ -163,7 +172,7 @@ export function CaseWorkspace({
   );
 
   // Uploaded files: starts empty for new cases unless explicitly provided by an existing case
-  const isNewCase = caseId.startsWith("ny-");
+  const isNewCase = draftCase || caseId.startsWith("ny-");
   const [primaryFile, setPrimaryFile] = useState<string | null>(
     isNewCase ? null : existingCase?.primaryDocument || null
   );
@@ -208,6 +217,49 @@ export function CaseWorkspace({
     }
   };
 
+  const rememberCase = (id: string, title: string, number?: string) => {
+    activeCaseIdRef.current = id;
+    savedTitle.current = title;
+    setTitleDraft(title);
+    titledFromQuestion.current = true;
+    if (number) {
+      caseNumberRef.current = number;
+      setCaseNumber(number);
+    }
+  };
+
+  const ensureSavedCase = async (question: string) => {
+    const currentId = activeCaseIdRef.current;
+    if (!isStoredCaseId(currentId)) {
+      if (currentId !== "ny") return;
+      const res = await fetch("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope, question }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.case?.id) {
+        throw new Error(data.error || "Sagen kunne ikke gemmes.");
+      }
+      rememberCase(data.case.id, data.case.title, data.case.caseNumber);
+      window.history.replaceState(null, "", `/sag/${data.case.id}?scope=${scope}`);
+      return;
+    }
+
+    if (!titledFromQuestion.current && isPlaceholderTitle(savedTitle.current)) {
+      const res = await fetch(`/api/cases/${currentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.case?.title) {
+        throw new Error(data.error || "Titlen kunne ikke gemmes.");
+      }
+      rememberCase(currentId, data.case.title, data.case.caseNumber);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputPrompt.trim() || isAnalyzing) return;
@@ -223,7 +275,24 @@ export function CaseWorkspace({
     setMessages((prev) => [...prev, userMsg]);
     setInputPrompt("");
     setIsAnalyzing(true);
-    void touchStoredCase(caseId);
+
+    try {
+      await ensureSavedCase(userText);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now() + 1}`,
+          sender: "ai",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: err instanceof Error ? err.message : "Sagen kunne ikke gemmes.",
+        },
+      ]);
+      setIsAnalyzing(false);
+      return;
+    }
+
+    void touchStoredCase(activeCaseIdRef.current);
 
     try {
       const res = await fetch("/api/chat", {
@@ -233,8 +302,8 @@ export function CaseWorkspace({
           message: userText,
           scope,
           themes: selectedThemes,
-          caseTitle,
-          caseNumber,
+          caseTitle: savedTitle.current,
+          caseNumber: caseNumberRef.current,
           primaryFile,
           supplementaryFiles,
           history: messages.slice(-4).map((m) => ({ sender: m.sender, text: m.text })),

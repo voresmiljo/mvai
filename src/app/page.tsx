@@ -150,29 +150,12 @@ export default function DashboardPage() {
     return matchesFilter && matchesSearch;
   });
 
-  const handleStartCase = async (scope: "plan" | "projekt") => {
+  const handleStartCase = (scope: "plan" | "projekt") => {
     if (!user) {
       router.push("/login?next=/");
       return;
     }
-
-    setCreating(scope);
-    setCasesError("");
-    try {
-      const res = await fetch("/api/cases", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scope }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.case?.id) {
-        throw new Error(data.error || "Sagen kunne ikke oprettes.");
-      }
-      router.push(`/sag/${data.case.id}?scope=${scope}`);
-    } catch (err) {
-      setCasesError(err instanceof Error ? err.message : "Sagen kunne ikke oprettes.");
-      setCreating(null);
-    }
+    router.push(`/sag/ny?scope=${scope}`);
   };
 
   return (

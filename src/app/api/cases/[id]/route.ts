@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteOwnCase, touchOwnCase, updateOwnCaseTitle } from "@/lib/userCases";
+import { deleteOwnCase, retitleOwnCaseFromQuestion, touchOwnCase, updateOwnCaseTitle } from "@/lib/userCases";
 
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -15,8 +15,10 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     return NextResponse.json({ case: touched.case });
   }
 
-  const title = String(body?.title || "");
-  const result = await updateOwnCaseTitle(id, title);
+  const result =
+    typeof body?.question === "string" && body.question.trim()
+      ? await retitleOwnCaseFromQuestion(id, body.question)
+      : await updateOwnCaseTitle(id, String(body?.title || ""));
 
   if (result.error === "Log ind, før du retter titlen.") {
     return NextResponse.json({ error: result.error }, { status: 401 });

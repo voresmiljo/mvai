@@ -1,3 +1,4 @@
+import { topicFromQuestion, uniqueCaseTitle } from "@/lib/caseTitles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/session";
 
@@ -177,7 +178,21 @@ export async function getOwnCase(id: string): Promise<StoredCase | null> {
   return mapCase(data as CaseRow);
 }
 
-export async function createOwnCase(scope: "projekt" | "plan"): Promise<{ case?: StoredCase; error?: string }> {
+async function titlesForUser(
+  supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>,
+  userId: string,
+  exceptId?: string
+): Promise<string[]> {
+  const { data } = await supabase.from("cases").select("id, title").eq("user_id", userId);
+  return ((data || []) as { id: string; title: string }[])
+    .filter((row) => row.id !== exceptId)
+    .map((row) => row.title);
+}
+
+export async function createOwnCase(
+  scope: "projekt" | "plan",
+  question?: string
+): Promise<{ case?: StoredCase; error?: string }> {
   const user = await getSessionUser();
   if (!user) return { error: "Log ind, før du opretter en sag." };
 
@@ -188,13 +203,10 @@ export async function createOwnCase(scope: "projekt" | "plan"): Promise<{ case?:
   const year = new Date().getFullYear();
   const caseNumber = scope === "plan" ? `${year}-PLAN-${suffix}` : `${year}-VVM-${suffix}`;
   await assignLegacyCaseTitles(supabase, user.id);
-  const { data: existing } = await supabase
-    .from("cases")
-    .select("title")
-    .eq("user_id", user.id)
-    .eq("scope", scope);
-  const titles = ((existing || []) as { title: string }[]).map((row) => row.title);
-  const title = formatScopedTitle(scope, nextScopedNumber(scope, titles));
+  const titles = await titlesForUser(supabase, user.id);
+  const title = question?.trim()
+    ? uniqueCaseTitle(topicFromQuestion(question), titles)
+    : formatScopedTitle(scope, nextScopedNumber(scope, titles));
   const lawReference =
     scope === "plan" ? "Miljøvurderingslovens § 8" : "Miljøvurderingslovens §§ 15–25";
 
@@ -240,6 +252,20 @@ export async function touchOwnCase(id: string): Promise<{ case?: StoredCase; err
   return { case: mapCase(data as CaseRow) };
 }
 
+export async function retitleOwnCaseFromQuestion(
+  id: string,
+  question: string
+): Promise<{ case?: StoredCase; error?: string }> {
+  const user = await getSessionUser();
+  if (!user) return { error: "Log ind, før du retter titlen." };
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { error: "Login er ikke konfigureret." };
+
+  const titles = await titlesForUser(supabase, user.id, id);
+  return updateOwnCaseTitle(id, uniqueCaseTitle(topicFromQuestion(question), titles));
+}
+
 export async function updateOwnCaseTitle(
   id: string,
   title: string
@@ -254,9 +280,12 @@ export async function updateOwnCaseTitle(
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { error: "Login er ikke konfigureret." };
 
+  const titles = await titlesForUser(supabase, user.id, id);
+  const unique = uniqueCaseTitle(trimmed, titles);
+
   const { data, error } = await supabase
     .from("cases")
-    .update({ title: trimmed, updated_at: new Date().toISOString() })
+    .update({ title: unique, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("user_id", user.id)
     .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, created_at, updated_at")
