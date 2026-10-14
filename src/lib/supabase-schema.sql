@@ -10,7 +10,7 @@ create table if not exists legal_sources (
   content text not null,                     -- Selve tekstafsnittet / præmissen
   source_type text not null default 'lov',   -- 'lov', 'bekendtgoerelse', 'vejledning', 'naevnskendelse', 'eu_dom'
   scope text default 'begge',                -- 'plan', 'projekt', 'begge'
-  theme text,                                -- f.eks. 'natura2000', 'artsbeskyttelse', 'naevnspraksis', 'stoej_og_luft', 'grundvand'
+  theme text,                                -- temamappe-id, null = grundmappe. Se src/lib/themeFolders.ts
   pdf_file_name text,                        -- Originalt PDF filnavn til download
   pdf_url text,                              -- URL til original PDF
   metadata jsonb default '{}'::jsonb,        -- Ekstra metadata (dato, myndighed, sagsnr osv.)

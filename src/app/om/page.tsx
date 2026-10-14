@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { getLibraryCounts, type LibraryCounts } from "@/lib/libraryCounts";
+import { THEME_CATEGORIES } from "@/lib/themeFolders";
 import { Mail, ArrowRight } from "lucide-react";
 
 export const metadata = {
@@ -29,10 +30,19 @@ function LibraryFigures({ library }: { library: LibraryCounts }) {
           <span>Grundmappe</span>
           <span className="font-mono text-xs text-slate-500">{library.groundDocuments}</span>
         </li>
-        {library.themes.map((folder) => (
-          <li key={folder.id} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
-            <span>{folder.name}</span>
-            <span className="font-mono text-xs text-slate-500">{folder.documents}</span>
+        {THEME_CATEGORIES.map((category) => (
+          <li key={category.id} className="space-y-2 border-b border-slate-100 pb-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{category.name}</p>
+            <ul className="space-y-2">
+              {library.themes
+                .filter((folder) => folder.category === category.id)
+                .map((folder) => (
+                  <li key={folder.id} className="flex items-center justify-between gap-4">
+                    <span>{folder.name}</span>
+                    <span className="font-mono text-xs text-slate-500">{folder.documents}</span>
+                  </li>
+                ))}
+            </ul>
           </li>
         ))}
       </ul>
@@ -78,7 +88,7 @@ export default function AboutPage() {
                 <span className="font-semibold text-slate-900">Grundmappe:</span> Er altid aktiv som det juridiske fundament. Den indeholder miljøvurderingsloven, gældende bekendtgørelser og de overordnede officielle vejledninger.
               </li>
               <li>
-                <span className="font-semibold text-slate-900">Temamapper:</span> Gør det muligt at tilkoble fagspecifikke emneområder efter behov — f.eks. Natura 2000, artsbeskyttelse, støj og luft, grundvand eller kyst og landskab. Relevante klagenævnsafgørelser er placeret direkte i de temamapper, de omhandler.
+                <span className="font-semibold text-slate-900">Temamapper:</span> Gør det muligt at tilkoble de fagområder, sagen handler om. De er delt i Natur & Miljø og Projekter & Proces. Relevante klagenævnsafgørelser ligger i den temamappe, de handler om.
               </li>
               <li>
                 <span className="font-semibold text-slate-900">Transparens og kildehenvisninger:</span> Alle besvarelser bygger på det valgte kildekorpus og forsynes med præcise kildehenvisninger. Hvis kildegrundlaget ikke indeholder tilstrækkelige oplysninger til at besvare et spørgsmål, oplyser systemet direkte om dette.

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { THEME_FOLDERS } from "@/lib/themeFolders";
 import OpenAI from "openai";
 
 interface TaggingRequest {
@@ -33,7 +34,7 @@ Scope: ${scope === "plan" ? "Plan / Program (§ 8)" : "Konkret Projekt (§§ 15�
 Returnér KUN et JSON-objekt med:
 {
   "documentType": "Screeningsudkast" | "VVM-rapport" | "Feltundersøgelse" | "Høringssvar" | "Teknisk notat" | "Andet",
-  "recommendedThemes": ["artsbeskyttelse" | "natura2000" | "stoej_og_luft" | "grundvand" | "kyst_og_landskab"],
+  "recommendedThemes": [${THEME_FOLDERS.map((folder) => `"${folder.id}"`).join(" | ")}],
   "keyLegalParagraphs": ["f.eks. § 21", "Bilag 6", "Art. 12"],
   "summary": "1-2 korte sætninger på dansk om dokumentets indhold",
   "potentialRiskPoints": ["1 kort opmærksomhedspunkt vedr. klagerisiko"]
@@ -63,14 +64,35 @@ Returnér KUN et JSON-objekt med:
     if (lowerName.includes("art") || lowerName.includes("bilag") || lowerName.includes("firben") || lowerName.includes("flagermus")) {
       recommendedThemes.push("artsbeskyttelse");
     }
+    if (`${fileName} ${fileTextSnippet}`.toLowerCase().includes("forvaltningsplan")) {
+      recommendedThemes.push("artsforvaltning");
+    }
     if (lowerName.includes("natura") || lowerName.includes("habitat") || lowerName.includes("fugle")) {
       recommendedThemes.push("natura2000");
     }
-    if (lowerName.includes("støj") || lowerName.includes("lugt") || lowerName.includes("luft") || lowerName.includes("trafik")) {
+    if (lowerName.includes("støj") || lowerName.includes("lugt") || lowerName.includes("luft") || lowerName.includes("trafik") || lowerName.includes("vibration")) {
       recommendedThemes.push("stoej_og_luft");
     }
-    if (lowerName.includes("vand") || lowerName.includes("grundvand") || lowerName.includes("bnbo")) {
+    if (lowerName.includes("vand") || lowerName.includes("grundvand") || lowerName.includes("bnbo") || lowerName.includes("spildevand")) {
       recommendedThemes.push("grundvand");
+    }
+    if (lowerName.includes("§ 3") || lowerName.includes("naturtype") || lowerName.includes("mose") || lowerName.includes("overdrev")) {
+      recommendedThemes.push("paragraf_3_natur");
+    }
+    if (lowerName.includes("kyst") || lowerName.includes("landskab")) {
+      recommendedThemes.push("kyst_og_landskab");
+    }
+    if (lowerName.includes("kirke") || lowerName.includes("fortidsminde") || lowerName.includes("arkæolog") || lowerName.includes("museum")) {
+      recommendedThemes.push("kulturarv");
+    }
+    if (lowerName.includes("vind") || lowerName.includes("solcelle")) {
+      recommendedThemes.push("ve_anlaeg");
+    }
+    if (lowerName.includes("råstof") || lowerName.includes("infrastruktur") || lowerName.includes("jordforurening")) {
+      recommendedThemes.push("byudvikling");
+    }
+    if (lowerName.includes("inhabilitet") || lowerName.includes("partshøring") || lowerName.includes("klagefrist")) {
+      recommendedThemes.push("sagsbehandling");
     }
     return NextResponse.json({
       documentType: lowerName.includes("screening") ? "Screeningsudkast" : "Teknisk notat",
