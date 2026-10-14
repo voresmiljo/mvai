@@ -40,7 +40,7 @@ export async function searchSupabaseLegalSources(
           query_embedding: vector,
           match_threshold: 0.45,
           match_count: 5,
-          filter_themes: themes.length > 0 ? themes : null,
+          filter_themes: themes,
           filter_scope: scope,
         });
 
@@ -83,6 +83,8 @@ export async function searchSupabaseLegalSources(
 
     if (themes.length > 0) {
       query = query.in("theme", themes);
+    } else {
+      query = query.is("theme", null);
     }
 
     const { data, error } = await query;
