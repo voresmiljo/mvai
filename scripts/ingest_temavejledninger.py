@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Læg vejledninger, notater, love og direktiver i de mapper, de er tildelt.
+"""Læg vejledninger, notater, love, direktiver og forvaltningsplaner i de mapper, de er tildelt.
 
 Hvert afsnit lægges i hver af dokumentets mapper, så det kan findes, når
 mappen er slået til. Tema null er grundmappen. Scope er begge.
@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -151,6 +152,110 @@ DOCUMENTS = [
         "note": "Filen er direktivet fra 1992. Senere ændringer er ikke indarbejdet i teksten.",
         "kind": "habitatdir",
         "source_type": "direktiv",
+    },
+    {
+        "file": "Forvaltningsplan_for_strandtudse__2015__e5df.pdf",
+        "pdf": "forvaltningsplan-strandtudse-2015.pdf",
+        "short": "Forvaltningsplan for strandtudsen",
+        "citation_base": "Forvaltningsplan for strandtudsen, Naturstyrelsen, Miljø- og Fødevareministeriet, 2015",
+        "date": "2015",
+        "authority": "Naturstyrelsen, Miljø- og Fødevareministeriet",
+        "journal": "ISBN 978-87-7279-692-5",
+        "themes": ["artsforvaltning"],
+        "note": "",
+        "kind": "forvaltningsplan",
+        "source_type": "forvaltningsplan",
+    },
+    {
+        "file": "Forvaltningsplan_for_gr_nbroget_tudse__2015__0321.pdf",
+        "pdf": "forvaltningsplan-groenbroget-tudse-2015.pdf",
+        "short": "Forvaltningsplan for grønbroget tudse",
+        "citation_base": "Forvaltningsplan for grønbroget tudse, Naturstyrelsen, Miljø- og Fødevareministeriet, 2015",
+        "date": "2015",
+        "authority": "Naturstyrelsen, Miljø- og Fødevareministeriet",
+        "journal": "ISBN 978-87-7279-694-9",
+        "themes": ["artsforvaltning"],
+        "note": "",
+        "kind": "forvaltningsplan",
+        "source_type": "forvaltningsplan",
+    },
+    {
+        "file": "Forvaltningsplan_for_markfirben__2015__f73b.pdf",
+        "pdf": "forvaltningsplan-markfirben-2015.pdf",
+        "short": "Forvaltningsplan for markfirben",
+        "citation_base": "Forvaltningsplan for markfirben, Naturstyrelsen, Miljø- og Fødevareministeriet, 2015",
+        "date": "2015",
+        "authority": "Naturstyrelsen, Miljø- og Fødevareministeriet",
+        "journal": "ISBN 978-87-7279-693-2",
+        "themes": ["artsforvaltning"],
+        "note": "",
+        "kind": "forvaltningsplan",
+        "source_type": "forvaltningsplan",
+    },
+    {
+        "file": "Forvaltningsplan_for_sn_bel__2003__7d70.pdf",
+        "pdf": "forvaltningsplan-snaebel-2003.pdf",
+        "short": "National forvaltningsplan for snæbel",
+        "citation_base": "National forvaltningsplan for snæbel, Miljøministeriet, Skov- og Naturstyrelsen, Sønderjyllands Amt og Ribe Amt, april 2003",
+        "date": "april 2003",
+        "authority": "Miljøministeriet, Skov- og Naturstyrelsen, Sønderjyllands Amt og Ribe Amt",
+        "journal": "ISBN 87-7941-248-3",
+        "themes": ["artsforvaltning"],
+        "note": "",
+        "kind": "forvaltningsplan",
+        "source_type": "forvaltningsplan",
+    },
+    {
+        "file": "Forvaltningsplan_for_birkemus__2012__e6a4.pdf",
+        "pdf": "forvaltningsplan-birkemus-2012.pdf",
+        "short": "Forvaltningsplan for birkemusen",
+        "citation_base": "Forvaltningsplan for birkemusen, Naturstyrelsen, Miljøministeriet, 2012",
+        "date": "2012",
+        "authority": "Naturstyrelsen, Miljøministeriet",
+        "journal": "ISBN 978-87-7279-304-7",
+        "themes": ["artsforvaltning"],
+        "note": "",
+        "kind": "forvaltningsplan",
+        "source_type": "forvaltningsplan",
+    },
+    {
+        "file": "Forvaltningsplan_for_hasselmus__2011__af51.pdf",
+        "pdf": "forvaltningsplan-hasselmus-2011.pdf",
+        "short": "Forvaltningsplan for hasselmusen",
+        "citation_base": "Forvaltningsplan for hasselmusen, Naturstyrelsen, Miljøministeriet, 2011",
+        "date": "2011",
+        "authority": "Naturstyrelsen, Miljøministeriet",
+        "journal": "ISBN 978-87-7279-092-3",
+        "themes": ["artsforvaltning"],
+        "note": "",
+        "kind": "forvaltningsplan",
+        "source_type": "forvaltningsplan",
+    },
+    {
+        "file": "Forvaltningsplan_for_flagermus__2017__fc55.pdf",
+        "pdf": "forvaltningsplan-flagermus-2013.pdf",
+        "short": "Forvaltningsplan for flagermus",
+        "citation_base": "Forvaltningsplan for flagermus, Naturstyrelsen, Miljøministeriet, 2013",
+        "date": "2013",
+        "authority": "Naturstyrelsen, Miljøministeriet",
+        "journal": "ISBN 978-87-7279-407-5",
+        "themes": ["artsforvaltning"],
+        "note": "",
+        "kind": "forvaltningsplan",
+        "source_type": "forvaltningsplan",
+    },
+    {
+        "file": "Forvaltningsplan_for_odder__1996__9188.pdf",
+        "pdf": "forvaltningsplan-odder-1996.pdf",
+        "short": "Forvaltningsplan for odder",
+        "citation_base": "Forvaltningsplan for odder (Lutra lutra) i Danmark, Miljø- og Energiministeriet, Skov- og Naturstyrelsen, 1996",
+        "date": "1996",
+        "authority": "Miljø- og Energiministeriet, Skov- og Naturstyrelsen",
+        "journal": "ISBN 87-7279-006-7",
+        "themes": ["artsforvaltning"],
+        "note": "Teksten er læst fra en scanning.",
+        "kind": "odder",
+        "source_type": "forvaltningsplan",
     },
 ]
 
@@ -401,9 +506,9 @@ def page_label(pages: list[int]) -> str:
             unique.append(page)
     if not unique:
         return ""
-    if len(unique) == 1 or unique[0] == unique[-1]:
+    if len(unique) == 1 or min(unique) == max(unique):
         return str(unique[0])
-    return f"{unique[0]}–{unique[-1]}"
+    return f"{min(unique)}–{max(unique)}"
 
 
 def split_numbered(rows: list[tuple[str, int]], kind: str) -> list[tuple[str, list[tuple[str, int]]]]:
@@ -1009,9 +1114,387 @@ def split_habitatdir(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[
     return sections
 
 
-def build(folder: Path) -> list[dict]:
+PLAN_TOC = re.compile(r"^(?:indhold|indholdsfortegnelse)\b", re.IGNORECASE)
+PLAN_PAGE = re.compile(r"^(?:\d{1,3}|\d(?:\s+\d){1,2})$")
+ODDER_TOC = re.compile(r"^(\d+(?:\.\d+)*)\s*[-–.]?\s+(.+?)\s+\d{1,3}\s*\.?$")
+ODDER_HEAD = re.compile(r"^(\d+(?:\.\d+)*)\s*[-–.]?\s+(.+?)\s*\.?$")
+
+
+def plan_tidy(text: str) -> str:
+    return " ".join(text.replace("\xa0", " ").split())
+
+
+def plan_title(text: str) -> str:
+    cleaned = plan_tidy(text.replace("\u00ad", ""))
+    cleaned = re.sub(r"(?:\.{2,}|…+)", " ", cleaned)
+    cleaned = re.sub(r"\s+\d(?:\s+\d){1,2}$", "", cleaned)
+    cleaned = re.sub(r"\s+\d{1,3}$", "", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip(" .-–—")
+
+
+def closed_toc_line(line: str) -> bool:
+    compact = plan_tidy(line)
+    if ".." in compact or "…" in compact:
+        return True
+    if re.search(r"\s\d(?:\s+\d){1,2}$", compact):
+        return True
+    return bool(re.search(r"\s\d{1,3}$", compact))
+
+
+def plan_page_value(text: str) -> int | None:
+    compact = text.strip()
+    if re.fullmatch(r"\d{1,3}", compact):
+        return int(compact)
+    if re.fullmatch(r"\d(?:\s+\d){1,2}", compact):
+        return int(compact.replace(" ", ""))
+    return None
+
+
+def plan_page_lines(page: pymupdf.Page) -> list[tuple[str, int]]:
+    """Linjer i læserækkefølge. Spalter læses færdige, før næste spalte begynder."""
+    matrix = page.rotation_matrix
+    height = page.rect.height
+    raw: list[tuple[float, float, float, str]] = []
+    for block in page.get_text("dict")["blocks"]:
+        if block.get("type") != 0:
+            continue
+        for line in block["lines"]:
+            text = plan_tidy("".join(span["text"] for span in line["spans"]))
+            if not text:
+                continue
+            box = pymupdf.Rect(line["bbox"]) * matrix
+            raw.append((box.y0, box.x0, box.x1, text))
+    margin: list[tuple[float, int]] = []
+    body: list[tuple[float, float, float, str]] = []
+    for y0, x0, x1, text in raw:
+        in_margin = y0 < 40 or y0 > height - 38
+        if in_margin:
+            number = plan_page_value(text) if re.fullmatch(r"\d{1,3}", text.strip()) else None
+            if number is None:
+                match = re.match(r"^(\d{1,3})\s+Forvaltningsplan", text)
+                if match:
+                    number = int(match.group(1))
+            if number is not None:
+                margin.append((x0, number))
+            continue
+        if text.startswith("Beskyttelse og forvaltning af hasselmusen OG DENS"):
+            continue
+        if re.match(r"^\d{1,3}\s+Forvaltningsplan", text) and len(text) < 90:
+            continue
+        if re.match(r"^Forvaltningsplan(?:en)? for \S.+\d{1,3}$", text) and len(text) < 90:
+            continue
+        body.append((y0, x0, x1, text))
+    fallback = page.number + 1
+
+    def printed(x0: float) -> int:
+        if not margin:
+            return fallback
+        return min(margin, key=lambda item: abs(item[0] - x0))[1]
+
+    long = [item for item in body if len(item[3]) > 25]
+    split_at = None
+    if len(long) >= 8:
+        starts = sorted(item[1] for item in long)
+        gap = 0.0
+        at = None
+        for left, right in zip(starts, starts[1:]):
+            if right - left > gap:
+                gap = right - left
+                at = (left + right) / 2
+        if at is not None and gap > 40:
+            left_count = sum(1 for item in long if item[1] < at)
+            right_count = sum(1 for item in long if item[1] >= at)
+            if left_count >= 4 and right_count >= 4:
+                split_at = at
+
+    def emit(rows: list[tuple[float, float, float, str]]) -> list[tuple[str, int]]:
+        ordered = sorted(rows, key=lambda item: (item[0], item[1]))
+        emitted: list[tuple[str, int]] = []
+        index = 0
+        while index < len(ordered):
+            y0 = ordered[index][0]
+            parts = [ordered[index]]
+            index += 1
+            while index < len(ordered) and abs(ordered[index][0] - y0) < 3:
+                parts.append(ordered[index])
+                index += 1
+            parts.sort(key=lambda item: item[1])
+            text = plan_tidy(" ".join(part[3] for part in parts))
+            if text:
+                emitted.append((text, printed(parts[0][1])))
+        return emitted
+
+    if split_at is None:
+        return emit(body)
+    left = [item for item in body if item[1] < split_at]
+    right = [item for item in body if item[1] >= split_at]
+    return emit(left) + emit(right)
+
+
+def read_forvaltningsplan(path: Path) -> list[tuple[str, int]]:
+    document = pymupdf.open(path)
+    rows: list[tuple[str, int]] = []
+    for page in document:
+        rows.extend(plan_page_lines(page))
+    return join_hyphen_rows(rows)
+
+
+def collect_plan_titles(rows: list[tuple[str, int]], toc_at: int) -> list[str]:
+    """Overskrifter fra indholdsfortegnelsen. En post slutter med sidetal eller prikker."""
+    titles: list[str] = []
+    index = toc_at + 1
+    while index < len(rows):
+        line = rows[index][0]
+        if PLAN_PAGE.match(line.strip()) or plan_title(line).casefold() in {"side", "indhold", "indholdsfortegnelse"}:
+            index += 1
+            continue
+        nxt = rows[index + 1][0] if index + 1 < len(rows) else ""
+        wrapped = (
+            not closed_toc_line(line)
+            and (nxt[:1].islower() or nxt.startswith("("))
+            and (closed_toc_line(nxt) or bool(PLAN_PAGE.match(nxt.strip())))
+        )
+        if wrapped:
+            title = plan_title(f"{line} {nxt}")
+            if 3 <= len(title) <= 180 and not re.fullmatch(r"[\d\s.]+", title):
+                titles.append(title)
+            index += 2
+            continue
+        if closed_toc_line(line):
+            title = plan_title(line)
+            if title and 3 <= len(title) <= 180 and not re.fullmatch(r"[\d\s.]+", title):
+                if not titles or titles[-1].casefold() != title.casefold():
+                    titles.append(title)
+            index += 1
+            continue
+        if closed_toc_line(nxt) and nxt[:1].isupper() and len(line) < 160:
+            title = plan_title(line)
+            if title and 3 <= len(title) <= 180:
+                titles.append(title)
+            index += 1
+            continue
+        if len(titles) >= 3:
+            break
+        index += 1
+    return titles
+
+
+def split_forvaltningsplan(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+    toc_at = next((index for index, (line, _page) in enumerate(rows) if PLAN_TOC.match(plan_title(line))), None)
+    if toc_at is None:
+        raise RuntimeError("Fandt ikke indholdsfortegnelsen")
+    toc_page = rows[toc_at][1]
+    titles = collect_plan_titles(rows, toc_at)
+    if len(titles) < 4:
+        raise RuntimeError(f"Fandt for få afsnit i forvaltningsplanen ({titles})")
+    known = {title.casefold() for title in titles}
+
+    def follower_is_toc(index: int) -> bool:
+        for line, _page in rows[index + 1 : index + 4]:
+            if PLAN_PAGE.match(line.strip()):
+                return True
+            if plan_title(line).casefold() in known or PLAN_TOC.match(plan_title(line)):
+                return True
+            if len(line) > 40:
+                return False
+        return True
+
+    body_at = None
+    for index in range(toc_at + 1, len(rows)):
+        line, page = rows[index]
+        if page == toc_page or plan_title(line).casefold() not in known:
+            continue
+        if not follower_is_toc(index):
+            body_at = index
+            break
+    if body_at is None:
+        raise RuntimeError("Fandt ikke brødteksten efter indholdsfortegnelsen")
+    sections: list[tuple[str, list[tuple[str, int]]]] = []
+    preface = [(line, page) for line, page in rows[:toc_at] if not PLAN_PAGE.match(line.strip())]
+    if preface:
+        sections.append(("Kolofon", preface))
+    def plan_heading(line: str, nxt: str) -> str | None:
+        if not line or line[:1].islower() or len(line) > 180:
+            return None
+        title = plan_title(line)
+        exact = next((item for item in titles if item.casefold() == title.casefold()), None)
+        if exact is None:
+            folded = re.sub(r"(.)\1+", r"\1", title.casefold())
+            exact = next(
+                (
+                    item
+                    for item in titles
+                    if abs(len(item) - len(title)) <= 2 and re.sub(r"(.)\1+", r"\1", item.casefold()) == folded
+                ),
+                None,
+            )
+        if exact:
+            return exact
+        if len(title) < 8:
+            return None
+        matches = [item for item in titles if item.casefold().startswith(title.casefold() + " ")]
+        if len(matches) != 1:
+            return None
+        rest = matches[0][len(title) :].strip()
+        if title.endswith(("og", "med", "for", "af", "til", "i", "en", "et", ",")):
+            word = rest.split()[0].casefold().strip(".,;:()")
+            if plan_title(nxt).casefold().startswith(word):
+                return matches[0]
+            return None
+        if len(line) < 80:
+            return matches[0]
+        return None
+
+    heading = plan_heading(rows[body_at][0], rows[body_at + 1][0] if body_at + 1 < len(rows) else "") or plan_title(rows[body_at][0])
+    current: list[tuple[str, int]] = []
+    body = rows[body_at:]
+    for index, (line, page) in enumerate(body):
+        if PLAN_PAGE.match(line.strip()):
+            continue
+        nxt = body[index + 1][0] if index + 1 < len(body) else ""
+        label = plan_heading(line, nxt)
+        if label and current:
+            sections.append((heading, current))
+            heading = label
+            current = [(line, page)]
+        else:
+            current.append((line, page))
+    if current:
+        sections.append((heading, current))
+    return glue_short(sections)
+
+
+ODDER_CACHE = Path("/tmp/odder-ocr")
+
+
+def read_odder(path: Path) -> list[tuple[str, int]]:
+    ODDER_CACHE.mkdir(parents=True, exist_ok=True)
+    document = pymupdf.open(path)
+    rows: list[tuple[str, int]] = []
+    for index, page in enumerate(document, start=1):
+        cached = ODDER_CACHE / f"p{index}.txt"
+        if not cached.exists() or cached.stat().st_size == 0:
+            image = ODDER_CACHE / f"p{index}.png"
+            page.get_pixmap(dpi=180).save(image)
+            subprocess.run(
+                ["tesseract", str(image), str(cached.with_suffix("")), "-l", "dan", "--psm", "6"],
+                check=True,
+                capture_output=True,
+            )
+        printed = index
+        for raw_line in cached.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = plan_tidy(raw_line.replace("\u00ad", ""))
+            if not line:
+                continue
+            if not rows or rows[-1][1] != printed:
+                if re.fullmatch(r"\d{1,3}", line) and printed == index:
+                    printed = int(line)
+                    continue
+            line = re.sub(r"^41\s+Åleruser", "4.1 Åleruser", line)
+            line = re.sub(r"^5,3\s+", "5.3 ", line)
+            line = re.sub(r"^[.·]+\s+(?=\d)", "", line)
+            if ODDER_TOC.match(line):
+                pass
+            elif re.match(r"^9\s*[=»].*Øvrige", line):
+                line = "9. Øvrige områder med odder"
+            elif re.match(r"^1\s*O\b.*Fremtidig", line):
+                line = "10. Fremtidig overvågning og forskning"
+            elif re.match(r"^1\s*1\b.*Genudsætning af odder", line):
+                line = "11. Genudsætning af odder"
+            elif re.match(r"^13\b.*Resumé", line):
+                line = "13. Resumé"
+            elif re.match(r"^1\s*d\..*English", line):
+                line = "14. English Summary"
+            elif re.match(r"^1\s*5\b.*Referencer", line):
+                line = "15. Referencer"
+            elif re.match(r"^5\s*=\s*National", line):
+                line = "5. National og international beskyttelse"
+            elif re.match(r"^2\s+Odderens biologi$", line):
+                line = "2. Odderens biologi"
+            elif re.match(r"^3\s*[»=].*Undersøgelser", line):
+                line = "3. Undersøgelser og forskning"
+            elif re.match(r"^6\s*[»=].*Forvaltningsmæssige", line):
+                line = "6. Forvaltningsmæssige overvejelser"
+            letters = len(re.findall(r"[A-Za-zÆØÅæøå]", line))
+            if len(line) >= 8 and letters / len(line) < 0.35 and not ODDER_HEAD.match(line):
+                continue
+            if rows and rows[-1][0].endswith("-") and re.match(r"^[a-zæøå]", line):
+                rows[-1] = (rows[-1][0][:-1] + line, rows[-1][1])
+            else:
+                rows.append((line, printed))
+    return rows
+
+
+def odder_key(number: str, title: str) -> str:
+    return f"{number} {plan_title(title)}".casefold()
+
+
+def odder_heading(line: str, known: dict[str, str]) -> str | None:
+    if ODDER_TOC.match(line.strip()):
+        return None
+    match = ODDER_HEAD.match(line.strip())
+    if not match or len(line) > 120:
+        return None
+    key = odder_key(match.group(1), match.group(2))
+    if key in known:
+        return known[key]
+    for known_key, label in known.items():
+        if key.startswith(known_key) and (len(key) == len(known_key) or key[len(known_key)] == " "):
+            return label
+    return None
+
+
+def split_odder(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+    toc_at = next((index for index, (line, _page) in enumerate(rows) if plan_title(line).casefold() == "indhold"), None)
+    if toc_at is None:
+        raise RuntimeError("Fandt ikke odderplanens indhold")
+    known: dict[str, str] = {}
+    toc_end = toc_at
+    for index in range(toc_at + 1, len(rows)):
+        line = rows[index][0]
+        match = ODDER_TOC.match(line.strip())
+        if match:
+            number, title = match.group(1), match.group(2)
+            known[odder_key(number, title)] = f"{number} {plan_title(title)}"
+            toc_end = index
+            continue
+        if known and len(line) > 40:
+            break
+    if len(known) < 15:
+        raise RuntimeError(f"Fandt for få afsnit i odderplanen ({len(known)})")
+    forord_at = next((index for index, (line, _page) in enumerate(rows[:toc_at]) if plan_title(line).casefold() == "forord"), None)
+    sections: list[tuple[str, list[tuple[str, int]]]] = []
+    if forord_at is None:
+        preface = rows[:toc_at]
+        if preface:
+            sections.append(("Kolofon", preface))
+    else:
+        preface = rows[:forord_at]
+        if preface:
+            sections.append(("Kolofon", preface))
+        sections.append(("Forord", rows[forord_at:toc_at]))
+    heading = ""
+    current: list[tuple[str, int]] = []
+    for line, page in rows[toc_end + 1 :]:
+        label = odder_heading(line, known)
+        if label:
+            if current and heading:
+                sections.append((heading, current))
+            heading = label
+            current = [(line, page)]
+            continue
+        if heading:
+            current.append((line, page))
+    if current and heading:
+        sections.append((heading, current))
+    return glue_short(sections)
+
+
+def build(folder: Path, only: set[str] | None = None) -> list[dict]:
     chunks: list[dict] = []
     for spec in DOCUMENTS:
+        if only and spec["pdf"] not in only:
+            continue
         kind = spec["kind"]
         if kind == "notat":
             rows = merge_wraps(read_notat(folder / spec["file"]), "notat")
@@ -1024,6 +1507,10 @@ def build(folder: Path) -> list[dict]:
             sections = split_kommission(read_kommission(folder / spec["file"]))
         elif kind == "habitatdir":
             sections = split_habitatdir(read_habitatdir(folder / spec["file"]))
+        elif kind == "forvaltningsplan":
+            sections = split_forvaltningsplan(read_forvaltningsplan(folder / spec["file"]))
+        elif kind == "odder":
+            sections = split_odder(read_odder(folder / spec["file"]))
         else:
             rows = merge_wraps(read_rows(folder / spec["file"], kind), kind)
             sections = split_wildlife(rows) if kind == "wildlife" else split_numbered(rows, kind)
@@ -1128,9 +1615,7 @@ def main() -> None:
     for arg in sys.argv[1:]:
         if arg.startswith("--only="):
             only = {part.strip() for part in arg.split("=", 1)[1].split(",") if part.strip()}
-    chunks = build(folder)
-    if only:
-        chunks = [chunk for chunk in chunks if chunk["pdf_file_name"] in only]
+    chunks = build(folder, only)
     summary: dict[str, dict[str, int]] = {}
     for chunk in chunks:
         slot = summary.setdefault(chunk["pdf_file_name"], {})
