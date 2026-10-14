@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { suggestQuestionsLocally, takeThreeQuestions, type PromptTurn } from "@/lib/promptSupport";
+import { suggestQuestionsLocally, takeThreeQuestions, type PromptTurn } from "@/lib/suggestedQuestions";
 
 const instruction = `Foreslå præcis tre opfølgende spørgsmål på dansk til en sagsbehandler.
 Det nyeste brugerindlæg vejer mest. Ældre indlæg er kun baggrund.
