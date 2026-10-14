@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   Download,
   Sparkles,
-  FileCheck,
   Search,
   CornerDownLeft,
   BookOpen,
@@ -800,37 +799,6 @@ export function CaseWorkspace({
                       <div>
                         <span className="font-bold">Retslig risikofaktor:</span>
                         <p className="mt-0.5 leading-normal">{msg.warning}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Citations block */}
-                  {msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-slate-200/80">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                        Anvendte retskilder (Klik for at inspicere i kildelæser):
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {msg.sources.map((src) => (
-                          <button
-                            key={src.id}
-                            type="button"
-                            onClick={() => {
-                              setActiveSnippet(src);
-                              setOriginalError("");
-                              setRightPanelTab("kilde");
-                            }}
-                            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border text-left transition-all cursor-pointer ${
-                              activeSnippet?.id === src.id && rightPanelTab === "kilde"
-                                ? "border-[#0F382C] bg-[#0F382C] text-white font-semibold"
-                                : "border-slate-300 bg-white text-slate-700 hover:border-[#0F382C]"
-                            }`}
-                          >
-                            <FileCheck className="w-3 h-3 text-[#2E8B57]" />
-                            <span className="truncate max-w-[220px]">{src.title}</span>
-                            <span className="text-[10px] opacity-75">({src.relevanceScore}%)</span>
-                          </button>
-                        ))}
                       </div>
                     </div>
                   )}
