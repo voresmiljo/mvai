@@ -117,12 +117,13 @@ Du skal altid forholde dig 100 % neutralt, fagligt nøgternt og juridisk objekti
 - Når sagen vedrører KONKRETE PROJEKTER (Afsnit III / §§ 15–25): Anvend VVM-begreber, f.eks. "VVM-screening", "miljøkonsekvensrapport", "bygherre" og "projektafgørelse".
 
 5. PRÆCISE KILDEHENVISNINGER:
-Enhver faglig påstand eller konklusion i dit svar SKAL følges af en præcis kildehenvisning i hakparenteser, f.eks.:
+Enhver faglig påstand eller konklusion i dit svar SKAL følges af en præcis kildehenvisning som almindelig tekst i hakparenteser, f.eks.:
 - [Miljøvurderingsloven § 8, stk. 1]
 - [BEK nr. 1608 af 09/12/2024 § 4]
 - [Vejledning om miljøvurderingsloven kap. 3]
 - [MFKN j.nr. 21/04322]
 - [EU-Domstolen Sag C-127/02 Waddenzee]
+Lav ikke markdown-links, URL'er eller citationstags i teksten. Kildeknapperne under svaret sættes ind af systemet.
 
 STRUKTUR PÅ DINE SVAR:
 1. Kort og direkte konklusion/svar på brugerens spørgsmål.
@@ -254,7 +255,7 @@ STRUKTUR PÅ DINE SVAR:
     );
 
     const outputNote = savedOutput.length
-      ? `\n\n### Gemt output\n${savedOutput
+      ? `\n\nGemt output\n${savedOutput`
           .map((item) => `- [${item.citation}] ${item.textSnippet}`)
           .join("\n")}`
       : "";
@@ -283,20 +284,20 @@ function generateIntelligentLegalResponse(
   _caseTitle?: string,
   primaryFile?: string | null
 ) {
-  const fileMention = primaryFile ? ` i relation til *${primaryFile}*` : "";
+  const fileMention = primaryFile ? ` i relation til ${primaryFile}` : "";
 
   return {
-    text: `### 1. Konklusion
+    text: `1. Konklusion
 Vedrørende dit spørgsmål: "${prompt}" for ${
       scope === "plan" ? "Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
     }:
 Der er på nuværende tidspunkt ikke uploadet eller indekseret specifikke retskildedokumenter eller afgørelser i databasen for de valgte temamapper (${themes.join(", ") || "ingen valgt"}).
 
-### 2. Gennemgang af kildegrundlag og gældende ret
+2. Gennemgang af kildegrundlag og gældende ret
 - Det fremgår ikke entydigt af det aktiverede kildegrundlag, hvilke konkrete bestemmelser eller kendelser der skal lægges til grund, idet kildedatabasen er tom og afventer upload af sagsakter og afgørelser.
 - Generelt gælder for ${scope === "plan" ? "planer og programmer [Miljøvurderingsloven § 8]" : "konkrete anlægsprojekter [Miljøvurderingsloven § 21]"}, at vurderinger skal baseres på dokumenteret materiale forud for afgørelsen.
 
-### 3. Usikkerheder, forbehold eller manglende oplysninger i sagsakterne${fileMention}
+3. Usikkerheder, forbehold eller manglende oplysninger i sagsakterne${fileMention}
 - Kildedatabasen er helt nulstillet. Når du uploader sagsakter (f.eks. via 'Primært dokument' eller 'Sekundære dokumenter') eller tilføjer kendelser til temamapperne, vil analysen tage direkte udgangspunkt i de fremlagte dokumenter.`,
     warning: undefined,
     sources: [],
