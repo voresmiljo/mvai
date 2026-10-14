@@ -97,7 +97,14 @@ function mailError(error: unknown): Error {
   return new Error(`one.com: ${detail}`);
 }
 
-async function deliver(action: MailAction, port: number, password: string): Promise<void> {
+type OutgoingMail = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+};
+
+async function deliverMail(mail: OutgoingMail, port: number, password: string): Promise<void> {
   const host = envValue("SMTP_HOST") || "send.one.com";
   const user = envValue("SMTP_USER") || "kontakt@mvai.dk";
   const addresses = await dns.resolve4(host);
@@ -118,15 +125,23 @@ async function deliver(action: MailAction, port: number, password: string): Prom
     auth: { user, pass: password },
     tls: { servername: host },
   } as Parameters<typeof nodemailer.createTransport>[0]);
-  const copy = mailCopy(action);
   await transporter.sendMail({
     from: { name: "MVAI", address: user },
-    to: action.email,
-    envelope: { from: user, to: action.email },
-    subject: copy.subject,
-    text: copy.text,
-    html: copy.html,
+    to: mail.to,
+    envelope: { from: user, to: mail.to },
+    subject: mail.subject,
+    text: mail.text,
+    html: mail.html,
   });
+}
+
+async function deliver(action: MailAction, port: number, password: string): Promise<void> {
+  const copy = mailCopy(action);
+  await deliverMail(
+    { to: action.email, subject: copy.subject, text: copy.text, html: copy.html },
+    port,
+    password
+  );
 }
 
 export async function sendAuthMail(action: MailAction): Promise<void> {
@@ -138,6 +153,18 @@ export async function sendAuthMail(action: MailAction): Promise<void> {
   const port = 587;
   try {
     await deliver(action, port, password);
+  } catch (error) {
+    throw mailError(error);
+  }
+}
+
+export async function sendFeedbackMail(mail: OutgoingMail): Promise<void> {
+  const password = envValue("SMTP_PASSWORD");
+  if (!password) {
+    throw new Error("Adgangskoden til mailen mangler på serveren.");
+  }
+  try {
+    await deliverMail(mail, 587, password);
   } catch (error) {
     throw mailError(error);
   }

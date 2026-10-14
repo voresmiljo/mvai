@@ -22,6 +22,8 @@ import {
   Copy,
   Check,
   FileCode,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 
 type ScopeType = "projekt" | "plan";
@@ -302,6 +304,10 @@ export function CaseWorkspace({
 
   // Copy status per message ID
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [feedbackVote, setFeedbackVote] = useState<Record<string, "up" | "down">>({});
+  const [feedbackOpenId, setFeedbackOpenId] = useState<string | null>(null);
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [feedbackState, setFeedbackState] = useState<Record<string, "sending" | "sent" | "error">>({});
 
   // Loading state for LLM analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -554,16 +560,48 @@ export function CaseWorkspace({
     }
   };
 
-  const handleDownloadPDF = (text: string, title: string = "MVAI-Analyse") => {
-    // Generates a downloadable text-based PDF / document blob
-    const element = document.createElement("a");
-    const headerContent = `MVAI.DK — MILJØVURDERINGSVEJEN\nSag: ${caseTitle} (${caseNumber})\nDato: ${new Date().toLocaleDateString("da-DK")}\n\n==================================================\n\n`;
-    const file = new Blob([headerContent + text], { type: "application/pdf;charset=utf-8" });
-    element.href = URL.createObjectURL(file);
-    element.download = `${title.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Date.now()}.pdf`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+  const chooseFeedback = (msgId: string, vote: "up" | "down") => {
+    if (feedbackState[msgId] === "sent" || feedbackState[msgId] === "sending") return;
+    setFeedbackVote((prev) => ({ ...prev, [msgId]: vote }));
+    if (feedbackOpenId !== msgId) setFeedbackNote("");
+    setFeedbackOpenId(msgId);
+  };
+
+  const sendFeedback = async (msg: ChatMessage) => {
+    const vote = feedbackVote[msg.id];
+    if (!vote || feedbackState[msg.id] === "sending") return;
+    const index = messages.findIndex((item) => item.id === msg.id);
+    let question = "";
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (messages[i]?.sender === "user") {
+        question = messages[i].text;
+        break;
+      }
+    }
+    setFeedbackState((prev) => ({ ...prev, [msg.id]: "sending" }));
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vote,
+          comment: feedbackNote,
+          question,
+          answer: msg.text,
+          themes: selectedThemes.map((id) => AVAILABLE_THEMES.find((theme) => theme.id === id)?.name || id),
+          sources: (msg.sources || []).map((source) => ({
+            title: source.title,
+            citation: source.citation,
+            relevance: `${Math.round(source.relevanceScore)}%`,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error("Feedbacken kunne ikke sendes.");
+      setFeedbackState((prev) => ({ ...prev, [msg.id]: "sent" }));
+      setFeedbackOpenId(null);
+    } catch {
+      setFeedbackState((prev) => ({ ...prev, [msg.id]: "error" }));
+    }
   };
 
   const handleDownloadNote = (note: GeneratedNote, format: "docx" | "pdf") => {
@@ -947,57 +985,108 @@ export function CaseWorkspace({
                     </div>
                   )}
 
-                  {/* Bunden af besvarelse: Knapper til [Kopier tekst] og [Download PDF] */}
                   {msg.sender === "ai" && (
-                    <div className="mt-4 pt-3 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText(msg.text, msg.id)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer shadow-2xs"
-                        >
-                          {copiedMsgId === msg.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-[#2E8B57]" />
-                              <span className="text-[#2E8B57] font-semibold">Kopieret!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5 text-slate-500" />
-                              <span>Kopier tekst</span>
-                            </>
-                          )}
-                        </button>
+                    <div className="mt-4 pt-3 border-t border-slate-200/80">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(msg.text, msg.id)}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer shadow-2xs"
+                          >
+                            {copiedMsgId === msg.id ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-[#2E8B57]" />
+                                <span className="text-[#2E8B57] font-semibold">Kopieret!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Kopier tekst</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Tommel op"
+                            aria-pressed={feedbackVote[msg.id] === "up"}
+                            onClick={() => chooseFeedback(msg.id, "up")}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border bg-white cursor-pointer ${
+                              feedbackVote[msg.id] === "up"
+                                ? "border-[#2E8B57] text-[#2E8B57]"
+                                : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                            }`}
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Tommel ned"
+                            aria-pressed={feedbackVote[msg.id] === "down"}
+                            onClick={() => chooseFeedback(msg.id, "down")}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border bg-white cursor-pointer ${
+                              feedbackVote[msg.id] === "down"
+                                ? "border-amber-600 text-amber-700"
+                                : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                            }`}
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
                         <button
                           type="button"
-                          onClick={() => handleDownloadPDF(msg.text, `analyse_${caseNumber}`)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer shadow-2xs"
+                          onClick={() => {
+                            const newNote: GeneratedNote = {
+                              id: `note-${Date.now()}`,
+                              title: `Uddrag fra analyse (${msg.timestamp})`,
+                              caseType: scope === "plan" ? "Miljøvurdering af Plan (§ 8)" : "Konkret Projekt (§§ 15–25)",
+                              date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                              format: "docx",
+                              content: msg.text,
+                              included: false,
+                            };
+                            setGeneratedNotes((prev) => [newNote, ...prev]);
+                            setRightPanelTab("notater");
+                          }}
+                          className="text-[11px] font-semibold text-[#2E8B57] hover:underline"
                         >
-                          <Download className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Download PDF</span>
+                          + Gem i output
                         </button>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newNote: GeneratedNote = {
-                            id: `note-${Date.now()}`,
-                            title: `Uddrag fra analyse (${msg.timestamp})`,
-                            caseType: scope === "plan" ? "Miljøvurdering af Plan (§ 8)" : "Konkret Projekt (§§ 15–25)",
-                            date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                            format: "docx",
-                            content: msg.text,
-                            included: false,
-                          };
-                          setGeneratedNotes((prev) => [newNote, ...prev]);
-                          setRightPanelTab("notater");
-                        }}
-                        className="text-[11px] font-medium text-[#2E8B57] hover:underline"
-                      >
-                        + Gem i output
-                      </button>
+                      {feedbackOpenId === msg.id && feedbackState[msg.id] !== "sent" && (
+                        <form
+                          className="mt-2 rounded-lg border border-slate-200 bg-white p-2"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            void sendFeedback(msg);
+                          }}
+                        >
+                          <textarea
+                            rows={2}
+                            maxLength={200}
+                            value={feedbackNote}
+                            onChange={(event) => setFeedbackNote(event.target.value)}
+                            placeholder="Kort bemærkning"
+                            className="w-full resize-none rounded border border-slate-200 px-2 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                          />
+                          <div className="mt-1.5 flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-amber-700">
+                              {feedbackState[msg.id] === "error" ? "Feedbacken kunne ikke sendes." : ""}
+                            </span>
+                            <button
+                              type="submit"
+                              disabled={feedbackState[msg.id] === "sending"}
+                              className="rounded bg-[#0F382C] px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-40 cursor-pointer"
+                            >
+                              {feedbackState[msg.id] === "sending" ? "Sender..." : "Send"}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                      {feedbackState[msg.id] === "sent" && (
+                        <p className="mt-2 text-[11px] font-medium text-[#2E8B57]">Tak. Bemærkningen er sendt.</p>
+                      )}
                     </div>
                   )}
                 </div>
