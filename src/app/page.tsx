@@ -61,22 +61,34 @@ export default function DashboardPage() {
     }
 
     let cancelled = false;
+    const load = () => {
+      fetch("/api/cases", { cache: "no-store" })
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || "Sagerne kunne ikke hentes.");
+          if (!cancelled) {
+            setCases(data.cases || []);
+            setCasesError("");
+          }
+        })
+        .catch((err: unknown) => {
+          if (!cancelled) setCasesError(err instanceof Error ? err.message : "Sagerne kunne ikke hentes.");
+        })
+        .finally(() => {
+          if (!cancelled) setCasesLoading(false);
+        });
+    };
+
     setCasesLoading(true);
-    fetch("/api/cases")
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "Sagerne kunne ikke hentes.");
-        if (!cancelled) setCases(data.cases || []);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setCasesError(err instanceof Error ? err.message : "Sagerne kunne ikke hentes.");
-      })
-      .finally(() => {
-        if (!cancelled) setCasesLoading(false);
-      });
+    load();
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) load();
+    };
+    window.addEventListener("pageshow", onPageShow);
 
     return () => {
       cancelled = true;
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, [user, authLoading]);
 

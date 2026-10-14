@@ -9,7 +9,10 @@ export async function GET() {
   if (result.error) {
     return NextResponse.json({ cases: [], error: result.error }, { status: 500 });
   }
-  return NextResponse.json({ cases: result.cases });
+  return NextResponse.json(
+    { cases: result.cases },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
 
 export async function POST(req: Request) {
