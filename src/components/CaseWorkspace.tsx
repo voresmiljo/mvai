@@ -767,10 +767,10 @@ export function CaseWorkspace({
                     {AVAILABLE_THEMES.filter((theme) => theme.category === category.id).map((theme) => {
                       const isChecked = selectedThemes.includes(theme.id);
                       return (
-                        <label
+                        <div
                           key={theme.id}
                           onClick={(event) => {
-                            event.preventDefault();
+                            if ((event.target as HTMLElement).tagName === "INPUT") return;
                             handleToggleTheme(theme.id);
                           }}
                           className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
@@ -782,7 +782,8 @@ export function CaseWorkspace({
                           <input
                             type="checkbox"
                             checked={isChecked}
-                            onChange={() => {}}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={() => handleToggleTheme(theme.id)}
                             className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
                           />
                           <div className="flex-1 min-w-0">
@@ -798,7 +799,7 @@ export function CaseWorkspace({
                               {theme.description}
                             </p>
                           </div>
-                        </label>
+                        </div>
                       );
                     })}
                   </div>
