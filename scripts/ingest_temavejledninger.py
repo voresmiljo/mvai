@@ -272,6 +272,20 @@ DOCUMENTS = [
         "source_type": "forvaltningsplan",
     },
     {
+        "file": "Forvaltningsplan_for_ulv__2014__5c4c.pdf",
+        "pdf": "forvaltningsplan-ulv-2014.pdf",
+        "short": "Forvaltningsplan for ulv",
+        "citation_base": "Forvaltningsplan for ulv i Danmark, Naturstyrelsen, Miljøministeriet, 2014",
+        "date": "2014",
+        "authority": "Naturstyrelsen, Miljøministeriet",
+        "journal": "",
+        "themes": ["artsforvaltning"],
+        "note": "",
+        "kind": "ulv",
+        "source_type": "forvaltningsplan",
+        "original_path": "sources/forvaltningsplan-ulv-2014.pdf",
+    },
+    {
         "file": "H_ndbog_om_dyrearter_p__habitatdirektivets_bilag_IV_kap_1-9_8c79.pdf",
         "files": [
             "H_ndbog_om_dyrearter_p__habitatdirektivets_bilag_IV_kap_1-9_8c79.pdf",
@@ -1201,7 +1215,7 @@ def plan_page_value(text: str) -> int | None:
     return None
 
 
-def plan_page_lines(page: pymupdf.Page) -> list[tuple[str, int]]:
+def plan_page_lines(page: pymupdf.Page, balanced_columns: bool = False) -> list[tuple[str, int]]:
     """Linjer i læserækkefølge. Spalter læses færdige, før næste spalte begynder."""
     matrix = page.rotation_matrix
     height = page.rect.height
@@ -1246,21 +1260,37 @@ def plan_page_lines(page: pymupdf.Page) -> list[tuple[str, int]]:
     split_at = None
     if len(long) >= 8:
         starts = sorted(item[1] for item in long)
-        gap = 0.0
-        at = None
-        for left, right in zip(starts, starts[1:]):
-            if right - left > gap:
+        if balanced_columns:
+            candidates: list[tuple[float, float]] = []
+            for left, right in zip(starts, starts[1:]):
                 gap = right - left
+                if gap <= 40:
+                    continue
                 at = (left + right) / 2
-        if at is not None and gap > 40:
-            left_count = sum(1 for item in long if item[1] < at)
-            right_count = sum(1 for item in long if item[1] >= at)
-            if left_count >= 4 and right_count >= 4:
-                split_at = at
+                left_count = sum(1 for item in long if item[1] < at)
+                right_count = sum(1 for item in long if item[1] >= at)
+                smaller = min(left_count, right_count)
+                if smaller >= 8 and smaller >= len(long) * 0.2:
+                    candidates.append((gap, at))
+            if candidates:
+                split_at = max(candidates)[1]
+        else:
+            gap = 0.0
+            at = None
+            for left, right in zip(starts, starts[1:]):
+                if right - left > gap:
+                    gap = right - left
+                    at = (left + right) / 2
+            if at is not None and gap > 40:
+                left_count = sum(1 for item in long if item[1] < at)
+                right_count = sum(1 for item in long if item[1] >= at)
+                if left_count >= 4 and right_count >= 4:
+                    split_at = at
 
     def emit(rows: list[tuple[float, float, float, str]]) -> list[tuple[str, int]]:
         ordered = sorted(rows, key=lambda item: (item[0], item[1]))
         emitted: list[tuple[str, int]] = []
+        deferred: list[tuple[float, float, str]] = []
         index = 0
         while index < len(ordered):
             y0 = ordered[index][0]
@@ -1270,9 +1300,18 @@ def plan_page_lines(page: pymupdf.Page) -> list[tuple[str, int]]:
                 parts.append(ordered[index])
                 index += 1
             parts.sort(key=lambda item: item[1])
-            text = plan_tidy(" ".join(part[3] for part in parts))
-            if text:
-                emitted.append((text, printed(parts[0][1])))
+            main = [part for part in parts if not (balanced_columns and part[1] > 440)]
+            side = [part for part in parts if balanced_columns and part[1] > 440]
+            if main:
+                text = plan_tidy(" ".join(part[3] for part in main))
+                if text:
+                    emitted.append((text, printed(main[0][1])))
+            if side:
+                side_text = plan_tidy(" ".join(part[3] for part in side))
+                if side_text:
+                    deferred.append((side[0][0], side[0][1], side_text))
+        for _y0, x0, text in sorted(deferred):
+            emitted.append((text, printed(x0)))
         return emitted
 
     if split_at is None:
@@ -1288,6 +1327,27 @@ def read_forvaltningsplan(path: Path) -> list[tuple[str, int]]:
     for page in document:
         rows.extend(plan_page_lines(page))
     return join_hyphen_rows(rows)
+
+
+def repair_plan_ligature(text: str) -> str:
+    text = re.sub(r"([A-Za-zÆØÅæøå])\ufb00\s+([a-zæøå])", r"\1ff\2", text)
+    text = re.sub(r"([A-Za-zÆØÅæøå])\ufb01\s+([a-zæøå])", r"\1fi\2", text)
+    text = re.sub(r"([A-Za-zÆØÅæøå])\ufb02\s+([a-zæøå])", r"\1fl\2", text)
+    return (
+        text.replace("\ufb00", "ff")
+        .replace("\ufb01", "fi")
+        .replace("\ufb02", "fl")
+        .replace("\ufb03", "ffi")
+        .replace("\ufb04", "ffl")
+    )
+
+
+def read_ulv(path: Path) -> list[tuple[str, int]]:
+    document = pymupdf.open(path)
+    rows: list[tuple[str, int]] = []
+    for page in document:
+        rows.extend(plan_page_lines(page, balanced_columns=True))
+    return join_hyphen_rows([(repair_plan_ligature(line), page) for line, page in rows])
 
 
 def collect_plan_titles(rows: list[tuple[str, int]], toc_at: int) -> list[str]:
@@ -1330,7 +1390,25 @@ def collect_plan_titles(rows: list[tuple[str, int]], toc_at: int) -> list[str]:
     return titles
 
 
-def split_forvaltningsplan(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+def fold_plan_heading(text: str) -> str:
+    folded = (
+        text.replace("\ufb00", "ff")
+        .replace("\ufb01", "fi")
+        .replace("\ufb02", "fl")
+        .replace("\ufb03", "ffi")
+        .replace("\ufb04", "ffl")
+    )
+    return re.sub(r"[^a-z0-9æøå]", "", folded.casefold())
+
+
+def heading_number(text: str) -> str:
+    match = re.match(r"^(\d+(?:\.\d+)*)", text)
+    return match.group(1) if match else ""
+
+
+def split_forvaltningsplan(
+    rows: list[tuple[str, int]], loose: bool = False
+) -> list[tuple[str, list[tuple[str, int]]]]:
     toc_at = next((index for index, (line, _page) in enumerate(rows) if PLAN_TOC.match(plan_title(line))), None)
     if toc_at is None:
         raise RuntimeError("Fandt ikke indholdsfortegnelsen")
@@ -1361,9 +1439,23 @@ def split_forvaltningsplan(rows: list[tuple[str, int]]) -> list[tuple[str, list[
     if body_at is None:
         raise RuntimeError("Fandt ikke brødteksten efter indholdsfortegnelsen")
     sections: list[tuple[str, list[tuple[str, int]]]] = []
-    preface = [(line, page) for line, page in rows[:toc_at] if not PLAN_PAGE.match(line.strip())]
-    if preface:
-        sections.append(("Kolofon", preface))
+
+    def loose_heading(title: str) -> str | None:
+        if not loose or not re.match(r"^\d", title) or not 8 <= len(title) <= 140:
+            return None
+        folded = fold_plan_heading(title)
+        number = heading_number(title)
+        found = [
+            item
+            for item in titles
+            if heading_number(item) == number
+            and (folded.startswith(fold_plan_heading(item)) or fold_plan_heading(item).startswith(folded))
+            and min(len(folded), len(fold_plan_heading(item))) >= 10
+        ]
+        if len(found) == 1:
+            return found[0]
+        return None
+
     def plan_heading(line: str, nxt: str) -> str | None:
         if not line or line[:1].islower() or len(line) > 180:
             return None
@@ -1385,16 +1477,44 @@ def split_forvaltningsplan(rows: list[tuple[str, int]]) -> list[tuple[str, list[
             return None
         matches = [item for item in titles if item.casefold().startswith(title.casefold() + " ")]
         if len(matches) != 1:
-            return None
+            return loose_heading(title)
         rest = matches[0][len(title) :].strip()
         if title.endswith(("og", "med", "for", "af", "til", "i", "en", "et", ",")):
             word = rest.split()[0].casefold().strip(".,;:()")
             if plan_title(nxt).casefold().startswith(word):
                 return matches[0]
-            return None
+            return loose_heading(title)
         if len(line) < 80:
             return matches[0]
-        return None
+        return loose_heading(title)
+
+    preface = [(line, page) for line, page in rows[:toc_at] if not PLAN_PAGE.match(line.strip())]
+    if loose and preface:
+        cover: list[tuple[str, int]] = []
+        started = False
+        heading = ""
+        current = []
+        for index, (line, page) in enumerate(preface):
+            nxt = preface[index + 1][0] if index + 1 < len(preface) else ""
+            label = plan_heading(line, nxt)
+            if label:
+                if current and started:
+                    sections.append((heading, current))
+                elif current:
+                    cover.extend(current)
+                started = True
+                heading = label
+                current = [(line, page)]
+            else:
+                current.append((line, page))
+        if current and started:
+            sections.append((heading, current))
+        elif current:
+            cover.extend(current)
+        if cover:
+            sections.insert(0, ("Kolofon", cover))
+    elif preface:
+        sections.append(("Kolofon", preface))
 
     heading = plan_heading(rows[body_at][0], rows[body_at + 1][0] if body_at + 1 < len(rows) else "") or plan_title(rows[body_at][0])
     current: list[tuple[str, int]] = []
@@ -1759,6 +1879,8 @@ def build(folder: Path, only: set[str] | None = None) -> list[dict]:
             sections = split_habitatdir(read_habitatdir(folder / spec["file"]))
         elif kind == "forvaltningsplan":
             sections = split_forvaltningsplan(read_forvaltningsplan(folder / spec["file"]))
+        elif kind == "ulv":
+            sections = split_forvaltningsplan(read_ulv(folder / spec["file"]), loose=True)
         elif kind == "odder":
             sections = split_odder(read_odder(folder / spec["file"]))
         elif kind == "haandbog":
@@ -1785,6 +1907,8 @@ def build(folder: Path, only: set[str] | None = None) -> list[dict]:
                 }
                 if spec["note"]:
                     metadata["later_changes"] = spec["note"]
+                if spec.get("original_path"):
+                    metadata["original_path"] = spec["original_path"]
                 base = {
                     "title": title,
                     "citation": f"{spec['citation_base']}, {label}",
