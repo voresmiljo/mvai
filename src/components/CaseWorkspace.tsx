@@ -882,14 +882,6 @@ export function CaseWorkspace({
               </div>
             </div>
           </div>
-
-          <div className="p-3 border-t border-slate-200 bg-white text-[11px] text-slate-500 flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#2E8B57]" />
-              RAG Version 2026.4
-            </span>
-            <span>Fortroligt sagsrum</span>
-          </div>
         </aside>
 
         {/* PANEL 2: MIDTERPANEL (CHAT & ANALYSE MED OMDØBTE UPLOAD-KNAPPER OG EXPORT) */}
@@ -1473,10 +1465,6 @@ export function CaseWorkspace({
                 </div>
               </div>
             )}
-          </div>
-
-          <div className="p-3 border-t border-slate-200 bg-white text-[10px] text-slate-400 text-center">
-            MVAI Kildeverifikationsmotor • Ingen AI-genererede referencer
           </div>
         </aside>
       </div>
