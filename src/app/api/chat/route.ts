@@ -69,22 +69,18 @@ export async function POST(req: Request) {
       }));
     const sources = [...savedOutput, ...retrievedSources];
 
+    const sourceNumber = (item: (typeof sources)[number]) => sources.indexOf(item) + 1;
+    const formatSource = (item: (typeof sources)[number]) => {
+      const kind = item.citation.startsWith("Output:") ? "GEMT OUTPUT" : "RETSKILDE";
+      return `[${sourceNumber(item)}] ${kind}: ${item.title}\nHenvisning: ${item.citation}\nAfsnit: ${item.lawSection}\nDato: ${item.date || "Ikke angivet"}\nUddrag:\n"${item.textSnippet}"`;
+    };
+
     const sourcesContext = retrievedSources.length > 0
-      ? retrievedSources
-          .map(
-            (s) =>
-              `[RETSKILDE: ${s.title}]\nHenvisning: ${s.citation}\nAfsnit: ${s.lawSection}\nDato: ${s.date}\nUddrag:\n"${s.textSnippet}"`
-          )
-          .join("\n\n")
+      ? retrievedSources.map((item) => formatSource(item)).join("\n\n")
       : "Der er på nuværende tidspunkt ikke uploadet eller indekseret specifikke retskildedokumenter i databasen for de valgte temamapper.";
 
     const outputContext = savedOutput.length > 0
-      ? savedOutput
-          .map(
-            (item) =>
-              `[OUTPUT: ${item.title}]\nHenvisning: ${item.citation}\nDato: ${item.date || "Ikke angivet"}\nTekst:\n"${item.textSnippet}"`
-          )
-          .join("\n\n")
+      ? savedOutput.map((item) => formatSource(item)).join("\n\n")
       : "Der er ikke gemt output i sagen endnu.";
 
     const systemPrompt = `Du er MVAI – en specialiseret, objektiv og fagligt funderet digital assistent til miljøvurdering af planer, programmer og konkrete projekter i Danmark. Du betjener myndigheder, rådgivere, forskere og miljøorganisationer.
@@ -104,7 +100,7 @@ ${outputContext}
 DINE PRIMÆRE PRINCIPPER:
 
 1. STRICT KILDEFORANKRING (NUL HALLUCINATIONER):
-Du skal forankre dine svar i ovenstående medfølgende retskilder, gemt output fra sagen, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Gemt output bruges som kildemateriale i denne sag og henvises som [Output: titel]. Det er ikke en almindelig retskilde og lægges ikke i temamapperne. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande.
+Du skal forankre dine svar i ovenstående medfølgende retskilder, gemt output fra sagen, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Gemt output bruges som kildemateriale i denne sag og henvises med det nummer, det har i kildelisten. Det er ikke en almindelig retskilde og lægges ikke i temamapperne. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande.
 
 2. HÅNDTERING AF TVIVL OG MANGLER:
 Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte.
@@ -116,14 +112,10 @@ Du skal altid forholde dig 100 % neutralt, fagligt nøgternt og juridisk objekti
 - Når sagen vedrører PLANER OG PROGRAMMER (Afsnit II / § 8): Anvend terminologi for strategisk miljøvurdering (SMV), f.eks. "miljørapport", "afgrænsning" og "planens indvirkning på miljøet".
 - Når sagen vedrører KONKRETE PROJEKTER (Afsnit III / §§ 15–25): Anvend VVM-begreber, f.eks. "VVM-screening", "miljøkonsekvensrapport", "bygherre" og "projektafgørelse".
 
-5. PRÆCISE KILDEHENVISNINGER:
-Enhver faglig påstand eller konklusion i dit svar SKAL følges af en præcis kildehenvisning som almindelig tekst i hakparenteser, f.eks.:
-- [Miljøvurderingsloven § 8, stk. 1]
-- [BEK nr. 1608 af 09/12/2024 § 4]
-- [Vejledning om miljøvurderingsloven kap. 3]
-- [MFKN j.nr. 21/04322]
-- [EU-Domstolen Sag C-127/02 Waddenzee]
-Lav ikke markdown-links, URL'er eller citationstags i teksten. Kildeknapperne under svaret sættes ind af systemet.
+5. NUMMEREREDE KILDEHENVISNINGER:
+For hver juridisk eller miljøfaglig påstand skal du indsætte kildens nummer, og kun nummeret, i hakparenteser. Numrene står i listerne ovenfor som [1], [2], [3] og følger den rækkefølge.
+Eksempel: Habitatdirektivets overordnede formål er at bidrage til at sikre den biologiske diversitet [1].
+Skriv ikke titel, paragraf eller journalnummer inde i hakparenteserne. Skriv ikke markdown-links eller URL'er. Brug kun numre, der findes i listerne. Hvis påstanden ikke kan støttes af en kilde i listerne, så skriv det, og sæt ikke et nummer på. Kildekortet ved nummeret sættes ind af systemet.
 
 STRUKTUR PÅ DINE SVAR:
 1. Kort og direkte konklusion/svar på brugerens spørgsmål.
@@ -255,9 +247,8 @@ STRUKTUR PÅ DINE SVAR:
     );
 
     const outputNote = savedOutput.length
-      ? `\n\nGemt output\n${savedOutput`
-          .map((item) => `- [${item.citation}] ${item.textSnippet}`)
-          .join("\n")}`
+      ? "\n\nGemt output\n" +
+        savedOutput.map((item) => "- " + item.citation + "\n" + item.textSnippet).join("\n")
       : "";
 
     return NextResponse.json({

@@ -3,6 +3,7 @@
 import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
+import { CitationText } from "@/components/CitationText";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
 import {
@@ -711,8 +712,21 @@ export function CaseWorkspace({
                     </span>
                   </div>
 
-                  <div className="prose prose-sm max-w-none text-current whitespace-pre-line">
-                    {msg.text}
+                  <div className="prose prose-sm max-w-none text-current">
+                    {msg.sender === "ai" && msg.sources && msg.sources.length > 0 ? (
+                      <CitationText
+                        text={msg.text}
+                        sources={msg.sources}
+                        activeId={rightPanelTab === "kilde" ? activeSnippet?.id : null}
+                        onSelectSource={(src) => {
+                          setActiveSnippet(src);
+                          setOriginalError("");
+                          setRightPanelTab("kilde");
+                        }}
+                      />
+                    ) : (
+                      <div className="whitespace-pre-line">{msg.text}</div>
+                    )}
                   </div>
 
                   {/* Warning banner inside AI message */}
