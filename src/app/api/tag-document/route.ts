@@ -64,6 +64,9 @@ Returnér KUN et JSON-objekt med:
     if (lowerName.includes("art") || lowerName.includes("bilag") || lowerName.includes("firben") || lowerName.includes("flagermus")) {
       recommendedThemes.push("artsbeskyttelse");
     }
+    if (`${fileName} ${fileTextSnippet}`.toLowerCase().includes("forvaltningsplan")) {
+      recommendedThemes.push("artsforvaltning");
+    }
     if (lowerName.includes("natura") || lowerName.includes("habitat") || lowerName.includes("fugle")) {
       recommendedThemes.push("natura2000");
     }

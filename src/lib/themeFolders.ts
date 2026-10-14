@@ -11,6 +11,12 @@ export const THEME_FOLDERS = [
     description: "Habitatdirektivets art. 12.",
   },
   {
+    id: "artsforvaltning",
+    category: "natur_miljoe",
+    name: "Artsforvaltningsplaner & Artsbiologi",
+    description: "Forvaltningsplaner og artens biologi.",
+  },
+  {
     id: "natura2000",
     category: "natur_miljoe",
     name: "Natura 2000 & Habitatområder",
