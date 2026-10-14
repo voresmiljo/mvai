@@ -271,6 +271,24 @@ DOCUMENTS = [
         "kind": "odder",
         "source_type": "forvaltningsplan",
     },
+    {
+        "file": "H_ndbog_om_dyrearter_p__habitatdirektivets_bilag_IV_kap_1-9_8c79.pdf",
+        "files": [
+            "H_ndbog_om_dyrearter_p__habitatdirektivets_bilag_IV_kap_1-9_8c79.pdf",
+            "H_ndbog_om_dyrearter_p__habitatdirektivets_bilag_IV_kap_10_-_23_med_bilag_8dcc.pdf",
+        ],
+        "pdf": "Håndbog om dyrearter på habitatdirektivets bilag IV.pdf",
+        "short": "Håndbog om bilag IV-arter",
+        "citation_base": "Opdatering af: Håndbog om dyrearter på habitatdirektivets bilag IV, Christian Kjær (red.), Lars Christian Adrados, Mikkel Boel, Lars Briggs, Per Klit Christensen, Niels Damm, John Frisenvænge, Kåre Fog, Rikke Reisner Hansen, Martin Hesselsøe, Rasmus Mohr Mortensen, Peer Ravn, Sabine Stosiek, Morten Strandberg, Ole Roland Therkildsen og Peter Wiberg-Larsen, Aarhus Universitet, DCE – Nationalt Center for Miljø og Energi, videnskabelig rapport nr. 520, 2023",
+        "date": "4. maj 2023",
+        "authority": "Aarhus Universitet, DCE – Nationalt Center for Miljø og Energi",
+        "journal": "ISBN 978-87-7156-730-4",
+        "themes": ["artsforvaltning"],
+        "note": "Rapporten medtager kun en del af de danske bilag IV-arter.",
+        "kind": "haandbog",
+        "source_type": "haandbog",
+        "min_chars": 40,
+    },
 ]
 
 WILDLIFE_BANNERS = {
@@ -1504,6 +1522,154 @@ def split_odder(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, 
     return glue_short(sections)
 
 
+HAANDBOG_CHAPTERS = {
+    "1": "Introduktion",
+    "2": "Bæver",
+    "3": "Hasselmus",
+    "4": "Birkemus",
+    "5": "Markfirben",
+    "6": "Klokkefrø",
+    "7": "Stor vandsalamander",
+    "8": "Løgfrø",
+    "9": "Løvfrø",
+    "10": "Spidssnudet frø",
+    "11": "Springfrø",
+    "12": "Strandtudse",
+    "13": "Grønbroget tudse eller fløjtetudse",
+    "14": "Snæbel",
+    "15": "Bred vandkalv",
+    "16": "Lys skivevandkalv",
+    "17": "Eremit",
+    "18": "Sortplettet blåfugl",
+    "19": "Grøn mosaikguldsmed",
+    "20": "Stor kærguldsmed",
+    "21": "Grøn kølleguldsmed",
+    "22": "Natlyssværmer",
+    "23": "Tykskallet malermusling",
+}
+HAANDBOG_SUBS = (
+    "status",
+    "levevis",
+    "udbredelse",
+    "registrerings",
+    "overvågning",
+    "trusler",
+    "generelle og specifikke",
+    "andre forhold",
+    "referencer",
+)
+
+
+def haandbog_norm(line: str) -> str:
+    return " ".join(line.replace("\u00ad", "").split()).casefold().rstrip(".")
+
+
+def haandbog_lines(paths: list[Path]) -> list[tuple[str, int]]:
+    rows: list[tuple[str, int]] = []
+    for path in paths:
+        document = pymupdf.open(path)
+        for page in document:
+            lines = [" ".join(line.split()) for line in (page.get_text("text") or "").splitlines()]
+            lines = [line for line in lines if line]
+            label = 0
+            if lines and re.fullmatch(r"\d{1,3}", lines[0]) and int(lines[0]) <= 280:
+                label = int(lines[0])
+                lines = lines[1:]
+            elif lines and re.fullmatch(r"\d{1,3}", lines[-1]) and int(lines[-1]) <= 280:
+                label = int(lines[-1])
+                lines = lines[:-1]
+            if label == 0:
+                continue
+            for line in lines:
+                if rows:
+                    previous, page_no = rows[-1]
+                    joined = join_break(previous, line)
+                    if joined:
+                        rows[-1] = (joined, page_no)
+                        continue
+                rows.append((line, label))
+    return rows
+
+
+def haandbog_chapter(rows: list[tuple[str, int]], index: int) -> tuple[str, str, int] | None:
+    line = rows[index][0]
+    number = re.fullmatch(r"(\d{1,2})", line)
+    if number and number.group(1) in HAANDBOG_CHAPTERS and index + 1 < len(rows):
+        title = HAANDBOG_CHAPTERS[number.group(1)]
+        if haandbog_norm(rows[index + 1][0]) == haandbog_norm(title):
+            return number.group(1), title, 2
+    numbered = re.match(r"^(\d{1,2})\s+(.+)$", line)
+    if numbered and numbered.group(1) in HAANDBOG_CHAPTERS:
+        title = HAANDBOG_CHAPTERS[numbered.group(1)]
+        if haandbog_norm(numbered.group(2)) == haandbog_norm(title):
+            return numbered.group(1), title, 1
+    return None
+
+
+def haandbog_sub(rows: list[tuple[str, int]], index: int) -> tuple[str, int] | None:
+    line = rows[index][0]
+    if haandbog_norm(line) == "bilag 1":
+        return "Bilag 1", 1
+    bare = re.fullmatch(r"(\d{1,2}\.\d{1,2})", line)
+    if bare and index + 1 < len(rows):
+        title = rows[index + 1][0].rstrip(".")
+        if len(title) < 80 and any(haandbog_norm(title).startswith(name) for name in HAANDBOG_SUBS):
+            return f"{bare.group(1)} {title}", 2
+    inline = re.match(r"^(\d{1,2}\.\d{1,2})\s+(.+)$", line)
+    if inline and len(line) < 90 and any(haandbog_norm(inline.group(2)).startswith(name) for name in HAANDBOG_SUBS):
+        return f"{inline.group(1)} {inline.group(2).rstrip('.')}", 1
+    return None
+
+
+def split_haandbog(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+    start = 0
+    for index in range(len(rows) - 2):
+        chapter = haandbog_chapter(rows, index)
+        if not chapter or chapter[0] != "1":
+            continue
+        follower = rows[index + chapter[2]][0]
+        if not re.fullmatch(r"\d{1,3}", follower):
+            start = index
+            break
+    rows = rows[start:]
+    sections: list[tuple[str, list[tuple[str, int]]]] = []
+    heading = ""
+    chapter_label = ""
+    current: list[tuple[str, int]] = []
+    index = 0
+    while index < len(rows):
+        chapter = haandbog_chapter(rows, index)
+        subsection = None if chapter else haandbog_sub(rows, index)
+        if chapter or subsection:
+            if current and heading:
+                sections.append((heading, current))
+            current = []
+            if chapter:
+                chapter_label = f"{chapter[0]} {chapter[1]}"
+                heading = chapter_label
+                index += chapter[2]
+                continue
+            if subsection and subsection[0] == "Bilag 1":
+                chapter_label = "Bilag 1"
+                heading = "Bilag 1"
+            else:
+                heading = f"{chapter_label}, {subsection[0]}" if chapter_label else subsection[0]
+            index += subsection[1]
+            continue
+        if heading:
+            current.append(rows[index])
+        index += 1
+    if current and heading:
+        sections.append((heading, current))
+    folded: list[tuple[str, list[tuple[str, int]]]] = []
+    for label, part in sections:
+        if folded and "," not in folded[-1][0] and label.startswith(folded[-1][0]):
+            previous = folded.pop()
+            part = previous[1] + part
+        folded.append((label, part))
+    return folded
+
+
 def build(folder: Path, only: set[str] | None = None) -> list[dict]:
     chunks: list[dict] = []
     for spec in DOCUMENTS:
@@ -1525,6 +1691,9 @@ def build(folder: Path, only: set[str] | None = None) -> list[dict]:
             sections = split_forvaltningsplan(read_forvaltningsplan(folder / spec["file"]))
         elif kind == "odder":
             sections = split_odder(read_odder(folder / spec["file"]))
+        elif kind == "haandbog":
+            paths = [folder / name for name in spec.get("files", [spec["file"]])]
+            sections = split_haandbog(haandbog_lines(paths))
         else:
             rows = merge_wraps(read_rows(folder / spec["file"], kind), kind)
             sections = split_wildlife(rows) if kind == "wildlife" else split_numbered(rows, kind)
