@@ -1,9 +1,20 @@
 import { NextResponse } from "next/server";
-import { deleteOwnCase, updateOwnCaseTitle } from "@/lib/userCases";
+import { deleteOwnCase, touchOwnCase, updateOwnCaseTitle } from "@/lib/userCases";
 
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const body = await req.json().catch(() => null);
+  if (body?.touch === true) {
+    const touched = await touchOwnCase(id);
+    if (touched.error === "Du er ikke logget ind.") {
+      return NextResponse.json({ error: touched.error }, { status: 401 });
+    }
+    if (touched.error || !touched.case) {
+      return NextResponse.json({ error: touched.error || "Sagen kunne ikke opdateres." }, { status: 400 });
+    }
+    return NextResponse.json({ case: touched.case });
+  }
+
   const title = String(body?.title || "");
   const result = await updateOwnCaseTitle(id, title);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { INITIAL_CASES } from "@/lib/casesData";
@@ -70,6 +70,27 @@ const AVAILABLE_THEMES: ThemeFolder[] = THEME_FOLDERS.map((folder) => ({
   count: 0,
 }));
 
+function isStoredCaseId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+function touchStoredCase(id: string): Promise<void> {
+  if (!isStoredCaseId(id)) return Promise.resolve();
+  const touch = fetch(`/api/cases/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ touch: true }),
+    keepalive: true,
+  }).then(
+    () => undefined,
+    () => undefined
+  );
+  const giveUp = new Promise<void>((resolve) => {
+    window.setTimeout(resolve, 1500);
+  });
+  return Promise.race([touch, giveUp]);
+}
+
 export function CaseWorkspace({
   forcedCaseId,
   forcedScope,
@@ -86,6 +107,10 @@ export function CaseWorkspace({
 
   const caseId = forcedCaseId || (params?.id as string) || "sag-biogas-2026";
   const existingCase = INITIAL_CASES.find((c) => c.id === caseId);
+
+  useEffect(() => {
+    void touchStoredCase(caseId);
+  }, [caseId]);
 
   // Scope: derive from URL query ?scope=plan or existing case or fallback
   const queryScope = searchParams?.get("scope") as ScopeType | null;
@@ -120,7 +145,7 @@ export function CaseWorkspace({
     }
     const previous = savedTitle.current;
     setTitleDraft(next);
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId)) {
+    if (!isStoredCaseId(caseId)) {
       savedTitle.current = next;
       return;
     }
@@ -388,6 +413,13 @@ export function CaseWorkspace({
         <div className="flex items-center gap-3">
           <Link
             href="/"
+            onClick={(event) => {
+              if (!isStoredCaseId(caseId)) return;
+              event.preventDefault();
+              void touchStoredCase(caseId).finally(() => {
+                window.location.assign("/");
+              });
+            }}
             className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
             title="Gå tilbage til sagsdashboard"
           >

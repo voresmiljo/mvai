@@ -215,6 +215,28 @@ export async function createOwnCase(scope: "projekt" | "plan"): Promise<{ case?:
   return { case: mapCase(data as CaseRow) };
 }
 
+export async function touchOwnCase(id: string): Promise<{ case?: StoredCase; error?: string }> {
+  const user = await getSessionUser();
+  if (!user) return { error: "Du er ikke logget ind." };
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { error: "Login er ikke konfigureret." };
+
+  const { data, error } = await supabase
+    .from("cases")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("id, title, case_number, scope, law_reference, preview_summary, primary_document, created_at, updated_at")
+    .maybeSingle();
+
+  if (error || !data) {
+    return { error: caseTableError(error?.message || "") || "Sagen kunne ikke opdateres." };
+  }
+
+  return { case: mapCase(data as CaseRow) };
+}
+
 export async function updateOwnCaseTitle(
   id: string,
   title: string
