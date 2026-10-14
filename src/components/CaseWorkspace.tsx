@@ -4,7 +4,7 @@ import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { INITIAL_CASES } from "@/lib/casesData";
-import { THEME_FOLDERS } from "@/lib/themeFolders";
+import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
 import {
   FileText,
   Upload,
@@ -26,6 +26,7 @@ type ScopeType = "projekt" | "plan";
 
 interface ThemeFolder {
   id: string;
+  category: string;
   name: string;
   description: string;
   count: number;
@@ -474,41 +475,48 @@ export function CaseWorkspace({
               )}
 
               {/* Temamapper Opremsning med afkrydsningsfelter */}
-              <div className="space-y-2">
-                {AVAILABLE_THEMES.map((theme) => {
-                  const isChecked = selectedThemes.includes(theme.id);
-                  return (
-                    <label
-                      key={theme.id}
-                      onClick={() => handleToggleTheme(theme.id)}
-                      className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                        isChecked
-                          ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
-                          : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => {}}
-                        className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className={`font-semibold ${isChecked ? "text-[#0F382C]" : "text-slate-700"}`}>
-                            {theme.name}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {theme.count} dok.
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
-                          {theme.description}
-                        </p>
-                      </div>
-                    </label>
-                  );
-                })}
+              <div className="space-y-4">
+                {THEME_CATEGORIES.map((category) => (
+                  <div key={category.id} className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      {category.name}
+                    </p>
+                    {AVAILABLE_THEMES.filter((theme) => theme.category === category.id).map((theme) => {
+                      const isChecked = selectedThemes.includes(theme.id);
+                      return (
+                        <label
+                          key={theme.id}
+                          onClick={() => handleToggleTheme(theme.id)}
+                          className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                            isChecked
+                              ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
+                              : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`font-semibold ${isChecked ? "text-[#0F382C]" : "text-slate-700"}`}>
+                                {theme.name}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                                {theme.count} dok.
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
+                              {theme.description}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
 
