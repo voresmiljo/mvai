@@ -98,7 +98,7 @@ export default function AboutPage() {
                 <span className="font-semibold text-slate-900">Faglig kuratering:</span> Alle dokumenter i det fælles arkiv er udvalgt og kvalitetssikret af fagpersoner med specialistuddannelse inden for miljøvurdering. Et dokument inkluderes først i grundmappen eller temamapperne, når det er gennemlæst og godkendt.
               </li>
               <li>
-                <span className="font-semibold text-slate-900">Fuld fortrolighed:</span> Primære og sekundære dokumenter, som brugeren lægger på en specifik sag, forbliver fortrolige og tilknyttet den enkelte sag. De blandes aldrig ind i det fælles arkiv og anvendes <span className="font-semibold text-slate-900">ikke</span> til at træne AI-modellerne.
+                <span className="font-semibold text-slate-900">Fuld fortrolighed:</span> Primære og sekundære dokumenter, som brugeren lægger på en specifik sag, forbliver fortrolige og tilknyttet den enkelte sag. De blandes aldrig ind i det fælles arkiv og anvendes <span className="font-semibold text-slate-900">ikke</span> til at træne AI-modeller.
               </li>
             </ul>
           </section>
@@ -110,7 +110,7 @@ export default function AboutPage() {
                 <span className="font-semibold text-slate-900">Fokuseret kildevalg:</span> Analysens præcision er højest, når kildegrundlaget er skarpt afgrænset. Grundmappen udgør altid det faste fundament, mens hver tilvalgt temamappe tilføjer et specifikt fagområde. Aktivering af mere end tre temamapper ad gangen gør søgningen bredere, hvilket kan øge usikkerheden, da kilderne berører mange forskellige faglige emner.
               </li>
               <li>
-                <span className="font-semibold text-slate-900">Inddragelse af egne dokumenter:</span> Brugerens egne oprettede dokumenter og notater indgår kun i analysen, når de aktivt er slået til på sagen. Da egne dokumenter har en anden karakter end de officielle retskilder i arkivet, anbefales det at holde kildevalget så præcist som muligt for at opnå de mest entydige analyser.
+                <span className="font-semibold text-slate-900">Inddragelse af egne dokumenter:</span> Brugerens egne oprettede dokumenter og producerede notater indgår kun i analysen, når de aktivt er slået til på sagen. Da egne dokumenter har en anden karakter end de officielle retskilder i arkivet, anbefales det at holde kildevalget så præcist som muligt for at opnå de mest entydige analyser.
               </li>
             </ul>
           </section>
