@@ -20,11 +20,11 @@ function LibraryFigures({ library }: { library: LibraryCounts }) {
           ? "Arkivet er tomt lige nu."
           : `Arkivet indeholder ${library.totalDocuments} dokument${library.totalDocuments === 1 ? "" : "er"}.`}
       </p>
-      <p className="mt-2 text-sm leading-relaxed text-slate-600">
-        {library.totalDocuments === 0
-          ? "Dokumenterne kommer ind, når de er udvalgt og lagt i en mappe. Tallet opdateres derfra."
-          : "Tallet er antallet af dokumenter i databasen, ikke antallet af tekststykker."}
-      </p>
+      {library.totalDocuments === 0 && (
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          Dokumenterne kommer ind, når de er udvalgt og lagt i en mappe. Tallet opdateres derfra.
+        </p>
+      )}
       <ul className="mt-4 space-y-2 text-sm text-slate-700">
         <li className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
           <span>Grundmappe</span>
@@ -77,7 +77,7 @@ export default function AboutPage() {
             </p>
             <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-700">
               <li>
-                <span className="font-semibold text-slate-900">Sagsdokumenter:</span> Enhver analyse tager udgangspunkt i et <span className="font-semibold text-slate-900">primært dokument</span> — f.eks. et planudkast, en miljørapport, en afgørelse eller en screeningsansøgning. Dette kan suppleres af <span className="font-semibold text-slate-900">sekundære dokumenter</span>, som giver ekstra kontekst eller skal sammenholdes med primærdokumentet.
+                <span className="font-semibold text-slate-900">Sagsdokumenter (som bruger selv uploader):</span> Enhver analyse tager udgangspunkt i et <span className="font-semibold text-slate-900">primært dokument</span> — f.eks. et planudkast, en miljørapport, en afgørelse eller en screeningsansøgning. Dette kan suppleres af <span className="font-semibold text-slate-900">sekundære dokumenter</span>, som giver ekstra kontekst eller skal sammenholdes med primærdokumentet.
               </li>
               <li>
                 <span className="font-semibold text-slate-900">Grundmappe:</span> Er altid aktiv som det juridiske fundament. Den indeholder miljøvurderingsloven, gældende bekendtgørelser og de overordnede officielle vejledninger.
