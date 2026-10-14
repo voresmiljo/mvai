@@ -3,6 +3,27 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { searchSupabaseLegalSources } from "@/lib/vectorSearch";
 
+export function renumberCitations<T>(text: string, sources: T[]): { text: string; sources: T[] } {
+  const order: number[] = [];
+  const seen = new Set<number>();
+  for (const match of text.matchAll(/\[(\d{1,2})\]/g)) {
+    const n = Number(match[1]);
+    if (n < 1 || n > sources.length || seen.has(n)) continue;
+    seen.add(n);
+    order.push(n);
+  }
+  if (order.length === 0) return { text, sources };
+
+  const map = new Map(order.map((n, index) => [n, index + 1]));
+  const cited = order.map((n) => sources[n - 1]);
+  const rest = sources.filter((_, index) => !seen.has(index + 1));
+  const nextText = text.replace(/\[(\d{1,2})\]/g, (full, digits: string) => {
+    const mapped = map.get(Number(digits));
+    return mapped ? `[${mapped}]` : full;
+  });
+  return { text: nextText, sources: [...cited, ...rest] };
+}
+
 interface RequestBody {
   message: string;
   scope: "projekt" | "plan";
@@ -47,7 +68,7 @@ export async function POST(req: Request) {
 
     const fileContext = primaryFile
       ? `Primært dokument: ${primaryFile}. Sekundære dokumenter: ${supplementaryFiles.join(", ") || "Ingen"}. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes, også når formålet er at skrive en klage. Sekundære dokumenter er materiale, det primære dokument skal sammenholdes med.`
-      : `Brugeren har ikke uploadet et primært dokument endnu. Besvar ud fra generel gældende dansk miljøret og klagenævnspraksis for det valgte emne.`;
+      : `Der er ikke uploadet et primært dokument. Besvar ud fra retskilderne. Nævn ikke det manglende dokument, medmindre brugeren spørger til sagens dokumenter.`;
 
     // Hent retskilder via semantisk vektorsøgning i Supabase
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
@@ -103,24 +124,30 @@ DINE PRIMÆRE PRINCIPPER:
 Du skal forankre dine svar i ovenstående medfølgende retskilder, gemt output fra sagen, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Gemt output bruges som kildemateriale i denne sag og henvises med det nummer, det har i kildelisten. Det er ikke en almindelig retskilde og lægges ikke i temamapperne. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande.
 
 2. HÅNDTERING AF TVIVL OG MANGLER:
-Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte.
+Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte. Gør det kun, når der er reel tvivl om det stillede spørgsmål. Skriv ikke et standardforbehold om manglende sagsakter, når kilderne besvarer spørgsmålet.
 
 3. UVILDIGHED OG OBJEKTIVITET:
 Du skal altid forholde dig 100 % neutralt, fagligt nøgternt og juridisk objektivt. Du repræsenterer hverken bygherrers, klageres eller specifikke organisationers særinteresser.
 
 4. PRÆCIS SKELNEN MELLEM PLANER OG PROJEKTER:
-- Når sagen vedrører PLANER OG PROGRAMMER (Afsnit II / § 8): Anvend terminologi for strategisk miljøvurdering (SMV), f.eks. "miljørapport", "afgrænsning" og "planens indvirkning på miljøet".
-- Når sagen vedrører KONKRETE PROJEKTER (Afsnit III / §§ 15–25): Anvend VVM-begreber, f.eks. "VVM-screening", "miljøkonsekvensrapport", "bygherre" og "projektafgørelse".
+Brug kun plan- eller projektsprog, når spørgsmålet handler om sagen.
+- Når spørgsmålet vedrører PLANER OG PROGRAMMER (Afsnit II / § 8): Anvend terminologi for strategisk miljøvurdering (SMV), f.eks. "miljørapport", "afgrænsning" og "planens indvirkning på miljøet".
+- Når spørgsmålet vedrører KONKRETE PROJEKTER (Afsnit III / §§ 15–25): Anvend VVM-begreber, f.eks. "VVM-screening", "miljøkonsekvensrapport", "bygherre" og "projektafgørelse".
+Ved et generelt spørgsmål skal du svare på reglen. Nævn ikke sagens titel, sagsnummer eller et konkret projekt.
 
-5. NUMMEREREDE KILDEHENVISNINGER:
-For hver juridisk eller miljøfaglig påstand skal du indsætte kildens nummer, og kun nummeret, i hakparenteser. Numrene står i listerne ovenfor som [1], [2], [3] og følger den rækkefølge.
-Eksempel: Habitatdirektivets overordnede formål er at bidrage til at sikre den biologiske diversitet [1].
-Skriv ikke titel, paragraf eller journalnummer inde i hakparenteserne. Skriv ikke markdown-links eller URL'er. Brug kun numre, der findes i listerne. Hvis påstanden ikke kan støttes af en kilde i listerne, så skriv det, og sæt ikke et nummer på. Kildekortet ved nummeret sættes ind af systemet.
+5. FORTLØBENDE KILDEHENVISNINGER:
+Kilderne ovenfor er nummereret [1], [2], [3]. Henvis med det nummer, kilden har i listen, og kun nummeret.
+Gentag det samme nummer, hver gang du bruger den samme kilde. Spring ikke til et andet nummer for den samme kilde.
+Skriv ikke titel, paragraf eller journalnummer inde i hakparenteserne. Skriv ikke markdown-links eller URL'er.
+Brug kun numre, der findes i listen. Sæt ikke et nummer på en påstand, kilderne ikke støtter. Kildekortet ved nummeret sættes ind af systemet.
+
+SVARLÆNGDE:
+Svar kun på det, der spørges om. Hold svaret kort og direkte. Et generelt spørgsmål klares i ét til tre korte afsnit. Træk ikke sagsnavn, VVM-screening eller et forbehold ind, medmindre spørgsmålet handler om det.
 
 STRUKTUR PÅ DINE SVAR:
-1. Kort og direkte konklusion/svar på brugerens spørgsmål.
-2. Gennemgang af det relevante kildegrundlag og gældende ret.
-3. Eventuelle usikkerheder, forbehold eller manglende oplysninger i sagsakterne.`;
+1. Kort og direkte svar på spørgsmålet.
+2. De kilder, der belyser spørgsmålet.
+3. Et afsnit om usikkerhed eller forbehold må kun med, hvis kilderne er ufuldstændige, modstridende eller efterlader reel tvivl om det stillede spørgsmål.`;
 
     // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
@@ -165,21 +192,11 @@ STRUKTUR PÅ DINE SVAR:
                 .trim() || "Ingen analyse kunne genereres."
             : "Ingen analyse kunne genereres.";
 
-        let warning: string | undefined;
-        if (
-          responseText.toLowerCase().includes("risiko") ||
-          responseText.toLowerCase().includes("advarsel") ||
-          responseText.toLowerCase().includes("ophævelse") ||
-          responseText.toLowerCase().includes("ugyldig")
-        ) {
-          warning =
-            "Klagenævnspraksis (MFKN): Prøvelsen af Natura 2000, kumulation og habitatdirektivet er intens. Hvis der er videnskabelig tvivl om fravær af skade på udpegningsgrundlaget, kan tilladelse eller plan ikke vedtages.";
-        }
+        const cited = renumberCitations(responseText, sources);
 
         return NextResponse.json({
-          text: responseText,
-          warning,
-          sources,
+          text: cited.text,
+          sources: cited.sources,
           modelUsed: usedModel,
           isLiveLLM: true,
         });
@@ -213,21 +230,11 @@ STRUKTUR PÅ DINE SVAR:
           completion.choices[0]?.message?.content ||
           "Ingen analyse kunne genereres.";
 
-        let warning: string | undefined;
-        if (
-          responseText.toLowerCase().includes("risiko") ||
-          responseText.toLowerCase().includes("advarsel") ||
-          responseText.toLowerCase().includes("ophævelse") ||
-          responseText.toLowerCase().includes("ugyldig")
-        ) {
-          warning =
-            "Klagenævnspraksis (MFKN): Prøvelsen af Natura 2000 og habitatdirektivets art. 6, stk. 3 er intens. Hvis der er videnskabelig tvivl om fravær af skade på udpegningsgrundlaget, kan tilladelse eller plan ikke vedtages.";
-        }
+        const cited = renumberCitations(responseText, sources);
 
         return NextResponse.json({
-          text: responseText,
-          warning,
-          sources,
+          text: cited.text,
+          sources: cited.sources,
           modelUsed: "GPT-4o (Fallback)",
           isLiveLLM: true,
         });
@@ -251,10 +258,12 @@ STRUKTUR PÅ DINE SVAR:
         savedOutput.map((item) => "- " + item.citation + "\n" + item.textSnippet).join("\n")
       : "";
 
+    const cited = renumberCitations(`${dynamicResponse.text}${outputNote}`, sources);
+
     return NextResponse.json({
       ...dynamicResponse,
-      text: `${dynamicResponse.text}${outputNote}`,
-      sources,
+      text: cited.text,
+      sources: cited.sources,
       modelUsed: "Offline Retskildematrix",
       isLiveLLM: false,
     });
