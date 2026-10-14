@@ -28,7 +28,7 @@ function placePopover(anchor: HTMLElement): { top: number; left: number } {
   return { top, left };
 }
 
-function CitationMark({
+function CitationMark<T extends CitationSource>({
   n,
   source,
   open,
@@ -39,13 +39,13 @@ function CitationMark({
   onSelectSource,
 }: {
   n: number;
-  source: CitationSource;
+  source: T;
   open: boolean;
   active: boolean;
   onOpen: () => void;
   onScheduleClose: () => void;
   onCancelClose: () => void;
-  onSelectSource: (source: CitationSource) => void;
+  onSelectSource: (source: T) => void;
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -130,16 +130,16 @@ function CitationMark({
   );
 }
 
-export function CitationText({
+export function CitationText<T extends CitationSource>({
   text,
   sources,
   activeId,
   onSelectSource,
 }: {
   text: string;
-  sources: CitationSource[];
+  sources: T[];
   activeId?: string | null;
-  onSelectSource: (source: CitationSource) => void;
+  onSelectSource: (source: T) => void;
 }) {
   const [openKey, setOpenKey] = useState<number | null>(null);
   const closeTimer = useRef<number | null>(null);

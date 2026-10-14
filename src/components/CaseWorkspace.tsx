@@ -266,11 +266,6 @@ export function CaseWorkspace({
       };
 
       setMessages((prev) => [...prev, aiMsg]);
-
-      // If new sources returned, set first as active snippet
-      if (data.sources && data.sources.length > 0) {
-        setActiveSnippet(data.sources[0]);
-      }
     } catch {
       // Graceful fallback
       const aiMsg: ChatMessage = {
@@ -994,7 +989,7 @@ export function CaseWorkspace({
                   <div className="mt-12 text-center text-slate-400 p-6">
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p className="text-xs">
-                      Klik på en kildehenvisning i samtalen for at åbne det fulde tekstsnit og hente originalkilden.
+                      Hold musen over et kildetal i svaret, og tryk Vis kilde.
                     </p>
                   </div>
                 )}
