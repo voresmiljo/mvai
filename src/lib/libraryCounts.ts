@@ -51,16 +51,20 @@ export async function getLibraryCounts(): Promise<LibraryCounts> {
     if (page.length < pageSize) break;
   }
 
-  const documents = new Map<string, { theme: string | null; sourceType: string | null }>();
-  for (const row of data as Array<{
-    theme: string | null;
-    pdf_file_name: string | null;
-    title: string | null;
-    source_type: string | null;
-  }>) {
+  const documents = new Map<string, { themes: Set<string | null>; sourceType: string | null }>();
+  for (const row of data) {
     const key = (row.pdf_file_name || row.title || "").trim();
-    if (!key || documents.has(key)) continue;
-    documents.set(key, { theme: row.theme, sourceType: row.source_type });
+    if (!key) continue;
+    const existing = documents.get(key);
+    if (existing) {
+      existing.themes.add(row.theme);
+      if (!existing.sourceType && row.source_type) existing.sourceType = row.source_type;
+      continue;
+    }
+    documents.set(key, {
+      themes: new Set([row.theme]),
+      sourceType: row.source_type,
+    });
   }
 
   const values = [...documents.values()];
@@ -68,13 +72,13 @@ export async function getLibraryCounts(): Promise<LibraryCounts> {
   return {
     configured: true,
     totalDocuments: documents.size,
-    groundDocuments: values.filter((doc) => doc.theme === null || doc.theme === "grund").length,
+    groundDocuments: values.filter((doc) => doc.themes.has(null) || doc.themes.has("grund")).length,
     decisionDocuments: values.filter((doc) => doc.sourceType === "naevnskendelse").length,
     themes: THEME_FOLDERS.map((folder) => ({
       id: folder.id,
       name: folder.name,
       category: folder.category,
-      documents: values.filter((doc) => doc.theme === folder.id).length,
+      documents: values.filter((doc) => doc.themes.has(folder.id)).length,
     })),
   };
 }
