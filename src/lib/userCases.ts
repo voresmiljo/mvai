@@ -29,14 +29,17 @@ type CaseRow = {
 function formatDanishStamp(value: string, withTime: boolean): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
+  const zone = { timeZone: "UTC" };
   return withTime
     ? date.toLocaleString("da-DK", {
+        ...zone,
         day: "numeric",
         month: "short",
         hour: "2-digit",
         minute: "2-digit",
       })
     : date.toLocaleDateString("da-DK", {
+        ...zone,
         day: "numeric",
         month: "short",
         year: "numeric",
