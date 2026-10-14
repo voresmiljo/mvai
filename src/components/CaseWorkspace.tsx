@@ -867,7 +867,7 @@ export function CaseWorkspace({
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>Kilder</span>
+                <span>Kildeviser</span>
               </button>
 
               <button
