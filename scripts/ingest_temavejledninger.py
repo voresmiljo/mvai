@@ -289,6 +289,25 @@ DOCUMENTS = [
         "source_type": "haandbog",
         "min_chars": 40,
     },
+    {
+        "file": "H_ndbog_om_dyrearter_p__habitatdirektivets_bilag_IV_del_2_kap_1_-_9_c0f8.pdf",
+        "files": [
+            "H_ndbog_om_dyrearter_p__habitatdirektivets_bilag_IV_del_2_kap_1_-_9_c0f8.pdf",
+            "H_ndbog_om_dyrearter_p__habitatdirektivets_bilag_IV_del_2_kap_10_-_21_dd52.pdf",
+        ],
+        "pdf": "Håndbog om dyrearter på habitatdirektivets bilag IV del 2.pdf",
+        "short": "Håndbog om bilag IV-arter, del 2",
+        "citation_base": "Opdatering af: Håndbog om dyrearter på habitatdirektivets bilag IV. Del 2 – Odder og flagermus, Morten Elmeros, Esben Terp Fjederholt, Julie Dahl Møller, Hans J. Baagøe, Jesper Bladt og Christian Kjær, Aarhus Universitet, DCE – Nationalt Center for Miljø og Energi, videnskabelig rapport nr. 603, 2024",
+        "date": "29. april 2024",
+        "authority": "Aarhus Universitet, DCE – Nationalt Center for Miljø og Energi",
+        "journal": "ISBN 978-87-7156-869-1",
+        "themes": ["artsforvaltning"],
+        "note": "",
+        "kind": "haandbog",
+        "source_type": "haandbog",
+        "chapters": "del2",
+        "min_chars": 40,
+    },
 ]
 
 WILDLIFE_BANNERS = {
@@ -1547,6 +1566,29 @@ HAANDBOG_CHAPTERS = {
     "22": "Natlyssværmer",
     "23": "Tykskallet malermusling",
 }
+HAANDBOG_DEL2_CHAPTERS = {
+    "1": "Introduktion",
+    "2": "Odder",
+    "3": "Generelt om danske flagermus",
+    "4": "Bechsteins flagermus",
+    "5": "Brandts flagermus",
+    "6": "Skægflagermus",
+    "7": "Damflagermus",
+    "8": "Vandflagermus",
+    "9": "Stor museøre",
+    "10": "Frynseflagermus",
+    "11": "Troldflagermus",
+    "12": "Dværgflagermus",
+    "13": "Pipistrelflagermus",
+    "14": "Leislers flagermus",
+    "15": "Brunflagermus",
+    "16": "Nordflagermus",
+    "17": "Sydflagermus",
+    "18": "Skimmelflagermus",
+    "19": "Bredøret flagermus",
+    "20": "Brun langøre",
+    "21": "Flagermusreferencer",
+}
 HAANDBOG_SUBS = (
     "status",
     "levevis",
@@ -1591,40 +1633,66 @@ def haandbog_lines(paths: list[Path]) -> list[tuple[str, int]]:
     return rows
 
 
-def haandbog_chapter(rows: list[tuple[str, int]], index: int) -> tuple[str, str, int] | None:
+def haandbog_heading(title: str) -> bool:
+    cleaned = title.rstrip(".").strip()
+    if any(haandbog_norm(cleaned).startswith(name) for name in HAANDBOG_SUBS):
+        return len(cleaned) < 120
+    if not re.match(r"^[A-ZÆØÅ]", cleaned) or len(cleaned) > 110:
+        return False
+    return len(cleaned.split()) <= 14 and ". " not in cleaned
+
+
+def haandbog_chapter(
+    rows: list[tuple[str, int]], index: int, chapters: dict[str, str]
+) -> tuple[str, str, int] | None:
     line = rows[index][0]
     number = re.fullmatch(r"(\d{1,2})", line)
-    if number and number.group(1) in HAANDBOG_CHAPTERS and index + 1 < len(rows):
-        title = HAANDBOG_CHAPTERS[number.group(1)]
+    if number and number.group(1) in chapters and index + 1 < len(rows):
+        title = chapters[number.group(1)]
         if haandbog_norm(rows[index + 1][0]) == haandbog_norm(title):
             return number.group(1), title, 2
     numbered = re.match(r"^(\d{1,2})\s+(.+)$", line)
-    if numbered and numbered.group(1) in HAANDBOG_CHAPTERS:
-        title = HAANDBOG_CHAPTERS[numbered.group(1)]
+    if numbered and numbered.group(1) in chapters:
+        title = chapters[numbered.group(1)]
         if haandbog_norm(numbered.group(2)) == haandbog_norm(title):
             return numbered.group(1), title, 1
     return None
 
 
-def haandbog_sub(rows: list[tuple[str, int]], index: int) -> tuple[str, int] | None:
+def haandbog_sub(
+    rows: list[tuple[str, int]], index: int, chapter_number: str
+) -> tuple[str, int] | None:
     line = rows[index][0]
     if haandbog_norm(line) == "bilag 1":
         return "Bilag 1", 1
+
+    def same_chapter(number: str) -> bool:
+        return bool(chapter_number) and number.split(".")[0] == chapter_number
+
     bare = re.fullmatch(r"(\d{1,2}\.\d{1,2})", line)
-    if bare and index + 1 < len(rows):
-        title = rows[index + 1][0].rstrip(".")
-        if len(title) < 80 and any(haandbog_norm(title).startswith(name) for name in HAANDBOG_SUBS):
+    if bare and same_chapter(bare.group(1)) and index + 1 < len(rows):
+        title = rows[index + 1][0].strip()
+        if title.endswith(".") and not title.endswith("m.v."):
+            title = title[:-1].strip()
+        if haandbog_heading(title):
             return f"{bare.group(1)} {title}", 2
     inline = re.match(r"^(\d{1,2}\.\d{1,2})\s+(.+)$", line)
-    if inline and len(line) < 90 and any(haandbog_norm(inline.group(2)).startswith(name) for name in HAANDBOG_SUBS):
-        return f"{inline.group(1)} {inline.group(2).rstrip('.')}", 1
+    if inline and same_chapter(inline.group(1)) and len(line) < 120:
+        title = inline.group(2).strip()
+        if title.endswith(".") and not title.endswith("m.v."):
+            title = title[:-1].strip()
+        if haandbog_heading(title):
+            return f"{inline.group(1)} {title}", 1
     return None
 
 
-def split_haandbog(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[str, int]]]]:
+def split_haandbog(
+    rows: list[tuple[str, int]], chapters: dict[str, str] | None = None
+) -> list[tuple[str, list[tuple[str, int]]]]:
+    chapters = chapters or HAANDBOG_CHAPTERS
     start = 0
     for index in range(len(rows) - 2):
-        chapter = haandbog_chapter(rows, index)
+        chapter = haandbog_chapter(rows, index, chapters)
         if not chapter or chapter[0] != "1":
             continue
         follower = rows[index + chapter[2]][0]
@@ -1635,16 +1703,18 @@ def split_haandbog(rows: list[tuple[str, int]]) -> list[tuple[str, list[tuple[st
     sections: list[tuple[str, list[tuple[str, int]]]] = []
     heading = ""
     chapter_label = ""
+    chapter_number = ""
     current: list[tuple[str, int]] = []
     index = 0
     while index < len(rows):
-        chapter = haandbog_chapter(rows, index)
-        subsection = None if chapter else haandbog_sub(rows, index)
+        chapter = haandbog_chapter(rows, index, chapters)
+        subsection = None if chapter else haandbog_sub(rows, index, chapter_number)
         if chapter or subsection:
             if current and heading:
                 sections.append((heading, current))
             current = []
             if chapter:
+                chapter_number = chapter[0]
                 chapter_label = f"{chapter[0]} {chapter[1]}"
                 heading = chapter_label
                 index += chapter[2]
@@ -1693,14 +1763,15 @@ def build(folder: Path, only: set[str] | None = None) -> list[dict]:
             sections = split_odder(read_odder(folder / spec["file"]))
         elif kind == "haandbog":
             paths = [folder / name for name in spec.get("files", [spec["file"]])]
-            sections = split_haandbog(haandbog_lines(paths))
+            chapters = HAANDBOG_DEL2_CHAPTERS if spec.get("chapters") == "del2" else HAANDBOG_CHAPTERS
+            sections = split_haandbog(haandbog_lines(paths), chapters)
         else:
             rows = merge_wraps(read_rows(folder / spec["file"], kind), kind)
             sections = split_wildlife(rows) if kind == "wildlife" else split_numbered(rows, kind)
         minimum = spec.get("min_chars", 80)
         for heading, section_rows in sections:
             for label, part in pack(heading, section_rows):
-                text = "\n".join(line for line, _page in part).strip()
+                text = "\n".join(line for line, _page in part).replace("\x00", "").strip()
                 if len(text) < minimum:
                     continue
                 title = f"{spec['short']} {label}"
