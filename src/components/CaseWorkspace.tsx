@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { CitationText } from "@/components/CitationText";
@@ -70,6 +71,77 @@ const AVAILABLE_THEMES: ThemeFolder[] = THEME_FOLDERS.map((folder) => ({
   ...folder,
   count: 0,
 }));
+
+function DocumentMenu({
+  open,
+  anchorRef,
+  lines,
+  menuId,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  open: boolean;
+  anchorRef: React.RefObject<HTMLDivElement | null>;
+  lines: string[];
+  menuId: string;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    const menu = menuRef.current;
+    if (!open || !anchor || !menu) return;
+
+    const place = () => {
+      const rect = anchor.getBoundingClientRect();
+      const margin = 8;
+      const width = menu.scrollWidth;
+      let left = rect.left;
+      if (left + width > window.innerWidth - margin) {
+        left = Math.max(margin, window.innerWidth - margin - width);
+      }
+      menu.style.top = `${rect.bottom + 4}px`;
+      menu.style.left = `${left}px`;
+      menu.style.maxWidth = `${window.innerWidth - margin * 2}px`;
+    };
+
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, anchorRef, lines]);
+
+  if (!open || lines.length === 0 || typeof document === "undefined") return null;
+
+  const rect = anchorRef.current?.getBoundingClientRect();
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      data-upload-menu={menuId}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{
+        top: rect ? rect.bottom + 4 : 0,
+        left: rect ? rect.left : 0,
+        zIndex: 80,
+      }}
+      className="fixed max-h-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-xs text-slate-800 shadow-md"
+    >
+      {lines.map((line, index) => (
+        <div key={`${line}-${index}`} className="whitespace-nowrap px-3 py-1">
+          {line}
+        </div>
+      ))}
+    </div>,
+    document.body
+  );
+}
 
 function isStoredCaseId(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -170,14 +242,39 @@ export function CaseWorkspace({
     scope === "plan" ? ["natura2000"] : ["artsbeskyttelse"]
   );
 
-  // Uploaded files: starts empty for new cases unless explicitly provided by an existing case
+  // Uploaded files: empty until the user picks a file in this case
   const isNewCase = draftCase || caseId.startsWith("ny-");
   const [primaryFile, setPrimaryFile] = useState<string | null>(
     isNewCase ? null : existingCase?.primaryDocument || null
   );
-  const [supplementaryFiles, setSupplementaryFiles] = useState<string[]>(
-    isNewCase ? [] : (existingCase ? ["Bilag_4_Artskortlaegning_Feltundersoegelse.pdf"] : [])
-  );
+  const [supplementaryFiles, setSupplementaryFiles] = useState<string[]>([]);
+  const primaryInputRef = useRef<HTMLInputElement>(null);
+  const supplementaryInputRef = useRef<HTMLInputElement>(null);
+  const primaryAnchorRef = useRef<HTMLDivElement>(null);
+  const secondaryAnchorRef = useRef<HTMLDivElement>(null);
+  const [primaryMenuOpen, setPrimaryMenuOpen] = useState(false);
+  const [secondaryMenuOpen, setSecondaryMenuOpen] = useState(false);
+  const primaryMenuTimer = useRef<number | null>(null);
+  const secondaryMenuTimer = useRef<number | null>(null);
+
+  const holdPrimaryMenu = () => {
+    if (!primaryFile) return;
+    if (primaryMenuTimer.current) window.clearTimeout(primaryMenuTimer.current);
+    setPrimaryMenuOpen(true);
+  };
+  const releasePrimaryMenu = () => {
+    if (primaryMenuTimer.current) window.clearTimeout(primaryMenuTimer.current);
+    primaryMenuTimer.current = window.setTimeout(() => setPrimaryMenuOpen(false), 150);
+  };
+  const holdSecondaryMenu = () => {
+    if (!supplementaryFiles.length) return;
+    if (secondaryMenuTimer.current) window.clearTimeout(secondaryMenuTimer.current);
+    setSecondaryMenuOpen(true);
+  };
+  const releaseSecondaryMenu = () => {
+    if (secondaryMenuTimer.current) window.clearTimeout(secondaryMenuTimer.current);
+    secondaryMenuTimer.current = window.setTimeout(() => setSecondaryMenuOpen(false), 150);
+  };
 
   // Right panel tab state: 'kilde' vs 'notater'
   const [rightPanelTab, setRightPanelTab] = useState<"kilde" | "notater">("kilde");
@@ -351,17 +448,12 @@ export function CaseWorkspace({
     }
   };
 
-  const handleUploadPrimary = async () => {
-    const filename = prompt("Indtast filnavn på det primære dokument (PDF):", "Miljorapport_Sag_2026.pdf");
-    if (!filename) return;
-    setPrimaryFile(filename);
-
-    // Kør hurtig baggrundstagging med GPT-4o-mini API
+  const tagUploadedDocument = async (fileName: string) => {
     try {
       const res = await fetch("/api/tag-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: filename, scope }),
+        body: JSON.stringify({ fileName, scope }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -374,27 +466,20 @@ export function CaseWorkspace({
     }
   };
 
-  const handleUploadSupplementary = async () => {
-    const filename = prompt("Indtast filnavn på sekundært dokument (PDF):", "Trafiknotat_Kapacitetsvurdering.pdf");
-    if (!filename) return;
-    setSupplementaryFiles((prev) => [...prev, filename]);
+  const handlePrimarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setPrimaryFile(file.name);
+    void tagUploadedDocument(file.name);
+  };
 
-    // Kør hurtig baggrundstagging med GPT-4o-mini API
-    try {
-      const res = await fetch("/api/tag-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: filename, scope }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.recommendedThemes && Array.isArray(data.recommendedThemes)) {
-          setSelectedThemes((prev) => Array.from(new Set([...prev, ...data.recommendedThemes])));
-        }
-      }
-    } catch {
-      // Ignorér baggrundstagging-fejl
-    }
+  const handleSupplementarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length) return;
+    setSupplementaryFiles((prev) => [...prev, ...files.map((file) => file.name)]);
+    for (const file of files) void tagUploadedDocument(file.name);
   };
 
   const handleCopyText = (text: string, msgId: string) => {
@@ -624,7 +709,8 @@ export function CaseWorkspace({
                   </div>
                   <button
                     type="button"
-                    onClick={handleUploadPrimary}
+                    data-upload="primary-side"
+                    onClick={() => primaryInputRef.current?.click()}
                     className="mt-2 text-[10px] text-emerald-800 font-semibold hover:underline cursor-pointer"
                   >
                     Skift primært dokument &rarr;
@@ -637,7 +723,8 @@ export function CaseWorkspace({
                     <span>Sekundære dokumenter ({supplementaryFiles.length})</span>
                     <button
                       type="button"
-                      onClick={handleUploadSupplementary}
+                      data-upload="secondary-side"
+                      onClick={() => supplementaryInputRef.current?.click()}
                       className="text-[#2E8B57] hover:underline cursor-pointer text-[10px]"
                     >
                       + Tilføj
@@ -684,26 +771,53 @@ export function CaseWorkspace({
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Knap 1: Primært dokument */}
-                <div className="relative">
+                <div
+                  ref={primaryAnchorRef}
+                  className="relative"
+                  onMouseEnter={holdPrimaryMenu}
+                  onMouseLeave={releasePrimaryMenu}
+                >
                   <button
                     type="button"
-                    onClick={handleUploadPrimary}
-                    className="inline-flex items-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3.5 py-1.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
+                    data-upload="primary"
+                    onClick={() => primaryInputRef.current?.click()}
+                    className="inline-flex max-w-xs items-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3.5 py-1.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
                   >
-                    <Upload className="w-3.5 h-3.5 text-[#2E8B57]" />
-                    <span>1. Primært dokument</span>
-                    <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono">
+                    <Upload className="w-3.5 h-3.5 shrink-0 text-[#2E8B57]" />
+                    <span className="truncate">
+                      {primaryFile || "1. Primært dokument"}
+                    </span>
+                    <span className="shrink-0 rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono">
                       Fokus
                     </span>
                   </button>
+                  <DocumentMenu
+                    open={primaryMenuOpen}
+                    anchorRef={primaryAnchorRef}
+                    lines={primaryFile ? [primaryFile] : []}
+                    menuId="primary"
+                    onMouseEnter={holdPrimaryMenu}
+                    onMouseLeave={releasePrimaryMenu}
+                  />
+                  <input
+                    ref={primaryInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
+                    className="hidden"
+                    onChange={handlePrimarySelected}
+                  />
                 </div>
 
-                {/* Knap 2: Sekundære dokumenter */}
-                <div className="relative">
+                <div
+                  ref={secondaryAnchorRef}
+                  className="relative"
+                  onMouseEnter={holdSecondaryMenu}
+                  onMouseLeave={releaseSecondaryMenu}
+                >
                   <button
                     type="button"
-                    onClick={handleUploadSupplementary}
+                    data-upload="secondary"
+                    onClick={() => supplementaryInputRef.current?.click()}
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5 text-slate-400" />
@@ -712,28 +826,24 @@ export function CaseWorkspace({
                       ({supplementaryFiles.length})
                     </span>
                   </button>
+                  <DocumentMenu
+                    open={secondaryMenuOpen}
+                    anchorRef={secondaryAnchorRef}
+                    lines={supplementaryFiles}
+                    menuId="secondary"
+                    onMouseEnter={holdSecondaryMenu}
+                    onMouseLeave={releaseSecondaryMenu}
+                  />
+                  <input
+                    ref={supplementaryInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
+                    className="hidden"
+                    onChange={handleSupplementarySelected}
+                  />
                 </div>
               </div>
-            </div>
-
-            {/* Uploaded badges row */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-              {primaryFile && (
-                <div className="inline-flex items-center gap-1.5 rounded bg-emerald-100/70 border border-emerald-300/60 px-2 py-0.5 text-[#0F382C] font-medium text-[11px]">
-                  <FileText className="w-3 h-3 text-[#2E8B57]" />
-                  <span className="font-semibold truncate max-w-xs">{primaryFile}</span>
-                  <span className="text-[9px] text-emerald-800 font-bold bg-white/70 px-1 rounded">Primært</span>
-                </div>
-              )}
-              {supplementaryFiles.map((file, idx) => (
-                <div
-                  key={idx}
-                  className="inline-flex items-center gap-1.5 rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-slate-700 text-[11px]"
-                >
-                  <FileText className="w-3 h-3 text-slate-500" />
-                  <span className="truncate max-w-xs">{file}</span>
-                </div>
-              ))}
             </div>
           </div>
 
