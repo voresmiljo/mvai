@@ -324,9 +324,10 @@ export function CaseWorkspace({
   const handleToggleTheme = (themeId: string) => {
     if (selectedThemes.includes(themeId)) {
       setSelectedThemes(selectedThemes.filter((t) => t !== themeId));
-    } else {
-      setSelectedThemes([...selectedThemes, themeId]);
+      return;
     }
+    if (selectedThemes.length >= 3) return;
+    setSelectedThemes([...selectedThemes, themeId]);
   };
 
   const rememberCase = (id: string, title: string, number?: string) => {
@@ -474,7 +475,14 @@ export function CaseWorkspace({
       if (res.ok) {
         const data = await res.json();
         if (data.recommendedThemes && Array.isArray(data.recommendedThemes)) {
-          setSelectedThemes((prev) => Array.from(new Set([...prev, ...data.recommendedThemes])));
+          setSelectedThemes((prev) => {
+            const next = [...prev];
+            for (const themeId of data.recommendedThemes) {
+              if (typeof themeId !== "string" || next.includes(themeId) || next.length >= 3) continue;
+              next.push(themeId);
+            }
+            return next;
+          });
         }
       }
     } catch {
@@ -569,7 +577,7 @@ export function CaseWorkspace({
     document.body.removeChild(element);
   };
 
-  const isThemeLimitExceeded = selectedThemes.length > 3;
+  const isThemeLimitExceeded = selectedThemes.length >= 3;
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#F7FAFA] text-slate-800">
@@ -753,24 +761,22 @@ export function CaseWorkspace({
                     Intet primært dokument
                   </div>
                 )}
-                <button
-                  type="button"
+                <label
+                  htmlFor="mvai-primary-file"
                   data-upload="primary-side"
-                  onClick={() => primaryInputRef.current?.click()}
-                  className="text-[10px] text-emerald-800 font-semibold hover:underline cursor-pointer"
+                  className="inline-block cursor-pointer py-1 text-xs font-semibold text-emerald-800 hover:underline"
                 >
                   {primaryFile ? "Skift primært dokument" : "Tilføj primært dokument"} &rarr;
-                </button>
+                </label>
 
                 <div className="flex items-center justify-end pt-1">
-                  <button
-                    type="button"
+                  <label
+                    htmlFor="mvai-secondary-file"
                     data-upload="secondary-side"
-                    onClick={() => supplementaryInputRef.current?.click()}
-                    className="text-[#2E8B57] hover:underline cursor-pointer text-[10px] font-semibold"
+                    className="cursor-pointer py-1 text-xs font-semibold text-[#2E8B57] hover:underline"
                   >
-                    + Tilføj sekundært
-                  </button>
+                    + Tilføj
+                  </label>
                 </div>
                 {supplementaryFiles.length > 0 ? (
                   supplementaryFiles.map((file) => (
@@ -832,18 +838,25 @@ export function CaseWorkspace({
                   onMouseEnter={holdPrimaryMenu}
                   onMouseLeave={releasePrimaryMenu}
                 >
-                  <button
-                    type="button"
+                  <label
+                    htmlFor="mvai-primary-file"
                     data-upload="primary"
-                    onClick={() => primaryInputRef.current?.click()}
-                    className="inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border-2 border-[#0F382C] bg-white px-3.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
+                    className="relative inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border-2 border-[#0F382C] bg-white px-3.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs"
                   >
                     <Upload className="w-3.5 h-3.5 shrink-0 text-[#2E8B57]" />
                     <span>1. Primært dokument</span>
                     <span className="shrink-0 rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono">
                       Fokus
                     </span>
-                  </button>
+                    <input
+                      id="mvai-primary-file"
+                      ref={primaryInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
+                      className="absolute h-px w-px overflow-hidden opacity-0"
+                      onChange={handlePrimarySelected}
+                    />
+                  </label>
                   <DocumentMenu
                     open={primaryMenuOpen}
                     anchorRef={primaryAnchorRef}
@@ -851,13 +864,6 @@ export function CaseWorkspace({
                     menuId="primary"
                     onMouseEnter={holdPrimaryMenu}
                     onMouseLeave={releasePrimaryMenu}
-                  />
-                  <input
-                    ref={primaryInputRef}
-                    type="file"
-                    accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
-                    className="hidden"
-                    onChange={handlePrimarySelected}
                   />
                 </div>
 
@@ -867,18 +873,26 @@ export function CaseWorkspace({
                   onMouseEnter={holdSecondaryMenu}
                   onMouseLeave={releaseSecondaryMenu}
                 >
-                  <button
-                    type="button"
+                  <label
+                    htmlFor="mvai-secondary-file"
                     data-upload="secondary"
-                    onClick={() => supplementaryInputRef.current?.click()}
-                    className="inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                    className="relative inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
                   >
                     <Upload className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                     <span>2. Sekundære dokumenter</span>
                     <span className="inline-block w-8 text-center text-[10px] tabular-nums text-slate-400">
                       ({supplementaryFiles.length})
                     </span>
-                  </button>
+                    <input
+                      id="mvai-secondary-file"
+                      ref={supplementaryInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
+                      className="absolute h-px w-px overflow-hidden opacity-0"
+                      onChange={handleSupplementarySelected}
+                    />
+                  </label>
                   <DocumentMenu
                     open={secondaryMenuOpen}
                     anchorRef={secondaryAnchorRef}
@@ -886,14 +900,6 @@ export function CaseWorkspace({
                     menuId="secondary"
                     onMouseEnter={holdSecondaryMenu}
                     onMouseLeave={releaseSecondaryMenu}
-                  />
-                  <input
-                    ref={supplementaryInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
-                    className="hidden"
-                    onChange={handleSupplementarySelected}
                   />
                 </div>
               </div>
