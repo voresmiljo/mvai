@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { loadArchiveCatalog } from "@/lib/archiveCatalog";
+import { asksAboutCurrentSourceBasis, matchAskedDocument, sourceBasisReply } from "@/lib/sourceBasis";
 import { searchSupabaseLegalSources } from "@/lib/vectorSearch";
 
 interface RequestBody {
@@ -37,8 +39,22 @@ export async function POST(req: Request) {
       );
     }
 
+    const replyScope = scope === "plan" ? "plan" : "projekt";
+
+    if (asksAboutCurrentSourceBasis(message)) {
+      const documents = await loadArchiveCatalog();
+      const document = matchAskedDocument(message, documents);
+      if (document) {
+        return NextResponse.json({
+          text: sourceBasisReply(document, themes, replyScope),
+          sources: [],
+          isLiveLLM: true,
+        });
+      }
+    }
+
     const scopeName =
-      scope === "plan"
+      replyScope === "plan"
         ? "Plan / Program (Afsnit II / § 8 - Strategisk Miljøvurdering)"
         : "Konkret Projekt (Afsnit III / §§ 15–25 - VVM-screening & tilladelse)";
 
