@@ -401,14 +401,14 @@ export function CaseWorkspace({
       {/* Top Application Header - NotebookLM style */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 z-20">
         <div className="flex items-center gap-3">
-          <Link
+          <a
             href="/"
             className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
             title="Gå tilbage til sagsdashboard"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Dine sager</span>
-          </Link>
+          </a>
 
           <div className="h-5 w-px bg-slate-200" />
 

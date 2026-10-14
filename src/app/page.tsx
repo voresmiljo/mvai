@@ -88,6 +88,7 @@ export default function DashboardPage() {
 
     return () => {
       cancelled = true;
+      setCasesLoading(false);
       window.removeEventListener("pageshow", onPageShow);
     };
   }, [user, authLoading]);
