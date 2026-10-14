@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { getLibraryCounts, type LibraryCounts } from "@/lib/libraryCounts";
+import { THEME_CATEGORIES } from "@/lib/themeFolders";
 import { Mail, ArrowRight } from "lucide-react";
 
 export const metadata = {
@@ -29,18 +30,22 @@ function LibraryFigures({ library }: { library: LibraryCounts }) {
           <span>Grundmappe</span>
           <span className="font-mono text-xs text-slate-500">{library.groundDocuments}</span>
         </li>
-        {library.themes.map((folder) => (
-          <li key={folder.id} className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
-            <span>{folder.name}</span>
-            <span className="font-mono text-xs text-slate-500">{folder.documents}</span>
+        {THEME_CATEGORIES.map((category) => (
+          <li key={category.id} className="space-y-2 border-b border-slate-100 pb-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{category.name}</p>
+            <ul className="space-y-2">
+              {library.themes
+                .filter((folder) => folder.category === category.id)
+                .map((folder) => (
+                  <li key={folder.id} className="flex items-center justify-between gap-4">
+                    <span>{folder.name}</span>
+                    <span className="font-mono text-xs text-slate-500">{folder.documents}</span>
+                  </li>
+                ))}
+            </ul>
           </li>
         ))}
       </ul>
-      <p className="mt-4 text-sm leading-relaxed text-slate-600">
-        {library.decisionDocuments === 0
-          ? "Klagenævnsafgørelser tælles med i den temamappe, de handler om. Der ligger ingen afgørelser i arkivet endnu."
-          : `${library.decisionDocuments} af dokumenterne er klagenævnsafgørelser. De tælles med i den temamappe, de handler om, og står ikke i en mappe for sig.`}
-      </p>
     </div>
   );
 }
