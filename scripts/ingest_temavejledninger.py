@@ -130,7 +130,7 @@ DOCUMENTS = [
     },
     {
         "file": "Habitatbekendtg_relsen_uden_bliag_8_9cde.pdf",
-        "pdf": "habitatbekendtgoerelsen-bek-1098-2023.pdf",
+        "pdf": "Habitatbekendtgørelse uden kortbilag.pdf",
         "short": "Habitatbekendtgørelsen",
         "citation_base": "Bekendtgørelse om udpegning og administration af internationale naturbeskyttelsesområder samt beskyttelse af visse arter, BEK nr 1098 af 21. august 2023",
         "date": "21. august 2023",
