@@ -126,9 +126,6 @@ export function sanitizeCaseRoom(value: unknown): CaseRoom | null {
     ? row.messages.map(message).filter((item): item is StoredMessage => item !== null).slice(-40)
     : [];
   if (!messages.length) return null;
-  const themes = Array.isArray(row.themes)
-    ? row.themes.map((theme) => text(theme, 40)).filter((theme) => /^[a-z0-9_]+$/.test(theme)).slice(0, 3)
-    : [];
   return {
     messages,
     primaryFile: document(row.primaryFile),
@@ -138,7 +135,7 @@ export function sanitizeCaseRoom(value: unknown): CaseRoom | null {
     notes: Array.isArray(row.notes)
       ? row.notes.map(note).filter((item): item is StoredNote => item !== null).slice(0, 20)
       : [],
-    themes,
+    themes: [],
   };
 }
 

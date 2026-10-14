@@ -272,6 +272,10 @@ export function CaseWorkspace({
   const restored = forcedRoom && forcedRoom.messages.length > 0 ? forcedRoom : null;
   const [selectedThemes, setSelectedThemes] = useState<string[]>([]);
 
+  useEffect(() => {
+    setSelectedThemes([]);
+  }, [caseId]);
+
   // Uploaded files: empty until the user picks a file in this case
   const isNewCase = draftCase || caseId.startsWith("ny-");
   const [primaryFile, setPrimaryFile] = useState<CaseDocument | null>(
@@ -365,7 +369,7 @@ export function CaseWorkspace({
           primaryFile,
           supplementaryFiles,
           notes: generatedNotes,
-          themes: selectedThemes,
+          themes: [],
         },
         primaryDocument: primaryFile?.name ?? null,
       }),
@@ -518,37 +522,11 @@ export function CaseWorkspace({
     }
   };
 
-  const tagUploadedDocument = async (fileName: string) => {
-    try {
-      const res = await fetch("/api/tag-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName, scope }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.recommendedThemes && Array.isArray(data.recommendedThemes)) {
-          setSelectedThemes((prev) => {
-            const next = [...prev];
-            for (const themeId of data.recommendedThemes) {
-              if (typeof themeId !== "string" || next.includes(themeId) || next.length >= 3) continue;
-              next.push(themeId);
-            }
-            return next;
-          });
-        }
-      }
-    } catch {
-      // Ignorér baggrundstagging-fejl
-    }
-  };
-
   const handlePrimarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
     setPrimaryFile(newCaseDocument(file.name));
-    void tagUploadedDocument(file.name);
   };
 
   const handleSupplementarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -556,7 +534,6 @@ export function CaseWorkspace({
     event.target.value = "";
     if (!files.length) return;
     setSupplementaryFiles((prev) => [...prev, ...files.map((file) => newCaseDocument(file.name))]);
-    for (const file of files) void tagUploadedDocument(file.name);
   };
 
   const togglePrimaryFile = () => {
@@ -662,8 +639,6 @@ export function CaseWorkspace({
     document.body.removeChild(element);
   };
 
-  const isThemeLimitExceeded = selectedThemes.length >= 3;
-
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#F7FAFA] text-slate-800">
       {/* Top Application Header - NotebookLM style */}
@@ -732,30 +707,13 @@ export function CaseWorkspace({
                 <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
                   Temamapper
                 </span>
-                <span
-                  className={`text-xs font-semibold ${
-                    isThemeLimitExceeded ? "text-amber-600 font-bold" : "text-slate-500"
-                  }`}
-                >
+                <span className="text-xs font-semibold text-slate-500">
                   {selectedThemes.length}/3 aktive
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mb-3">
                 Aktivér de fagområder, sagen handler om.
               </p>
-
-              {/* Warning banner when >= 4 */}
-              {isThemeLimitExceeded && (
-                <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Fagligt advarselsloft:</span>
-                    <p className="text-[11px] leading-tight mt-0.5">
-                      Flere end 3 temamapper øger risikoen for informationsstøj og udvander det retslige præcisionstjek.
-                    </p>
-                  </div>
-                </div>
-              )}
 
               {/* Temamapper Opremsning med afkrydsningsfelter */}
               <div className="space-y-4">
@@ -773,7 +731,8 @@ export function CaseWorkspace({
                             if ((event.target as HTMLElement).tagName === "INPUT") return;
                             handleToggleTheme(theme.id);
                           }}
-                          className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                          data-theme={theme.id}
+                          className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
                             isChecked
                               ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
                               : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
@@ -784,21 +743,11 @@ export function CaseWorkspace({
                             checked={isChecked}
                             onClick={(event) => event.stopPropagation()}
                             onChange={() => handleToggleTheme(theme.id)}
-                            className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+                            className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
                           />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className={`font-semibold ${isChecked ? "text-[#0F382C]" : "text-slate-700"}`}>
-                                {theme.name}
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-mono shrink-0">
-                                {theme.count} dok.
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
-                              {theme.description}
-                            </p>
-                          </div>
+                          <span className={`font-semibold ${isChecked ? "text-[#0F382C]" : "text-slate-700"}`}>
+                            {theme.name}
+                          </span>
                         </div>
                       );
                     })}
