@@ -34,11 +34,22 @@ function emptyCounts(configured: boolean): LibraryCounts {
 export async function getLibraryCounts(): Promise<LibraryCounts> {
   if (!supabase) return emptyCounts(false);
 
-  const { data, error } = await supabase
-    .from("legal_sources")
-    .select("theme, pdf_file_name, title, source_type");
-
-  if (error || !data) return emptyCounts(true);
+  const data: Array<{
+    theme: string | null;
+    pdf_file_name: string | null;
+    title: string | null;
+    source_type: string | null;
+  }> = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data: page, error } = await supabase
+      .from("legal_sources")
+      .select("theme, pdf_file_name, title, source_type")
+      .range(from, from + pageSize - 1);
+    if (error || !page) return emptyCounts(true);
+    data.push(...page);
+    if (page.length < pageSize) break;
+  }
 
   const documents = new Map<string, { theme: string | null; sourceType: string | null }>();
   for (const row of data as Array<{
