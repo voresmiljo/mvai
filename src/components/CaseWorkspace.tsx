@@ -820,11 +820,7 @@ export function CaseWorkspace({
                   rows={3}
                   value={inputPrompt}
                   onChange={(e) => setInputPrompt(e.target.value)}
-                  placeholder={`Stil spørgsmål til ${
-                    scope === "projekt"
-                      ? "projektets screening eller miljøkonsekvensrapport (f.eks. 'Hvilke krav stiller klagenævnet til kumulationsvurdering ved screening efter § 21?')"
-                      : "planens miljøvurdering (f.eks. 'Hvornår skal en plan miljøvurderes efter § 8?')"
-                  }...`}
+                  placeholder="skriv her"
                   className="w-full resize-none border-0 bg-transparent p-3 text-sm placeholder-slate-400 focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -937,7 +933,7 @@ export function CaseWorkspace({
                       <p className="mt-2 text-[10px] text-slate-400 italic">
                         {activeSnippet.citation.startsWith("Output:")
                           ? "Teksten er gemt output fra denne sag og bruges som kildemateriale i de næste svar."
-                          : "Teksten er en forhåndsvisning. Knappen henter den originale fil."}
+                          : "Teksten er en forhåndsvisning."}
                       </p>
                     </div>
 
