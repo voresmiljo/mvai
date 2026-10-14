@@ -806,7 +806,7 @@ export function CaseWorkspace({
                 </div>
                 <div className="rounded-xl p-4 text-xs bg-[#F7FAFA] border border-slate-200 text-slate-600 flex items-center gap-2">
                   <span className="flex h-2 w-2 rounded-full bg-[#2E8B57] animate-pulse" />
-                  <span>Konsulterer retskildematrix og genererer dynamisk miljøretlig analyse...</span>
+                  <span>Genererer miljøretlig analyse...</span>
                 </div>
               </div>
             )}
