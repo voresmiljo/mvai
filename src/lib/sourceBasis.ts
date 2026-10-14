@@ -52,11 +52,6 @@ function nameStems(name: string): string[] {
 
 export function matchAskedDocument(message: string, documents: CatalogDocument[]): CatalogDocument | null {
   const folded = loosen(message);
-  if (fold(message).includes(fold("habitatdirektiv"))) {
-    const bekendtgorelse = documents.find((doc) => fold(doc.name).startsWith(fold("Habitatbekendtgørelse")));
-    if (bekendtgorelse) return bekendtgorelse;
-  }
-
   let best: { doc: CatalogDocument; length: number } | null = null;
   for (const doc of documents) {
     for (const stem of nameStems(doc.name)) {

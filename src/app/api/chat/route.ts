@@ -151,7 +151,6 @@ Enhver faglig påstand eller konklusion i dit svar SKAL følges af en præcis ki
 
 SÅDAN SVARER DU. DETTE GÆLDER ALLE SPØRGSMÅL:
 Hvis spørgsmålet handler om et dokument, som arkivoversigten siger ikke indgår i de markerede temamapper, er hele svaret præcis de to sætninger fra dokumentets linje. Ingen overskrifter, ingen punktlister og ingen gennemgang af andre dokumenter, der blot omtaler det.
-Nævner spørgsmålet habitatdirektivet, er dokumentet Habitatbekendtgørelsen. Samme to sætninger bruges for alle andre dokumenter.
 Hvis dokumentet indgår i de markerede temamapper eller i grundmappen, så svar ud fra de medfølgende uddrag.
 
 STRUKTUR, KUN NÅR DE RELEVANTE DOKUMENTER INDGÅR I DET MARKEREDE KILDEGRUNDLAG:
