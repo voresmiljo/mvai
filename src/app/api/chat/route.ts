@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { loadArchiveCatalog } from "@/lib/archiveCatalog";
-import { asksAboutCurrentSourceBasis, matchAskedDocument, sourceBasisReply } from "@/lib/sourceBasis";
+import {
+  activeThemeNames,
+  formatArchiveOverview,
+  isInSelectedBasis,
+  matchAskedDocument,
+  sourceBasisReply,
+} from "@/lib/sourceBasis";
 import { searchSupabaseLegalSources } from "@/lib/vectorSearch";
 
 interface RequestBody {
@@ -40,18 +46,18 @@ export async function POST(req: Request) {
     }
 
     const replyScope = scope === "plan" ? "plan" : "projekt";
+    const documents = await loadArchiveCatalog();
+    const askedDocument = matchAskedDocument(message, documents);
 
-    if (asksAboutCurrentSourceBasis(message)) {
-      const documents = await loadArchiveCatalog();
-      const document = matchAskedDocument(message, documents);
-      if (document) {
-        return NextResponse.json({
-          text: sourceBasisReply(document, themes, replyScope),
-          sources: [],
-          isLiveLLM: true,
-        });
-      }
+    if (askedDocument && !isInSelectedBasis(askedDocument, themes, replyScope)) {
+      return NextResponse.json({
+        text: sourceBasisReply(askedDocument, themes, replyScope),
+        sources: [],
+        isLiveLLM: true,
+      });
     }
+
+    const archiveOverview = formatArchiveOverview(documents, themes, replyScope);
 
     const scopeName =
       replyScope === "plan"
@@ -109,7 +115,10 @@ DIT RETSLIGE ARBEJDSOMRÅDE FOR DENNE SAG ER:
 - Proceskategori: ${scopeName}
 - Sag: ${caseTitle || "Miljøsag"} (${caseNumber || "2026"})
 - Sagsakter: ${fileContext}
-- Aktive Temamapper: ${themes.join(", ") || "Ingen specifikke (kun grundlovgivning)"}
+- Aktive Temamapper: ${activeThemeNames(themes)}
+
+ARKIVOVERSIGT:
+${archiveOverview}
 
 MEDFØLGENDE RETSKILDER OG NÆVNSPRAKSIS FRA SYSTEMETS KILDEMATRIX:
 ${sourcesContext}
@@ -120,10 +129,10 @@ ${outputContext}
 DINE PRIMÆRE PRINCIPPER:
 
 1. STRICT KILDEFORANKRING (NUL HALLUCINATIONER):
-Du skal forankre dine svar i ovenstående medfølgende retskilder, gemt output fra sagen, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Gemt output bruges som kildemateriale i denne sag og henvises som [Output: titel]. Det er ikke en almindelig retskilde og lægges ikke i temamapperne. Du må ALDRIG opdigte antagelser eller supplere med uverificerede påstande.
+Du skal forankre dine svar i de medfølgende retskilder, arkivoversigten og gemt output fra sagen. Gemt output bruges som kildemateriale i denne sag og henvises som [Output: titel]. Det er ikke en almindelig retskilde og lægges ikke i temamapperne. Du må ALDRIG opdigte antagelser, fylde lov- eller direktivtekst ud fra hukommelsen eller supplere med uverificerede påstande.
 
 2. HÅNDTERING AF TVIVL OG MANGLER:
-Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte.
+Hvis kildematerialet ikke indeholder tilstrækkelig information til at besvare spørgsmålet fuldstændigt, eller hvis der er modstrid i kilderne, SKAL du eksplicit gøre opmærksom på dette. Du skal hellere svare: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte. Sig ikke, at et dokuments egen ordlyd mangler, når arkivoversigten siger, at dokumentet indgår.
 
 3. UVILDIGHED OG OBJEKTIVITET:
 Du skal altid forholde dig 100 % neutralt, fagligt nøgternt og juridisk objektivt. Du repræsenterer hverken bygherrers, klageres eller specifikke organisationers særinteresser.
@@ -140,7 +149,12 @@ Enhver faglig påstand eller konklusion i dit svar SKAL følges af en præcis ki
 - [MFKN j.nr. 21/04322]
 - [EU-Domstolen Sag C-127/02 Waddenzee]
 
-STRUKTUR PÅ DINE SVAR:
+SÅDAN SVARER DU. DETTE GÆLDER ALLE SPØRGSMÅL:
+Hvis spørgsmålet handler om et dokument, som arkivoversigten siger ikke indgår i de markerede temamapper, er hele svaret præcis de to sætninger fra dokumentets linje. Ingen overskrifter, ingen punktlister og ingen gennemgang af andre dokumenter, der blot omtaler det.
+Nævner spørgsmålet habitatdirektivet, er dokumentet Habitatbekendtgørelsen. Samme to sætninger bruges for alle andre dokumenter.
+Hvis dokumentet indgår i de markerede temamapper eller i grundmappen, så svar ud fra de medfølgende uddrag.
+
+STRUKTUR, KUN NÅR DE RELEVANTE DOKUMENTER INDGÅR I DET MARKEREDE KILDEGRUNDLAG:
 1. Kort og direkte konklusion/svar på brugerens spørgsmål.
 2. Gennemgang af det relevante kildegrundlag og gældende ret.
 3. Eventuelle usikkerheder, forbehold eller manglende oplysninger i sagsakterne.`;

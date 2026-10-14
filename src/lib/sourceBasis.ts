@@ -6,13 +6,6 @@ export type CatalogDocument = {
   scopes: string[];
 };
 
-export function asksAboutCurrentSourceBasis(message: string): boolean {
-  const text = message.toLowerCase();
-  const aboutBasis = /kildegrundlag|temamappe|kildekorpus/.test(text);
-  const aboutPresence = /indgår|indeholder|med i|findes|ligger|er der|har vi/.test(text);
-  return aboutBasis && aboutPresence;
-}
-
 export function documentName(title: string, lawSection: string | null | undefined): string {
   const cleanTitle = title.replace(/\s+/g, " ").trim();
   const section = (lawSection || "").replace(/\s+/g, " ").trim();
@@ -42,8 +35,12 @@ function fold(value: string): string {
     .trim();
 }
 
+function loosen(value: string): string {
+  return fold(value).replace(/\b(\w+?)(?:erne|en|et|ne)\b/g, "$1");
+}
+
 function nameStems(name: string): string[] {
-  const folded = fold(name);
+  const folded = loosen(name);
   const stems = [folded];
   for (const suffix of ["erne", "en", "et"]) {
     if (folded.endsWith(suffix) && folded.length - suffix.length >= 8) {
@@ -54,8 +51,8 @@ function nameStems(name: string): string[] {
 }
 
 export function matchAskedDocument(message: string, documents: CatalogDocument[]): CatalogDocument | null {
-  const folded = fold(message);
-  if (folded.includes(fold("habitatdirektiv"))) {
+  const folded = loosen(message);
+  if (fold(message).includes(fold("habitatdirektiv"))) {
     const bekendtgorelse = documents.find((doc) => fold(doc.name).startsWith(fold("Habitatbekendtgørelse")));
     if (bekendtgorelse) return bekendtgorelse;
   }
@@ -68,6 +65,24 @@ export function matchAskedDocument(message: string, documents: CatalogDocument[]
     }
   }
   return best?.doc ?? null;
+}
+
+export function activeThemeNames(themes: string[]): string {
+  if (themes.length === 0) return "ingen";
+  return themes
+    .map((id) => THEME_FOLDERS.find((folder) => folder.id === id)?.name ?? id)
+    .join(", ");
+}
+
+export function formatArchiveOverview(
+  documents: CatalogDocument[],
+  themes: string[],
+  scope: "plan" | "projekt"
+): string {
+  const lines = [...documents]
+    .sort((a, b) => a.name.localeCompare(b.name, "da"))
+    .map((doc) => `- ${doc.name}: ${sourceBasisReply(doc, themes, scope)}`);
+  return [`Markerede temamapper: ${activeThemeNames(themes)}.`, "Grundmappen indgår altid.", ...lines].join("\n");
 }
 
 const FOLDER_SEQUENCE = [
