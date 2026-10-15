@@ -647,23 +647,21 @@ export function CaseWorkspace({
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
+    const next = [...filesRef.current.secondary];
     const placed: { id: string; file: File }[] = [];
-    setSupplementaryFiles((prev) => {
-      const next = [...prev];
-      for (const file of files) {
-        const index = next.findIndex((item) => item.name === file.name && !item.text);
-        if (index >= 0) {
-          const id = next[index].id;
-          next[index] = { ...next[index], included: true, text: "", reading: true };
-          placed.push({ id, file });
-        } else {
-          const document = { ...newCaseDocument(file.name), reading: true };
-          next.push(document);
-          placed.push({ id: document.id, file });
-        }
+    for (const file of files) {
+      const index = next.findIndex((item) => item.name === file.name && !item.text);
+      if (index >= 0) {
+        const id = next[index].id;
+        next[index] = { ...next[index], included: true, text: "", reading: true };
+        placed.push({ id, file });
+      } else {
+        const document = { ...newCaseDocument(file.name), reading: true };
+        next.push(document);
+        placed.push({ id: document.id, file });
       }
-      return next;
-    });
+    }
+    setSupplementaryFiles(next);
     for (const item of placed) {
       void saveCaseFile(item.id, item.file).catch(() => undefined);
       rememberDocumentText(item.id, item.file, (text) => {
