@@ -7,6 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { CitationText } from "@/components/CitationText";
 import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
+import { downloadNote } from "@/lib/noteDownload";
 import { buildQuestion } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
@@ -15,6 +16,7 @@ import {
   Upload,
   AlertTriangle,
   Download,
+  ChevronDown,
   Sparkles,
   Search,
   CornerDownLeft,
@@ -341,6 +343,7 @@ export function CaseWorkspace({
   // Generated long-form notes / outputs in studio
   const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>(restored?.notes ?? []);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const [downloadMenuId, setDownloadMenuId] = useState<string | null>(null);
   const roomSnapshot = useRef("");
   const [storedCaseTick, setStoredCaseTick] = useState(0);
 
@@ -662,16 +665,16 @@ export function CaseWorkspace({
     }
   };
 
-  const handleDownloadNote = (note: GeneratedNote, format: "docx" | "pdf") => {
-    const element = document.createElement("a");
-    const mimeType = format === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/pdf";
-    const file = new Blob([note.content], { type: `${mimeType};charset=utf-8` });
-    element.href = URL.createObjectURL(file);
-    element.download = `${note.title.toLowerCase().replace(/[^a-z0-9]/g, "_")}.${format}`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-  };
+  useEffect(() => {
+    if (!downloadMenuId) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-output-download-root]")) return;
+      setDownloadMenuId(null);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [downloadMenuId]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#F7FAFA] text-slate-800">
@@ -1375,23 +1378,51 @@ export function CaseWorkspace({
                             <div className="max-h-64 overflow-y-auto rounded bg-[#F7FAFA] border border-slate-100 p-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">
                               {note.content}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="relative" data-output-download-root={note.id}>
                               <button
                                 type="button"
-                                onClick={() => handleDownloadNote(note, "docx")}
-                                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+                                aria-haspopup="menu"
+                                aria-expanded={downloadMenuId === note.id}
+                                data-output-download-toggle={note.id}
+                                onClick={() => setDownloadMenuId((current) => (current === note.id ? null : note.id))}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F382C] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#14493a] transition-colors cursor-pointer shadow-2xs"
                               >
-                                <Download className="w-3.5 h-3.5 text-blue-600" />
-                                <span>Hent .docx</span>
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download</span>
+                                <ChevronDown className="w-3.5 h-3.5" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDownloadNote(note, "pdf")}
-                                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0F382C] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#14493a] transition-colors cursor-pointer shadow-2xs"
-                              >
-                                <Download className="w-3.5 h-3.5 text-white" />
-                                <span>Hent .pdf</span>
-                              </button>
+                              {downloadMenuId === note.id && (
+                                <div
+                                  role="menu"
+                                  data-output-download-menu={note.id}
+                                  className="absolute left-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                                >
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    data-output-download="pdf"
+                                    onClick={() => {
+                                      downloadNote(note.title, note.content, "pdf");
+                                      setDownloadMenuId(null);
+                                    }}
+                                    className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 cursor-pointer"
+                                  >
+                                    Download som PDF
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    data-output-download="docx"
+                                    onClick={() => {
+                                      downloadNote(note.title, note.content, "docx");
+                                      setDownloadMenuId(null);
+                                    }}
+                                    className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 cursor-pointer"
+                                  >
+                                    Download som Word
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
