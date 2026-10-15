@@ -154,6 +154,7 @@ type CaseDocument = {
   id: string;
   name: string;
   included: boolean;
+  text?: string;
 };
 
 function newCaseDocument(name: string): CaseDocument {
@@ -161,7 +162,16 @@ function newCaseDocument(name: string): CaseDocument {
     id: `dok-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name,
     included: true,
+    text: "",
   };
+}
+
+async function readDocument(file: File): Promise<string> {
+  const body = new FormData();
+  body.append("file", file);
+  const res = await fetch("/api/read-document", { method: "POST", body });
+  const data = await res.json().catch(() => ({}));
+  return typeof data.text === "string" ? data.text : "";
 }
 
 function isStoredCaseId(id: string): boolean {
@@ -291,6 +301,14 @@ export function CaseWorkspace({
   const [supplementaryFiles, setSupplementaryFiles] = useState<CaseDocument[]>(
     restored?.supplementaryFiles ?? []
   );
+  const filesRef = useRef({ primary: primaryFile, secondary: supplementaryFiles });
+  filesRef.current = { primary: primaryFile, secondary: supplementaryFiles };
+  const fileTextRef = useRef<Map<string, string>>(new Map());
+  const pendingReads = useRef<Map<string, Promise<void>>>(new Map());
+  if (primaryFile?.text) fileTextRef.current.set(primaryFile.id, primaryFile.text);
+  for (const file of supplementaryFiles) {
+    if (file.text) fileTextRef.current.set(file.id, file.text);
+  }
   const primaryInputRef = useRef<HTMLInputElement>(null);
   const supplementaryInputRef = useRef<HTMLInputElement>(null);
   const primaryAnchorRef = useRef<HTMLDivElement>(null);
@@ -473,6 +491,7 @@ export function CaseWorkspace({
     }
 
     void touchStoredCase(activeCaseIdRef.current);
+    await Promise.all([...pendingReads.current.values()]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -484,8 +503,18 @@ export function CaseWorkspace({
           themes: selectedThemes,
           caseTitle: savedTitle.current,
           caseNumber: caseNumberRef.current,
-          primaryFile: primaryFile?.included ? primaryFile.name : null,
-          supplementaryFiles: supplementaryFiles.filter((file) => file.included).map((file) => file.name),
+          primaryFile: filesRef.current.primary?.included
+            ? {
+                name: filesRef.current.primary.name,
+                text: fileTextRef.current.get(filesRef.current.primary.id) || filesRef.current.primary.text || "",
+              }
+            : null,
+          supplementaryFiles: filesRef.current.secondary
+            .filter((file) => file.included)
+            .map((file) => ({
+              name: file.name,
+              text: fileTextRef.current.get(file.id) || file.text || "",
+            })),
           history: messages.slice(-4).map((m) => ({ sender: m.sender, text: m.text })),
           output: generatedNotes
             .filter((note) => note.included)
@@ -559,18 +588,45 @@ export function CaseWorkspace({
     }
   };
 
+  const rememberDocumentText = (id: string, file: File, apply: (text: string) => void) => {
+    const task = readDocument(file)
+      .then((text) => {
+        fileTextRef.current.set(id, text);
+        apply(text);
+      })
+      .catch(() => {
+        fileTextRef.current.set(id, "");
+      })
+      .finally(() => {
+        pendingReads.current.delete(id);
+      });
+    pendingReads.current.set(id, task);
+  };
+
   const handlePrimarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    setPrimaryFile(newCaseDocument(file.name));
+    const document = newCaseDocument(file.name);
+    setPrimaryFile(document);
+    rememberDocumentText(document.id, file, (text) => {
+      setPrimaryFile((current) => (current?.id === document.id ? { ...current, text } : current));
+    });
   };
 
   const handleSupplementarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
-    setSupplementaryFiles((prev) => [...prev, ...files.map((file) => newCaseDocument(file.name))]);
+    const documents = files.map((file) => ({ file, document: newCaseDocument(file.name) }));
+    setSupplementaryFiles((prev) => [...prev, ...documents.map((item) => item.document)]);
+    for (const item of documents) {
+      rememberDocumentText(item.document.id, item.file, (text) => {
+        setSupplementaryFiles((prev) =>
+          prev.map((current) => (current.id === item.document.id ? { ...current, text } : current))
+        );
+      });
+    }
   };
 
   const togglePrimaryFile = () => {

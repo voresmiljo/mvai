@@ -20,7 +20,8 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "standardwebhooks": "^1.1.1",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "unpdf": "^1.9.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

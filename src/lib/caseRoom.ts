@@ -25,6 +25,7 @@ export type StoredDocument = {
   id: string;
   name: string;
   included: boolean;
+  text?: string;
 };
 
 export type StoredNote = {
@@ -95,10 +96,12 @@ function document(value: unknown): StoredDocument | null {
   const row = value as Record<string, unknown>;
   const name = text(row.name, 180);
   if (!name) return null;
+  const body = typeof row.text === "string" ? row.text.replace(/\u0000/g, "").trim().slice(0, 40000) : "";
   return {
     id: text(row.id, 80) || `dok-${name.slice(0, 24)}`,
     name,
     included: row.included !== false,
+    text: body || undefined,
   };
 }
 

@@ -40,10 +40,25 @@ interface RequestBody {
   themes: string[];
   caseTitle?: string;
   caseNumber?: string;
-  primaryFile?: string | null;
-  supplementaryFiles?: string[];
+  primaryFile?: unknown;
+  supplementaryFiles?: unknown;
   history?: Array<{ sender: "user" | "ai"; text: string }>;
   output?: Array<{ id?: string; title?: string; content?: string; date?: string }>;
+}
+
+function uploadedDocument(value: unknown): { name: string; text: string } | null {
+  if (typeof value === "string" && value.trim()) return { name: value.trim().slice(0, 180), text: "" };
+  if (!value || typeof value !== "object") return null;
+  const row = value as { name?: unknown; text?: unknown };
+  if (typeof row.name !== "string" || !row.name.trim()) return null;
+  return {
+    name: row.name.trim().slice(0, 180),
+    text: typeof row.text === "string" ? row.text.replace(/\u0000/g, "").trim().slice(0, 24000) : "",
+  };
+}
+
+function documentContext(name: string, text: string): string {
+  return `${name}\n${text || "Teksten kunne ikke læses."}`;
 }
 
 export async function POST(req: Request) {
@@ -55,8 +70,8 @@ export async function POST(req: Request) {
       themes = [],
       caseTitle,
       caseNumber,
-      primaryFile,
-      supplementaryFiles = [],
+      primaryFile: primaryFileRaw,
+      supplementaryFiles: supplementaryFilesRaw = [],
       history = [],
       output = [],
     } = body;
@@ -100,9 +115,21 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
 
-    const fileContext = primaryFile
-      ? `Primært dokument: ${primaryFile}. Sekundære dokumenter: ${supplementaryFiles.join(", ") || "Ingen"}. Det primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes, også når formålet er at skrive en klage. Sekundære dokumenter er materiale, det primære dokument skal sammenholdes med.`
-      : `Der er ikke uploadet et primært dokument. Besvar ud fra retskilderne. Nævn ikke det manglende dokument, medmindre brugeren spørger til sagens dokumenter.`;
+    const primaryFile = uploadedDocument(primaryFileRaw);
+    const supplementaryFiles = (Array.isArray(supplementaryFilesRaw) ? supplementaryFilesRaw : [])
+      .map(uploadedDocument)
+      .filter((item): item is { name: string; text: string } => item !== null)
+      .slice(0, 8);
+    const fileBlocks = [
+      primaryFile
+        ? `Primært dokument:\n${documentContext(primaryFile.name, primaryFile.text)}\nDet primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes, også når formålet er at skrive en klage.`
+        : "Der er ikke uploadet et primært dokument. Nævn ikke det manglende dokument, medmindre brugeren spørger til sagens dokumenter.",
+      supplementaryFiles.length
+        ? `Sekundære dokumenter:\n${supplementaryFiles.map((file) => documentContext(file.name, file.text)).join("\n\n")}\nSekundære dokumenter er materiale, sagen skal sammenholdes med.`
+        : "Sekundære dokumenter: ingen.",
+      "Teksten under hvert dokument er filens indhold. Du kan læse den. Sig aldrig, at du ikke kan læse eller tilgå uploadede dokumenter. Hvis brugeren spørger, om du kan læse dokumentet, eller siger, at sagen er uploadet, så svar ud fra dokumentets tekst. Sagens titel er kun en overskrift. Hvis der står, at teksten ikke kunne læses, så sig det.",
+    ];
+    const fileContext = fileBlocks.join("\n\n");
 
     // Hent retskilder via semantisk vektorsøgning i Supabase
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
@@ -302,7 +329,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. E
       scope,
       themes,
       caseTitle,
-      primaryFile
+      primaryFile?.name ?? null
     );
 
     const outputNote = savedOutput.length
