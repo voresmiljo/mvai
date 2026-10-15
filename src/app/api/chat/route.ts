@@ -58,7 +58,10 @@ function uploadedDocument(value: unknown): { name: string; text: string } | null
 }
 
 function documentContext(name: string, text: string): string {
-  return `${name}\n${text || "Teksten kunne ikke læses."}`;
+  if (!text) {
+    return `${name}\nTeksten er ikke gemt. Bed brugeren trykke på "Vælg filen igen" ved filen under sagsdokumenter og vælge filen én gang. Sig ikke, at du ikke kan læse uploadede dokumenter.`;
+  }
+  return `${name}\n${text}`;
 }
 
 export async function POST(req: Request) {
@@ -127,7 +130,7 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
       supplementaryFiles.length
         ? `Sekundære dokumenter:\n${supplementaryFiles.map((file) => documentContext(file.name, file.text)).join("\n\n")}\nSekundære dokumenter er materiale, sagen skal sammenholdes med.`
         : "Sekundære dokumenter: ingen.",
-      "Teksten under hvert dokument er filens indhold. Du kan læse den. Sig aldrig, at du ikke kan læse eller tilgå uploadede dokumenter. Hvis brugeren spørger, om du kan læse dokumentet, eller siger, at sagen er uploadet, så svar ud fra dokumentets tekst. Sagens titel er kun en overskrift. Hvis der står, at teksten ikke kunne læses, så sig det.",
+      "Teksten under hvert dokument er filens indhold. Du kan læse den. Sig aldrig, at du ikke kan læse eller tilgå uploadede dokumenter. Hvis brugeren spørger, om du kan læse dokumentet, eller siger, at sagen er uploadet, så svar ud fra dokumentets tekst. Sagens titel er kun en overskrift. Hvis teksten ikke er gemt, så bed brugeren vælge filen igen under sagsdokumenter.",
     ];
     const fileContext = fileBlocks.join("\n\n");
 

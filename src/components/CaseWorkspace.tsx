@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { CitationText } from "@/components/CitationText";
+import { loadCaseFile, saveCaseFile } from "@/lib/caseFileStore";
 import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { downloadNote } from "@/lib/noteDownload";
@@ -155,6 +156,7 @@ type CaseDocument = {
   name: string;
   included: boolean;
   text?: string;
+  reading?: boolean;
 };
 
 function newCaseDocument(name: string): CaseDocument {
@@ -303,8 +305,14 @@ export function CaseWorkspace({
   );
   const filesRef = useRef({ primary: primaryFile, secondary: supplementaryFiles });
   filesRef.current = { primary: primaryFile, secondary: supplementaryFiles };
+  const bootDocuments = useRef<{ primary: CaseDocument | null; secondary: CaseDocument[] } | null>(null);
+  if (!bootDocuments.current) {
+    bootDocuments.current = { primary: primaryFile, secondary: supplementaryFiles };
+  }
   const fileTextRef = useRef<Map<string, string>>(new Map());
   const pendingReads = useRef<Map<string, Promise<void>>>(new Map());
+  const reselectTarget = useRef<{ kind: "primary" | "secondary"; id: string } | null>(null);
+  const reselectInputRef = useRef<HTMLInputElement>(null);
   if (primaryFile?.text) fileTextRef.current.set(primaryFile.id, primaryFile.text);
   for (const file of supplementaryFiles) {
     if (file.text) fileTextRef.current.set(file.id, file.text);
@@ -596,6 +604,7 @@ export function CaseWorkspace({
       })
       .catch(() => {
         fileTextRef.current.set(id, "");
+        apply("");
       })
       .finally(() => {
         pendingReads.current.delete(id);
@@ -603,14 +612,34 @@ export function CaseWorkspace({
     pendingReads.current.set(id, task);
   };
 
+  const readIntoDocument = (kind: "primary" | "secondary", id: string, file: File) => {
+    void saveCaseFile(id, file).catch(() => undefined);
+    const markReading = (reading: boolean, text?: string) => {
+      if (kind === "primary") {
+        setPrimaryFile((current) =>
+          current?.id === id ? { ...current, name: file.name, included: true, reading, text: text ?? current.text } : current
+        );
+        return;
+      }
+      setSupplementaryFiles((current) =>
+        current.map((item) =>
+          item.id === id ? { ...item, name: file.name, included: true, reading, text: text ?? item.text } : item
+        )
+      );
+    };
+    markReading(true, "");
+    rememberDocumentText(id, file, (text) => markReading(false, text));
+  };
+
   const handlePrimarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    const document = newCaseDocument(file.name);
+    const document = { ...newCaseDocument(file.name), reading: true };
     setPrimaryFile(document);
+    void saveCaseFile(document.id, file).catch(() => undefined);
     rememberDocumentText(document.id, file, (text) => {
-      setPrimaryFile((current) => (current?.id === document.id ? { ...current, text } : current));
+      setPrimaryFile((current) => (current?.id === document.id ? { ...current, text, reading: false } : current));
     });
   };
 
@@ -618,16 +647,67 @@ export function CaseWorkspace({
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
-    const documents = files.map((file) => ({ file, document: newCaseDocument(file.name) }));
-    setSupplementaryFiles((prev) => [...prev, ...documents.map((item) => item.document)]);
-    for (const item of documents) {
-      rememberDocumentText(item.document.id, item.file, (text) => {
+    const placed: { id: string; file: File }[] = [];
+    setSupplementaryFiles((prev) => {
+      const next = [...prev];
+      for (const file of files) {
+        const index = next.findIndex((item) => item.name === file.name && !item.text);
+        if (index >= 0) {
+          const id = next[index].id;
+          next[index] = { ...next[index], included: true, text: "", reading: true };
+          placed.push({ id, file });
+        } else {
+          const document = { ...newCaseDocument(file.name), reading: true };
+          next.push(document);
+          placed.push({ id: document.id, file });
+        }
+      }
+      return next;
+    });
+    for (const item of placed) {
+      void saveCaseFile(item.id, item.file).catch(() => undefined);
+      rememberDocumentText(item.id, item.file, (text) => {
         setSupplementaryFiles((prev) =>
-          prev.map((current) => (current.id === item.document.id ? { ...current, text } : current))
+          prev.map((current) => (current.id === item.id ? { ...current, text, reading: false } : current))
         );
       });
     }
   };
+
+  const chooseFileAgain = (kind: "primary" | "secondary", id: string) => {
+    reselectTarget.current = { kind, id };
+    reselectInputRef.current?.click();
+  };
+
+  const handleReselect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    const target = reselectTarget.current;
+    event.target.value = "";
+    reselectTarget.current = null;
+    if (!file || !target) return;
+    readIntoDocument(target.kind, target.id, file);
+  };
+
+  useEffect(() => {
+    let cancel = false;
+    const boot = bootDocuments.current;
+    if (!boot) return;
+    const missing = [
+      ...(boot.primary && !boot.primary.text ? [{ kind: "primary" as const, id: boot.primary.id }] : []),
+      ...boot.secondary.filter((file) => !file.text).map((file) => ({ kind: "secondary" as const, id: file.id })),
+    ];
+    for (const item of missing) {
+      void loadCaseFile(item.id).then((file) => {
+        if (cancel || !file) return;
+        readIntoDocument(item.kind, item.id, file);
+      });
+    }
+    return () => {
+      cancel = true;
+    };
+    // Kun ved åbning af sagen. Senere uploads gemmer selv teksten.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId]);
 
   const togglePrimaryFile = () => {
     setPrimaryFile((current) => (current ? { ...current, included: !current.included } : current));
@@ -850,7 +930,7 @@ export function CaseWorkspace({
             </div>
 
             {/* Sektion til brugerens egne sagsdokumenter */}
-            <div className="pt-4 border-t border-slate-200">
+            <div className="relative pt-4 border-t border-slate-200">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
                   Sagsdokumenter
@@ -860,12 +940,20 @@ export function CaseWorkspace({
                 </span>
               </div>
 
+              <input
+                ref={reselectInputRef}
+                id="mvai-reselect-file"
+                type="file"
+                accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
+                className="absolute h-px w-px overflow-hidden opacity-0"
+                onChange={handleReselect}
+              />
               <div className="space-y-2">
                 {primaryFile ? (
-                  <label
+                  <div
                     data-case-file="primary"
                     onClick={(event) => {
-                      event.preventDefault();
+                      if ((event.target as HTMLElement).closest("[data-reselect]")) return;
                       togglePrimaryFile();
                     }}
                     className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
@@ -880,20 +968,32 @@ export function CaseWorkspace({
                       onChange={() => {}}
                       className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
                     />
-                    <span className={`min-w-0 flex-1 truncate font-semibold ${primaryFile.included ? "text-[#0F382C]" : "text-slate-700"}`}>
-                      {primaryFile.name}
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate font-semibold ${primaryFile.included ? "text-[#0F382C]" : "text-slate-700"}`}>
+                        {primaryFile.name}
+                      </span>
+                      {!primaryFile.text ? (
+                        <button
+                          type="button"
+                          data-reselect="primary"
+                          className="mt-1 text-[10px] font-bold uppercase tracking-wide text-[#0F382C] underline"
+                          onClick={() => chooseFileAgain("primary", primaryFile.id)}
+                        >
+                          {primaryFile.reading ? "Læser…" : "Vælg filen igen"}
+                        </button>
+                      ) : null}
                     </span>
                     <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono shrink-0">
                       Primært
                     </span>
-                  </label>
+                  </div>
                 ) : null}
                 {supplementaryFiles.map((file) => (
-                    <label
+                    <div
                       key={file.id}
                       data-case-file={file.id}
                       onClick={(event) => {
-                        event.preventDefault();
+                        if ((event.target as HTMLElement).closest("[data-reselect]")) return;
                         toggleSupplementaryFile(file.id);
                       }}
                       className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
@@ -908,10 +1008,22 @@ export function CaseWorkspace({
                         onChange={() => {}}
                         className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
                       />
-                      <span className={`min-w-0 flex-1 truncate font-semibold ${file.included ? "text-[#0F382C]" : "text-slate-700"}`}>
-                        {file.name}
+                      <span className="min-w-0 flex-1">
+                        <span className={`block truncate font-semibold ${file.included ? "text-[#0F382C]" : "text-slate-700"}`}>
+                          {file.name}
+                        </span>
+                        {!file.text ? (
+                          <button
+                            type="button"
+                            data-reselect={file.id}
+                            className="mt-1 text-[10px] font-bold uppercase tracking-wide text-[#0F382C] underline"
+                            onClick={() => chooseFileAgain("secondary", file.id)}
+                          >
+                            {file.reading ? "Læser…" : "Vælg filen igen"}
+                          </button>
+                        ) : null}
                       </span>
-                    </label>
+                    </div>
                 ))}
               </div>
             </div>
