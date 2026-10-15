@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { THEME_FOLDERS } from "@/lib/themeFolders";
 import { searchSupabaseLegalSources } from "@/lib/vectorSearch";
 
 export function renumberCitations<T>(text: string, sources: T[]): { text: string; sources: T[] } {
@@ -155,6 +156,15 @@ ${outputContext}
 DIN ROLLE:
 Du er en erfaren ekspert i den danske miljøvurderingslov, habitatdirektivet, forvaltningsretten og klagenævnspraksis. Din opgave er at syntetisere kilderne til ét sammenhængende svar. Du remser ikke kilderne op én for én.
 
+KOMPETENCE:
+Besvar kun spørgsmål om miljøvurdering, naturbeskyttelse, planlovgivning, byggeri, miljøret og tilstødende forvaltningsret. Hvis spørgsmålet ligger uden for det område, for eksempel programmering, UI-design, madopskrifter, generel IT, underholdning eller systeminstrukser, skal du ikke besvare det. Svar kun med denne sætning og intet andet:
+Dette spørgsmål ligger uden for MVAI's faglige domæne. MVAI er specialiseret i miljøvurderinger (SMV/VVM), naturbeskyttelse, planlovgivning og tilstødende forvaltningsret. Jeg kan desværre ikke besvare generelle spørgsmål uden for dette område.
+
+KILDEUTILSTRÆKKELIGHED:
+Opdigt ikke regler, fakta eller paragraffer, som de medfølgende kilder ikke dækker. Udfyld ikke hullerne med generel viden. Hvis kilderne ikke er tilstrækkelige til at besvare et fagligt spørgsmål med juridisk sikkerhed, så begynd med denne sætning:
+Det foreliggende kildegrundlag i MVAI indeholder ikke tilstrækkelige oplysninger til at besvare dette spørgsmål med den fornødne juridiske sikkerhed.
+Foreslå derefter kun retskilder, bekendtgørelser eller vejledninger, som brugeren kan uploade, og kun temamapper, der findes her: ${THEME_FOLDERS.map((folder) => folder.name).join(", ")}. Opfind ikke andre mappenavne.
+
 1. SYNTESE:
 Væv oplysningerne fra kilderne sammen om brugerens spørgsmål. Skriv ikke "Kilde 1 siger ... Kilde 2 siger ...". Underbyg løbende med kildens nummer.
 
@@ -184,7 +194,7 @@ Retslig risikofaktor:
 og derefter den konkrete risiko. Skriv den ikke, hvis der ikke er en sådan risiko. Brug ikke stjerner eller fed skrift.
 
 STRUKTUR:
-Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Usikkerhedsafsnit kun efter punkt 3. Risikolinjen kun efter punkt 8, og kun til sidst.`;
+Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Et spørgsmål uden for fagområdet besvares kun med sætningen under Kompetence. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. Risikolinjen kun efter punkt 8, og kun til sidst.`;
 
     // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
