@@ -1,4 +1,5 @@
 import { originalSourceIds } from "@/lib/sourceOriginals";
+import { rankLegalSources } from "@/lib/sourceRank";
 import { supabase } from "@/lib/supabase";
 import OpenAI from "openai";
 
@@ -13,6 +14,7 @@ export interface RetrievedSource {
   pdfFileName: string;
   hasOriginal: boolean;
   relevanceScore: number;
+  sourceType?: string;
 }
 
 export async function searchSupabaseLegalSources(
@@ -39,18 +41,19 @@ export async function searchSupabaseLegalSources(
         const { data, error } = await supabase.rpc("match_legal_sources", {
           query_embedding: vector,
           match_threshold: 0.45,
-          match_count: 5,
+          match_count: 15,
           filter_themes: themes,
           filter_scope: scope,
         });
 
         if (!error && data && Array.isArray(data) && data.length > 0) {
-          return withOriginals(data.map((row: {
+          const ranked = rankLegalSources(data.map((row: {
             id: string;
             title: string;
             citation: string;
             law_section: string;
             content: string;
+            source_type?: string;
             pdf_file_name: string;
             pdf_url: string;
             metadata?: { date?: string };
@@ -66,7 +69,9 @@ export async function searchSupabaseLegalSources(
             pdfFileName: row.pdf_file_name || "retskilde.pdf",
             hasOriginal: false,
             relevanceScore: Math.round(row.similarity * 100),
+            sourceType: row.source_type || "",
           })));
+          return withOriginals(ranked);
         }
       }
     } catch (err) {
@@ -78,8 +83,8 @@ export async function searchSupabaseLegalSources(
   try {
     let query = supabase
       .from("legal_sources")
-      .select("id, title, citation, law_section, content, pdf_file_name, pdf_url, metadata, theme, scope")
-      .limit(5);
+      .select("id, title, citation, law_section, content, source_type, pdf_file_name, pdf_url, metadata, theme, scope")
+      .limit(15);
 
     if (themes.length > 0) {
       query = query.in("theme", themes);
@@ -89,7 +94,7 @@ export async function searchSupabaseLegalSources(
 
     const { data, error } = await query;
     if (!error && data && Array.isArray(data) && data.length > 0) {
-      return withOriginals(data.map((row) => ({
+      const ranked = rankLegalSources(data.map((row) => ({
         id: row.id,
         title: row.title,
         citation: row.citation,
@@ -100,7 +105,9 @@ export async function searchSupabaseLegalSources(
         pdfFileName: row.pdf_file_name || "retskilde.pdf",
         hasOriginal: false,
         relevanceScore: 92,
+        sourceType: row.source_type || "",
       })));
+      return withOriginals(ranked);
     }
   } catch (err) {
     console.error("Supabase direct query error:", err);

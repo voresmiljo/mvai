@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { CitationText } from "@/components/CitationText";
+import { publicModelLabel } from "@/lib/modelLabel";
 import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { buildQuestion } from "@/lib/promptSupport";
@@ -996,9 +997,9 @@ export function CaseWorkspace({
                       <span className={msg.sender === "user" ? "text-slate-300 font-semibold" : "text-[#0F382C] font-bold"}>
                         {msg.sender === "user" ? "Du" : "MVAI Afgørelsesanalyse"}
                       </span>
-                      {msg.modelUsed && (
+                      {publicModelLabel(msg.modelUsed) && (
                         <span className="rounded bg-emerald-100 text-[#0F382C] px-1.5 py-0.2 text-[9px] font-mono font-medium">
-                          {msg.modelUsed}
+                          {publicModelLabel(msg.modelUsed)}
                         </span>
                       )}
                     </div>
@@ -1013,6 +1014,7 @@ export function CaseWorkspace({
                         text={msg.text}
                         sources={msg.sources}
                         activeId={rightPanelTab === "kilde" ? activeSnippet?.id : null}
+                        onDownloadOriginal={handleDownloadOriginal}
                         onSelectSource={(src) => {
                           setActiveSnippet(src);
                           setOriginalError("");
@@ -1202,7 +1204,7 @@ export function CaseWorkspace({
                     </button>
                     <span className="hidden items-center gap-1 sm:inline-flex">
                       <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                      Claude 3.5 Sonnet RAG-analyse
+                      Claude Sonnet
                     </span>
                   </div>
 
@@ -1270,14 +1272,6 @@ export function CaseWorkspace({
             {/* FANE 1: KILDELÆSER */}
             {rightPanelTab === "kilde" && (
               <div className="p-4">
-                {activeSnippet && (
-                  <div className="flex items-center justify-end pb-3 border-b border-slate-200">
-                    <span className="rounded bg-emerald-100 text-emerald-800 font-bold text-[10px] px-1.5 py-0.5">
-                      {activeSnippet.relevanceScore}% Match
-                    </span>
-                  </div>
-                )}
-
                 {activeSnippet ? (
                   <div className="mt-4 space-y-4">
                     {/* Source metadata card */}

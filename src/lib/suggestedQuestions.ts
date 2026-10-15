@@ -1,3 +1,5 @@
+import { nameLegalReference } from "@/lib/legalNames";
+
 export type PromptTurn = {
   sender: "user" | "ai";
   text: string;
@@ -28,7 +30,7 @@ export function suggestQuestionsLocally(messages: PromptTurn[]): string[] {
     `Hvilke krav stiller gældende praksis og vejledninger til ${newest}?`,
     `Hvad skal vurderingen tage stilling til om ${newest}?`,
     third,
-  ];
+  ].map(nameLegalReference);
 }
 
 export function takeThreeQuestions(raw: string, fallback: string[]): string[] {
@@ -43,7 +45,7 @@ export function takeThreeQuestions(raw: string, fallback: string[]): string[] {
   }
   const lines = source
     .split(/\n+/)
-    .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/, "").replace(/^["“]|["”]$/g, "").trim())
+    .map((line) => nameLegalReference(line.replace(/^\s*(?:[-*]|\d+[.)])\s*/, "").replace(/^["“]|["”]$/g, "").trim()))
     .filter((line) => line.length > 12);
   const unique = [...new Set([...lines, ...fallback])];
   return unique.slice(0, 3);

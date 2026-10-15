@@ -1,3 +1,5 @@
+import { nameLegalReference } from "@/lib/legalNames";
+
 export function buildQuestion(topic: string, purpose: string, problem: string): string {
   const emne = topic.trim().replace(/\s+/g, " ");
   const formaal = purpose.trim().replace(/\s+/g, " ");
@@ -13,7 +15,7 @@ export function buildQuestion(topic: string, purpose: string, problem: string): 
           ? `Vurder ${emne}.`
           : "";
   const detail = problemstilling ? `Den konkrete problemstilling er: ${problemstilling}.` : "";
-  return [lead, detail].filter(Boolean).join(" ");
+  return nameLegalReference([lead, detail].filter(Boolean).join(" "));
 }
 
 export function enhanceQuestionLocally(raw: string): string {
@@ -25,5 +27,7 @@ export function enhanceQuestionLocally(raw: string): string {
     .replace(/^(hvad med|hvad siger loven om|hvad siger|hvordan med|hvordan|hvad)\s+/i, "")
     .trim();
   const subject = core || text.replace(/[?？.]+$/g, "");
-  return `Hvilke krav stiller gældende praksis og vejledninger til ${subject}, og hvad skal vurderingen tage stilling til?`;
+  return nameLegalReference(
+    `Hvilke krav stiller gældende praksis og vejledninger til ${subject}, og hvad skal vurderingen tage stilling til?`
+  );
 }

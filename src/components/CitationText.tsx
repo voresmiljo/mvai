@@ -9,6 +9,8 @@ export interface CitationSource {
   citation: string;
   textSnippet: string;
   relevanceScore: number;
+  lawSection?: string;
+  hasOriginal?: boolean;
 }
 
 const POPOVER_WIDTH = 320;
@@ -37,6 +39,7 @@ function CitationMark<T extends CitationSource>({
   onScheduleClose,
   onCancelClose,
   onSelectSource,
+  onDownloadOriginal,
 }: {
   n: number;
   source: T;
@@ -46,6 +49,7 @@ function CitationMark<T extends CitationSource>({
   onScheduleClose: () => void;
   onCancelClose: () => void;
   onSelectSource: (source: T) => void;
+  onDownloadOriginal?: (source: T) => void;
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -102,27 +106,36 @@ function CitationMark<T extends CitationSource>({
             style={{ top: pos.top, left: pos.left, width: POPOVER_WIDTH }}
             className="fixed z-[80] flex max-h-[70vh] flex-col rounded-xl border border-emerald-200 bg-white p-3.5 text-left shadow-2xl"
           >
-            <div className="mb-2 flex shrink-0 items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold leading-snug text-[#0F382C]">{source.title}</p>
-                {source.citation && (
-                  <p className="mt-0.5 font-mono text-[10px] leading-snug text-slate-500">{source.citation}</p>
-                )}
-              </div>
-              <span className="shrink-0 whitespace-nowrap rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
-                {source.relevanceScore}% Match
-              </span>
+            <div className="mb-2 min-w-0 shrink-0">
+              <p className="text-xs font-semibold leading-snug text-[#0F382C]">{source.title}</p>
+              {source.lawSection && (
+                <p className="mt-0.5 text-[10px] leading-snug text-slate-600">Afsnit: {source.lawSection}</p>
+              )}
+              {source.citation && (
+                <p className="mt-0.5 font-mono text-[10px] leading-snug text-slate-500">{source.citation}</p>
+              )}
             </div>
             <div className="mb-3 max-h-40 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200/60 bg-slate-50 p-2.5 font-mono text-xs leading-relaxed text-slate-700">
               {source.textSnippet}
             </div>
-            <button
-              type="button"
-              onClick={() => onSelectSource(source)}
-              className="w-full shrink-0 rounded-lg bg-[#0F382C] py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#14493a]"
-            >
-              Vis kilde
-            </button>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => onSelectSource(source)}
+                className="flex-1 rounded-lg bg-[#0F382C] py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#14493a]"
+              >
+                Vis kilde
+              </button>
+              {source.hasOriginal && onDownloadOriginal && (
+                <button
+                  type="button"
+                  onClick={() => onDownloadOriginal(source)}
+                  className="flex-1 rounded-lg border border-[#0F382C] py-1.5 text-xs font-medium text-[#0F382C] transition-colors hover:bg-emerald-50"
+                >
+                  Download original
+                </button>
+              )}
+            </div>
           </div>,
           document.body
         )}
@@ -135,11 +148,13 @@ export function CitationText<T extends CitationSource>({
   sources,
   activeId,
   onSelectSource,
+  onDownloadOriginal,
 }: {
   text: string;
   sources: T[];
   activeId?: string | null;
   onSelectSource: (source: T) => void;
+  onDownloadOriginal?: (source: T) => void;
 }) {
   const [openKey, setOpenKey] = useState<number | null>(null);
   const closeTimer = useRef<number | null>(null);
@@ -184,6 +199,7 @@ export function CitationText<T extends CitationSource>({
             setOpenKey(null);
             onSelectSource(selected);
           }}
+          onDownloadOriginal={onDownloadOriginal}
         />
       );
     } else {

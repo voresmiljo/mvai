@@ -137,6 +137,7 @@ Væv oplysningerne fra kilderne sammen om brugerens spørgsmål. Skriv ikke "Kil
 2. KILDEFORANKRING:
 Forankr svaret i de medfølgende retskilder, gemt output fra sagen, grundlovgivningen (Lovbekendtgørelse nr. 4 af 03/01/2023 med senere ændringer, bekendtgørelser, habitatdirektivet og EU-retlig præcedens som Waddenzee C-127/02) samt eventuelle uploadede sagsakter. Gemt output er kildemateriale i denne sag. Det er ikke en almindelig retskilde og lægges ikke i temamapperne. Opdigt ikke antagelser, og supplér ikke med uverificerede påstande.
 Brug miljøvurderingsloven, bekendtgørelsen og vejledningen frem for direktivet. Brug kun et direktiv, når der ikke findes en dansk lov eller bekendtgørelse, som gennemfører det.
+Retskildehierarki: Konklusionen skal bygge på det højeste tilgængelige niveau. Niveau 1 er lovbekendtgørelser og bekendtgørelser. Et direktiv er kun niveau 1, når der ikke findes en dansk lov eller bekendtgørelse, som gennemfører det. Niveau 2 er vejledninger, håndbøger, artsforvaltningsplaner og styrelsesnotater. Niveau 3 er klagenævnsafgørelser. Niveau 2 og 3 må kun bruges som supplerende fortolkning af niveau 1, ikke som selvstændigt grundlag for konklusionen.
 
 3. USIKKERHED OG FORBEHOLD:
 Et afsnit om usikkerhed må kun med i to tilfælde: enten handler spørgsmålet om den konkrete sag, og der mangler sagsakter eller oplysninger for at vurdere den, eller kilderne er modstridende eller uafklarede om selve spørgsmålet. Ved et generelt eller entydigt spørgsmål skal afsnittet udelades. Skriv ikke "Der er ikke uploadet sagsakter..." på et generelt spørgsmål. Når der er reel tvivl, så skriv hellere: "Det fremgår ikke entydigt af det aktiverede kildegrundlag..." end at gætte.
@@ -256,7 +257,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. U
           text: risk.text,
           warning: risk.warning,
           sources: cited.sources,
-          modelUsed: "GPT-4o (Fallback)",
+          modelUsed: "GPT-4o",
           isLiveLLM: true,
         });
       } catch (openAiErr) {
@@ -285,7 +286,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. U
       ...dynamicResponse,
       text: cited.text,
       sources: cited.sources,
-      modelUsed: "Offline Retskildematrix",
+      modelUsed: "",
       isLiveLLM: false,
     });
   } catch (err: unknown) {

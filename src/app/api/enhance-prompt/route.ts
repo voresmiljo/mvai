@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { nameLegalReference } from "@/lib/legalNames";
 import { enhanceQuestionLocally } from "@/lib/promptSupport";
 
 const instruction = `Omformulér brugerens spørgsmål til ét præcist spørgsmål på dansk til en miljøvurdering.
-Behold kun det emne, brugeren selv har nævnt. Tilføj ikke anlæg, steder, arter, paragraffer eller krav, som ikke står i spørgsmålet.
+Behold kun det emne, brugeren selv har nævnt. Tilføj ikke anlæg, steder, arter eller krav, som ikke står i spørgsmålet.
+Hvis spørgsmålet nævner artikel 12 eller artikel 6 uden direktivets navn, skriv Habitatdirektivets artikel 12 eller Habitatdirektivets artikel 6. Opfind ikke andre paragraffer eller direktiver.
 Svar kun med spørgsmålet.`;
 
 function clipQuestion(value: string): string {
@@ -71,6 +73,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Skriv et spørgsmål først." }, { status: 400 });
   }
 
-  const rewritten = (await rewriteWithModel(question)) || enhanceQuestionLocally(question);
+  const rewritten = nameLegalReference((await rewriteWithModel(question)) || enhanceQuestionLocally(question));
   return NextResponse.json({ question: rewritten });
 }

@@ -6,6 +6,7 @@ import { suggestQuestionsLocally, takeThreeQuestions, type PromptTurn } from "@/
 const instruction = `Foreslå præcis tre opfølgende spørgsmål på dansk til en sagsbehandler.
 Det nyeste brugerindlæg vejer mest. Ældre indlæg er kun baggrund.
 Hold dig til emner, der allerede er nævnt. Tilføj ikke anlæg, steder, arter eller paragraffer, som ikke står i samtalen.
+Hvis samtalen nævner artikel 12 eller artikel 6, skriv Habitatdirektivets artikel 12 eller Habitatdirektivets artikel 6. Opfind ikke en hjemmel, som ikke allerede er nævnt.
 Svar kun med tre linjer. Ét spørgsmål pr. linje. Ingen nummerering.`;
 
 function turns(value: unknown): PromptTurn[] {
