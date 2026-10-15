@@ -188,7 +188,7 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between">
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-bold text-[#0F382C] border border-emerald-200/80">
                         <Layers className="w-3.5 h-3.5 text-[#2E8B57]" />
-                        <span>Afsnit II — Lovens § 8</span>
+                        <span>Afsnit II — Lovens §§ 8–14</span>
                       </span>
                       <span className="text-[11px] font-semibold text-slate-400 group-hover:text-[#0F382C] transition-colors">
                         Opret sag &rarr;
@@ -200,7 +200,7 @@ export default function DashboardPage() {
                         Miljøvurdering af planer og programmer
                       </h3>
                       <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                        Strategisk miljøvurdering (SMV) for kommuneplantillæg, lokalplaner, sektorplaner m.fl. jf. miljøvurderingslovens § 8.
+                        Strategisk miljøvurdering (SMV) for kommuneplantillæg, lokalplaner, sektorplaner m.fl. jf. miljøvurderingslovens afsnit II, §§ 8–14.
                       </p>
                     </div>
                   </div>
@@ -217,7 +217,7 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between">
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-[#2A3B47] border border-slate-200">
                         <Scale className="w-3.5 h-3.5 text-[#2A3B47]" />
-                        <span>Afsnit III — Lovens § 15</span>
+                        <span>Afsnit III — Lovens §§ 15–25</span>
                       </span>
                       <span className="text-[11px] font-semibold text-slate-400 group-hover:text-[#0F382C] transition-colors">
                         Opret sag &rarr;
@@ -229,7 +229,7 @@ export default function DashboardPage() {
                         Miljøvurdering af projekter
                       </h3>
                       <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                        Konkrete anlægsprojekter, VVM-screeninger jf. § 21 (bilag 2) eller fulde miljøkonsekvensrapporter jf. § 15 (bilag 1).
+                        Konkrete anlægsprojekter efter afsnit III, §§ 15–25, herunder VVM-screening jf. § 21 (bilag 2) og miljøkonsekvensrapport jf. § 15 (bilag 1).
                       </p>
                     </div>
                   </div>

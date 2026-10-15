@@ -545,7 +545,7 @@ export function CaseWorkspace({
         sender: "ai",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         text: `Der er på nuværende tidspunkt ikke uploadet eller indekseret specifikke retskildedokumenter eller sagsakter i databasen for ${
-          scope === "plan" ? "Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
+          scope === "plan" ? "Plan / program (afsnit II, §§ 8–14)" : "Konkret projekt (afsnit III, §§ 15–25)"
         }.\n\nNår du uploader et sagsdokument eller tilføjer afgørelser til temamapperne, analyseres spørgsmålet med kildehenvisninger.`,
         sources: [],
       };
@@ -724,7 +724,7 @@ export function CaseWorkspace({
               }`}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${scope === "plan" ? "bg-[#2E8B57]" : "bg-slate-600"}`} />
-              <span>{scope === "plan" ? "Plan" : "Projekt"}</span>
+              <span>{scope === "plan" ? "Plan §§ 8–14" : "Projekt §§ 15–25"}</span>
             </span>
 
             <input
@@ -1092,7 +1092,7 @@ export function CaseWorkspace({
                             const newNote: GeneratedNote = {
                               id: `note-${Date.now()}`,
                               title: `Uddrag fra analyse (${msg.timestamp})`,
-                              caseType: scope === "plan" ? "Miljøvurdering af Plan (§ 8)" : "Konkret Projekt (§§ 15–25)",
+                              caseType: scope === "plan" ? "Miljøvurdering af plan (afsnit II, §§ 8–14)" : "Konkret projekt (afsnit III, §§ 15–25)",
                               date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                               format: "docx",
                               content: msg.text,

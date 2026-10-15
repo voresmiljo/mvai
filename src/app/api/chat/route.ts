@@ -69,8 +69,32 @@ export async function POST(req: Request) {
 
     const scopeName =
       scope === "plan"
-        ? "Plan / Program (Afsnit II / § 8 - Strategisk Miljøvurdering)"
-        : "Konkret Projekt (Afsnit III / §§ 15–25 - VVM-screening & tilladelse)";
+        ? "Plan / program (miljøvurderingslovens afsnit II, §§ 8–14, bilag 3 og 4)"
+        : "Konkret projekt (miljøvurderingslovens afsnit III, §§ 15–25, bilag 1, 2, 5, 6 og 7)";
+    const scopeRules =
+      scope === "plan"
+        ? `5. LOVMÆSSIG AFGRÆNSNING:
+Denne sag er en plan eller et program. Grundfæst analysen i miljøvurderingslovens afsnit II, §§ 8–14, og i bilag 3 og 4. Brug ikke afsnit III, §§ 15–25, medmindre spørgsmålet udtrykkeligt handler om et konkret projekt.
+- § 8 og § 9: miljøvurderingspligten og pligten til enten at miljøvurdere eller vurdere, om planen kan få væsentlig indvirkning på miljøet.
+- § 8, stk. 2, og § 10: screening, herunder mindre områder på lokalt plan og mindre ændringer. Afgørelsen inddrager kriterierne i bilag 3.
+- § 11: afgrænsning af miljørapportens indhold.
+- § 12 og bilag 4: miljørapporten. Overvågningen beskrives i § 12, stk. 4.
+- § 13: vedtagelsen og den sammenfattende redegørelse. Høringen sker efter § 32.
+- § 14: bemyndigelsen til nærmere regler om overvågning.
+Brug kun plansprog, når spørgsmålet handler om sagen: miljørapport, afgrænsning og planens indvirkning på miljøet.
+Ved et generelt spørgsmål skal du svare på reglen for planer og programmer. Nævn ikke sagens titel, sagsnummer eller et konkret projekt.`
+        : `5. LOVMÆSSIG AFGRÆNSNING:
+Denne sag er et konkret projekt. Grundfæst analysen i miljøvurderingslovens afsnit III, §§ 15–25, og i bilag 1, 2, 5, 6 og 7. Brug ikke afsnit II, §§ 8–14, medmindre spørgsmålet udtrykkeligt handler om en plan eller et program.
+- § 15 og bilag 1: projekter, der ikke må påbegyndes, før myndigheden har meddelt tilladelse efter en miljøvurdering. § 15, stk. 1, nr. 2 og 3, omfatter også bilag 2-projekter, der skal miljøvurderes.
+- § 16: et bilag 2-projekt må ikke påbegyndes, før myndigheden har meddelt, at det ikke antages at kunne få væsentlig indvirkning på miljøet.
+- §§ 18 og 19 og bilag 5: bygherrens ansøgning.
+- § 20 og bilag 7: miljøkonsekvensrapporten.
+- § 21 og bilag 6: screeningsafgørelsen og dens begrundelse. § 22: fristen for afgørelsen. Offentliggørelsen sker efter § 36.
+- § 23: afgrænsning af miljøkonsekvensrapportens indhold.
+- § 24: gennemgang af miljøkonsekvensrapporten og den efterfølgende høring. Høringens indhold følger § 35.
+- § 25: afgørelsen om tilladelse. Vilkårene står i § 27.
+Brug kun projektsprog, når spørgsmålet handler om sagen: VVM-screening, miljøkonsekvensrapport, bygherre og projektafgørelse.
+Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Nævn ikke sagens titel, sagsnummer eller et konkret projekt.`;
 
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -145,11 +169,7 @@ Et afsnit om usikkerhed må kun med i to tilfælde: enten handler spørgsmålet 
 4. UVILDIGHED:
 Du skal forholde dig neutralt og juridisk objektivt. Du repræsenterer hverken bygherrers, klageres eller organisationers særinteresser.
 
-5. PLANER OG PROJEKTER:
-Brug kun plan- eller projektsprog, når spørgsmålet handler om sagen.
-- Planer og programmer (Afsnit II / § 8): "miljørapport", "afgrænsning" og "planens indvirkning på miljøet".
-- Konkrete projekter (Afsnit III / §§ 15–25): "VVM-screening", "miljøkonsekvensrapport", "bygherre" og "projektafgørelse".
-Ved et generelt spørgsmål skal du svare på reglen. Nævn ikke sagens titel, sagsnummer eller et konkret projekt.
+${scopeRules}
 
 6. KILDEHENVISNINGER:
 Kilderne ovenfor er nummereret [1], [2], [3]. Henvis med det nummer, kilden har i listen, og kun nummeret. Samme kilde beholder samme nummer, hver gang den bruges.
@@ -311,13 +331,13 @@ function generateIntelligentLegalResponse(
   return {
     text: `1. Konklusion
 Vedrørende dit spørgsmål: "${prompt}" for ${
-      scope === "plan" ? "Plan / Program (§ 8)" : "Konkret Projekt (§§ 15–25)"
+      scope === "plan" ? "Plan / program (afsnit II, §§ 8–14)" : "Konkret projekt (afsnit III, §§ 15–25)"
     }:
 Der er på nuværende tidspunkt ikke uploadet eller indekseret specifikke retskildedokumenter eller afgørelser i databasen for de valgte temamapper (${themes.join(", ") || "ingen valgt"}).
 
 2. Gennemgang af kildegrundlag og gældende ret
 - Det fremgår ikke entydigt af det aktiverede kildegrundlag, hvilke konkrete bestemmelser eller kendelser der skal lægges til grund, idet kildedatabasen er tom og afventer upload af sagsakter og afgørelser.
-- Generelt gælder for ${scope === "plan" ? "planer og programmer [Miljøvurderingsloven § 8]" : "konkrete anlægsprojekter [Miljøvurderingsloven § 21]"}, at vurderinger skal baseres på dokumenteret materiale forud for afgørelsen.
+- Generelt gælder for ${scope === "plan" ? "planer og programmer [miljøvurderingslovens afsnit II, §§ 8–14]" : "konkrete anlægsprojekter [miljøvurderingslovens afsnit III, §§ 15–25]"}, at vurderinger skal baseres på dokumenteret materiale forud for afgørelsen.
 
 3. Usikkerheder, forbehold eller manglende oplysninger i sagsakterne${fileMention}
 - Kildedatabasen er helt nulstillet. Når du uploader sagsakter (f.eks. via 'Primært dokument' eller 'Sekundære dokumenter') eller tilføjer kendelser til temamapperne, vil analysen tage direkte udgangspunkt i de fremlagte dokumenter.`,

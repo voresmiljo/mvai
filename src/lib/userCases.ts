@@ -240,7 +240,7 @@ export async function createOwnCase(
     ? uniqueCaseTitle(topicFromQuestion(question), titles)
     : formatScopedTitle(scope, nextScopedNumber(scope, titles));
   const lawReference =
-    scope === "plan" ? "Miljøvurderingslovens § 8" : "Miljøvurderingslovens §§ 15–25";
+    scope === "plan" ? "Miljøvurderingslovens afsnit II, §§ 8–14" : "Miljøvurderingslovens afsnit III, §§ 15–25";
 
   const { data, error } = await supabase
     .from("cases")
