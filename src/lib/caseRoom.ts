@@ -9,6 +9,7 @@ export type StoredSource = {
   pdfFileName: string;
   hasOriginal?: boolean;
   relevanceScore: number;
+  sourceType?: string;
 };
 
 export type StoredMessage = {
@@ -68,6 +69,7 @@ function source(value: unknown): StoredSource | null {
     pdfFileName: text(row.pdfFileName, 180),
     hasOriginal: row.hasOriginal === true,
     relevanceScore: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 0,
+    sourceType: text(row.sourceType, 40) || undefined,
   };
 }
 

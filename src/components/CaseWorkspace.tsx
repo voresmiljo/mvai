@@ -4,11 +4,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { CitationText } from "@/components/CitationText";
+import { AnswerBody } from "@/components/AnswerBody";
 import { loadCaseFile, saveCaseFile } from "@/lib/caseFileStore";
 import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { downloadNote } from "@/lib/noteDownload";
+import { sourceLevel, sourceLevelClass, sourceLevelLabel, sourceMeta } from "@/lib/sourceLevel";
 import { buildQuestion } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
@@ -25,6 +26,8 @@ import {
   ArrowLeft,
   Copy,
   Check,
+  Pencil,
+  Trash2,
   FileCode,
   ThumbsUp,
   ThumbsDown,
@@ -53,6 +56,7 @@ interface SourceSnippet {
   pdfFileName: string;
   hasOriginal?: boolean;
   relevanceScore: number;
+  sourceType?: string;
 }
 
 interface ChatMessage {
@@ -366,7 +370,9 @@ export function CaseWorkspace({
 
   // Generated long-form notes / outputs in studio
   const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>(restored?.notes ?? []);
-  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [sourceExpanded, setSourceExpanded] = useState(false);
   const [downloadMenuId, setDownloadMenuId] = useState<string | null>(null);
   const roomSnapshot = useRef("");
   const [storedCaseTick, setStoredCaseTick] = useState(0);
@@ -1092,18 +1098,23 @@ export function CaseWorkspace({
                     </span>
                   </div>
 
-                  <div className="prose prose-sm max-w-none text-current">
-                    {msg.sender === "ai" && msg.sources && msg.sources.length > 0 ? (
-                      <CitationText
+                  <div className="max-w-none text-current">
+                    {msg.sender === "ai" ? (
+                      <AnswerBody
                         text={msg.text}
                         sources={msg.sources}
                         activeId={rightPanelTab === "kilde" ? activeSnippet?.id : null}
-                        onDownloadOriginal={handleDownloadOriginal}
-                        onSelectSource={(src) => {
-                          setActiveSnippet(src);
-                          setOriginalError("");
-                          setRightPanelTab("kilde");
-                        }}
+                        onDownloadOriginal={msg.sources?.length ? handleDownloadOriginal : undefined}
+                        onSelectSource={
+                          msg.sources?.length
+                            ? (src) => {
+                                setActiveSnippet(src);
+                                setSourceExpanded(false);
+                                setOriginalError("");
+                                setRightPanelTab("kilde");
+                              }
+                            : undefined
+                        }
                       />
                     ) : (
                       <div className="whitespace-pre-line">{msg.text}</div>
@@ -1173,11 +1184,20 @@ export function CaseWorkspace({
                         <button
                           type="button"
                           onClick={() => {
+                            const heading = msg.text.match(/^###\s+(.+)$/m)?.[1];
                             const newNote: GeneratedNote = {
                               id: `note-${Date.now()}`,
-                              title: `Uddrag fra analyse (${msg.timestamp})`,
+                              title: (heading || msg.text.split("\n").find((line) => line.trim()) || "Analysenotat")
+                                .replace(/^#+\s*/, "")
+                                .slice(0, 120),
                               caseType: scope === "plan" ? "Miljøvurdering af plan (afsnit II, §§ 8–14)" : "Konkret projekt (afsnit III, §§ 15–25)",
-                              date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                              date: new Date().toLocaleString("da-DK", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }),
                               format: "docx",
                               content: msg.text,
                               included: false,
@@ -1339,72 +1359,61 @@ export function CaseWorkspace({
               <div className="p-4">
                 {activeSnippet ? (
                   <div className="mt-4 space-y-4">
-                    {/* Source metadata card */}
-                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#2E8B57]">
-                        Retskilde
-                      </span>
-                      <h4 className="mt-1 font-bold text-sm text-slate-900 leading-snug">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      {sourceLevel(activeSnippet) && (
+                        <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${sourceLevelClass(sourceLevel(activeSnippet)!)}`}>
+                          {sourceLevelLabel(sourceLevel(activeSnippet)!)}
+                        </span>
+                      )}
+                      <h4 className="mt-2 font-bold text-sm text-slate-900 leading-snug">
                         {activeSnippet.title}
                       </h4>
-                      <p className="mt-1 text-xs text-slate-500 font-mono">
-                        {activeSnippet.citation}
-                      </p>
-                      <div className="mt-2 text-[11px] text-slate-600">
-                        <span className="font-semibold text-slate-700">Afsnit:</span> {activeSnippet.lawSection}
-                      </div>
+                      {sourceMeta(activeSnippet) && (
+                        <p className="mt-1 text-xs text-slate-500">{sourceMeta(activeSnippet)}</p>
+                      )}
+                      {activeSnippet.lawSection && (
+                        <p className="mt-2 text-[11px] text-slate-600">
+                          <span className="font-semibold text-slate-700">Afsnit:</span> {activeSnippet.lawSection}
+                        </p>
+                      )}
                     </div>
 
-                    {/* Excerpt / text quotation */}
-                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                          Gældende ordlyd / Citat
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">{activeSnippet.date}</span>
-                      </div>
-                      <div className="rounded-md border border-slate-100 bg-[#F7FAFA] p-3 text-xs leading-relaxed text-slate-700 font-mono whitespace-pre-wrap">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Citat
+                      </span>
+                      <div className={`mt-2 rounded-lg border-l-4 border-emerald-600 bg-emerald-50/60 p-3 text-xs leading-relaxed text-slate-800 whitespace-pre-wrap ${sourceExpanded ? "" : "max-h-48 overflow-y-auto"}`}>
                         {activeSnippet.textSnippet}
                       </div>
-                      <p className="mt-2 text-[10px] text-slate-400 italic">
-                        {activeSnippet.citation.startsWith("Output:")
-                          ? "Teksten er gemt output fra denne sag og bruges som kildemateriale i de næste svar."
-                          : "Teksten er en forhåndsvisning. Knappen henter den originale fil."}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setSourceExpanded((open) => !open)}
+                        className="mt-3 text-xs font-semibold text-[#0F382C] hover:underline cursor-pointer"
+                      >
+                        {sourceExpanded ? "Vis kun citatet" : "Vis i sammenhæng"}
+                      </button>
                     </div>
 
                     {activeSnippet.hasOriginal && (
-                    <div className="rounded-xl border-2 border-dashed border-[#0F382C]/30 bg-emerald-50/40 p-4">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-[#0F382C]" />
-                        <div>
-                          <p className="text-xs font-bold text-[#0F382C]">Originalt dokument (PDF)</p>
-                          <p className="text-[10px] text-slate-500 font-mono">{activeSnippet.pdfFileName}</p>
-                        </div>
-                      </div>
                       <button
                         type="button"
                         onClick={() => handleDownloadOriginal(activeSnippet)}
                         disabled={downloadingOriginal}
-                        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F382C] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] disabled:opacity-50 transition-colors cursor-pointer"
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F382C] px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#14493a] disabled:opacity-50 transition-colors cursor-pointer"
                       >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>{downloadingOriginal ? "Henter..." : "Download original"}</span>
+                        <Download className="w-4 h-4" />
+                        <span>{downloadingOriginal ? "Henter..." : "Hent original PDF"}</span>
                       </button>
-                      {originalError && (
-                        <p className="mt-1.5 text-center text-[10px] text-amber-800">{originalError}</p>
-                      )}
-                      <p className="mt-1.5 text-center text-[10px] text-slate-500">
-                        Filen er det originale dokument.
-                      </p>
-                    </div>
+                    )}
+                    {originalError && (
+                      <p className="text-center text-[10px] text-amber-800">{originalError}</p>
                     )}
                   </div>
                 ) : (
                   <div className="mt-12 text-center text-slate-400 p-6">
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p className="text-xs">
-                      Hold musen over et kildetal i svaret, og tryk Vis kilde.
+                      Hold musen over et kildetal i svaret, og tryk Åbn i Kildeviser.
                     </p>
                   </div>
                 )}
@@ -1414,14 +1423,38 @@ export function CaseWorkspace({
             {/* FANE 2: GENEREREDE NOTATER / OUTPUTS */}
             {rightPanelTab === "notater" && (
               <div className="p-4 space-y-4">
-                {generatedNotes.some((note) => note.included) && (
-                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold">Output indgår i analysen.</span>
-                      <p className="text-[11px] leading-tight mt-0.5">
-                        Det afkrydsede output indgår nu i kildematerialet (ligesom temamapperne)
-                      </p>
+                {generatedNotes.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-[#0F382C]">
+                      Gemte analysenotater ({generatedNotes.length})
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadNote(
+                            "Gemte analysenotater",
+                            generatedNotes.map((note) => `${note.title}\n${note.date}\n\n${note.content}`).join("\n\n"),
+                            "docx"
+                          )
+                        }
+                        className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                      >
+                        Eksporter alle som Word
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadNote(
+                            "Gemte analysenotater",
+                            generatedNotes.map((note) => `${note.title}\n${note.date}\n\n${note.content}`).join("\n\n"),
+                            "pdf"
+                          )
+                        }
+                        className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                      >
+                        Eksporter alle som PDF
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1429,67 +1462,78 @@ export function CaseWorkspace({
                 <div className="space-y-3">
                   {generatedNotes.length > 0 ? (
                     generatedNotes.map((note) => {
-                      const open = openNoteId === note.id;
+                      const editing = editingNoteId === note.id;
+                      const sourceCount = note.content.match(/\[\d{1,2}\]/g)?.length || 0;
                       return (
                       <div
                         key={note.id}
                         data-output-note={note.id}
-                        data-output-open={open ? "true" : "false"}
-                        onClick={() => setOpenNoteId(note.id)}
-                        className={`rounded-lg border bg-white p-2.5 text-xs cursor-pointer transition-all ${
-                          note.included
-                            ? "border-emerald-600/40 shadow-2xs"
-                            : "border-slate-200 hover:bg-white"
-                        }`}
+                        data-output-open="true"
+                        className="rounded-xl border border-slate-200 bg-white p-5 text-xs shadow-sm"
                       >
-                        <div className="flex items-start gap-2.5">
-                          <input
-                            type="checkbox"
-                            checked={note.included}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={() =>
-                              setGeneratedNotes((prev) =>
-                                prev.map((item) =>
-                                  item.id === note.id ? { ...item, included: !item.included } : item
+                        <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                          <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-emerald-800">
+                            <input
+                              type="checkbox"
+                              checked={note.included}
+                              onChange={() =>
+                                setGeneratedNotes((prev) =>
+                                  prev.map((item) =>
+                                    item.id === note.id ? { ...item, included: !item.included } : item
+                                  )
                                 )
-                              )
-                            }
-                            aria-label={`Medtag ${note.title} i kildematerialet`}
-                            className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <h4 className={`font-semibold leading-snug ${note.included ? "text-[#0F382C]" : "text-slate-700"}`}>
-                                {note.title}
-                              </h4>
-                              {open && (
-                                <button
-                                  type="button"
-                                  aria-label="Luk"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setOpenNoteId(null);
-                                  }}
-                                  className="shrink-0 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                                >
-                                  Luk
-                                </button>
-                              )}
-                            </div>
-                            {!open && (
-                              <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
-                                {note.content}
-                              </p>
-                            )}
-                          </div>
+                              }
+                              aria-label={`Brug ${note.title} som kilde i næste spørgsmål`}
+                              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            Brug som kilde i næste spørgsmål
+                          </label>
                         </div>
-
-                        {open && (
-                          <div className="mt-2 space-y-2" onClick={(event) => event.stopPropagation()}>
-                            <p className="text-[10px] text-slate-400 font-mono">{note.date}</p>
-                            <div className="max-h-64 overflow-y-auto rounded bg-[#F7FAFA] border border-slate-100 p-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">
-                              {note.content}
-                            </div>
+                        <h3 className="text-base font-bold leading-snug text-slate-900">{note.title}</h3>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          {note.date}
+                          {sourceCount ? ` • ${sourceCount} kilder` : ""}
+                        </p>
+                        {editing ? (
+                          <textarea
+                            value={noteDraft}
+                            onChange={(event) => setNoteDraft(event.target.value)}
+                            rows={8}
+                            className="mt-3 w-full rounded-lg border border-slate-300 p-3 text-sm text-slate-800 focus:outline-none focus:border-[#0F382C]"
+                          />
+                        ) : (
+                          <div className="mt-3 max-h-72 overflow-y-auto">
+                            <AnswerBody text={note.content} />
+                          </div>
+                        )}
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (editing) {
+                                  setGeneratedNotes((prev) =>
+                                    prev.map((item) => (item.id === note.id ? { ...item, content: noteDraft } : item))
+                                  );
+                                  setEditingNoteId(null);
+                                  return;
+                                }
+                                setNoteDraft(note.content);
+                                setEditingNoteId(note.id);
+                              }}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              {editing ? "Gem ændringer" : "Rediger"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyText(editing ? noteDraft : note.content, note.id)}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              {copiedMsgId === note.id ? "Kopieret" : "Kopier"}
+                            </button>
                             <div className="relative" data-output-download-root={note.id}>
                               <button
                                 type="button"
@@ -1497,47 +1541,58 @@ export function CaseWorkspace({
                                 aria-expanded={downloadMenuId === note.id}
                                 data-output-download-toggle={note.id}
                                 onClick={() => setDownloadMenuId((current) => (current === note.id ? null : note.id))}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F382C] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#14493a] transition-colors cursor-pointer shadow-2xs"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
                               >
                                 <Download className="w-3.5 h-3.5" />
-                                <span>Download</span>
-                                <ChevronDown className="w-3.5 h-3.5" />
+                                Hent
+                                <ChevronDown className="w-3 h-3" />
                               </button>
                               {downloadMenuId === note.id && (
                                 <div
                                   role="menu"
                                   data-output-download-menu={note.id}
-                                  className="absolute left-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                                  className="absolute left-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
                                 >
                                   <button
                                     type="button"
                                     role="menuitem"
                                     data-output-download="pdf"
                                     onClick={() => {
-                                      downloadNote(note.title, note.content, "pdf");
+                                      downloadNote(note.title, editing ? noteDraft : note.content, "pdf");
                                       setDownloadMenuId(null);
                                     }}
                                     className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 cursor-pointer"
                                   >
-                                    Download som PDF
+                                    Som PDF
                                   </button>
                                   <button
                                     type="button"
                                     role="menuitem"
                                     data-output-download="docx"
                                     onClick={() => {
-                                      downloadNote(note.title, note.content, "docx");
+                                      downloadNote(note.title, editing ? noteDraft : note.content, "docx");
                                       setDownloadMenuId(null);
                                     }}
                                     className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 cursor-pointer"
                                   >
-                                    Download som Word
+                                    Som Word
                                   </button>
                                 </div>
                               )}
                             </div>
                           </div>
-                        )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGeneratedNotes((prev) => prev.filter((item) => item.id !== note.id));
+                              if (editingNoteId === note.id) setEditingNoteId(null);
+                            }}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:text-red-800 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Slet fra output
+                          </button>
+                        </div>
                       </div>
                       );
                     })

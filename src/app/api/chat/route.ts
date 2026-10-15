@@ -226,6 +226,7 @@ Skriv ikke titel, paragraf eller journalnummer i hakparenteserne. Skriv ikke mar
 
 7. LÆNGDE:
 Svar kun på det, der spørges om. Hold svaret kort, direkte og sammenhængende. Et generelt spørgsmål klares i ét til tre korte afsnit.
+Når svaret har flere led, så brug ### til overskrifter med en tom linje før og efter. Brug nummererede lister til regler og punktopstillinger, der starter med *, under et hovedpunkt. Fed skrift kun på nøgleordet i starten af et punkt, ikke på hele sætninger.
 
 8. RETSLIG RISIKOFAKTOR:
 Skriv kun en risikolinje, hvis analysen viser en direkte procesrisiko, en ophævelsesrisiko ved klagenævnet eller manglende overholdelse af officialprincippet eller forsigtighedsprincippet. Afslut i så fald svaret med en linje, der begynder præcis sådan:

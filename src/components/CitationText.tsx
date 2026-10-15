@@ -2,6 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { sourceMeta } from "@/lib/sourceLevel";
 
 export interface CitationSource {
   id: string;
@@ -10,10 +11,30 @@ export interface CitationSource {
   textSnippet: string;
   relevanceScore: number;
   lawSection?: string;
+  date?: string;
+  sourceType?: string;
   hasOriginal?: boolean;
 }
 
-const POPOVER_WIDTH = 320;
+const POPOVER_WIDTH = 384;
+
+function richText(value: string): React.ReactNode[] {
+  const pieces: React.ReactNode[] = [];
+  const pattern = /\*\*([^*]+)\*\*/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(value)) !== null) {
+    if (match.index > last) pieces.push(value.slice(last, match.index));
+    pieces.push(
+      <strong key={match.index} className="font-semibold text-slate-900">
+        {match[1]}
+      </strong>
+    );
+    last = match.index + match[0].length;
+  }
+  if (last < value.length) pieces.push(value.slice(last));
+  return pieces;
+}
 
 function placePopover(anchor: HTMLElement): { top: number; left: number } {
   const rect = anchor.getBoundingClientRect();
@@ -104,35 +125,34 @@ function CitationMark<T extends CitationSource>({
             onMouseEnter={onCancelClose}
             onMouseLeave={onScheduleClose}
             style={{ top: pos.top, left: pos.left, width: POPOVER_WIDTH }}
-            className="fixed z-[80] flex max-h-[70vh] flex-col rounded-xl border border-emerald-200 bg-white p-3.5 text-left shadow-2xl"
+            data-citation-popover={n}
+            className="fixed z-[80] flex max-h-[70vh] flex-col rounded-xl border border-slate-200 bg-white/95 p-4 text-left shadow-xl backdrop-blur-md"
           >
             <div className="mb-2 min-w-0 shrink-0">
-              <p className="text-xs font-semibold leading-snug text-[#0F382C]">{source.title}</p>
-              {source.lawSection && (
-                <p className="mt-0.5 text-[10px] leading-snug text-slate-600">Afsnit: {source.lawSection}</p>
-              )}
-              {source.citation && (
-                <p className="mt-0.5 font-mono text-[10px] leading-snug text-slate-500">{source.citation}</p>
+              <p className="text-sm font-bold leading-snug text-slate-900">{source.title}</p>
+              {sourceMeta(source) && (
+                <p className="mt-1 text-xs leading-snug text-slate-500">{sourceMeta(source)}</p>
               )}
             </div>
-            <div className="mb-3 max-h-40 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200/60 bg-slate-50 p-2.5 font-mono text-xs leading-relaxed text-slate-700">
-              {source.textSnippet}
+            <div className="mb-3 max-h-48 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap rounded-lg border-l-4 border-emerald-600 bg-slate-50 p-3 text-xs italic leading-relaxed text-slate-700">
+              “{source.textSnippet}”
             </div>
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 gap-2 border-t border-slate-100 pt-3">
               <button
                 type="button"
+                data-open-source={source.id}
                 onClick={() => onSelectSource(source)}
-                className="flex-1 rounded-lg bg-[#0F382C] py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#14493a]"
+                className="flex-1 rounded-md bg-emerald-50 py-1.5 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
               >
-                Vis kilde
+                Åbn i Kildeviser
               </button>
               {source.hasOriginal && onDownloadOriginal && (
                 <button
                   type="button"
                   onClick={() => onDownloadOriginal(source)}
-                  className="flex-1 rounded-lg border border-[#0F382C] py-1.5 text-xs font-medium text-[#0F382C] transition-colors hover:bg-emerald-50"
+                  className="flex-1 rounded-md border border-slate-200 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
                 >
-                  Download original
+                  Hent original PDF
                 </button>
               )}
             </div>
@@ -149,12 +169,14 @@ export function CitationText<T extends CitationSource>({
   activeId,
   onSelectSource,
   onDownloadOriginal,
+  inline = false,
 }: {
   text: string;
   sources: T[];
   activeId?: string | null;
   onSelectSource: (source: T) => void;
   onDownloadOriginal?: (source: T) => void;
+  inline?: boolean;
 }) {
   const [openKey, setOpenKey] = useState<number | null>(null);
   const closeTimer = useRef<number | null>(null);
@@ -181,7 +203,7 @@ export function CitationText<T extends CitationSource>({
   while ((match = pattern.exec(text)) !== null) {
     const n = Number(match[1]);
     const source = sources[n - 1];
-    if (match.index > last) parts.push(text.slice(last, match.index));
+    if (match.index > last) parts.push(...richText(text.slice(last, match.index)));
     if (source) {
       const markKey = key;
       parts.push(
@@ -208,7 +230,8 @@ export function CitationText<T extends CitationSource>({
     last = match.index + match[0].length;
     key += 1;
   }
-  if (last < text.length) parts.push(text.slice(last));
+  if (last < text.length) parts.push(...richText(text.slice(last)));
 
-  return <div className="whitespace-pre-line">{parts}</div>;
+  const Tag = inline ? "span" : "div";
+  return <Tag className={inline ? undefined : "whitespace-pre-line"}>{parts}</Tag>;
 }
