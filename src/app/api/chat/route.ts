@@ -59,9 +59,9 @@ function uploadedDocument(value: unknown): { name: string; text: string } | null
 
 function documentContext(name: string, text: string): string {
   if (!text) {
-    return `${name}\nTeksten er ikke gemt. Bed brugeren trykke på "Vælg filen igen" ved filen under sagsdokumenter og vælge filen én gang. Sig ikke, at du ikke kan læse uploadede dokumenter.`;
+    return `Dokument: ${name}\nIndhold: TEKST MANGLER. Dokumentet er ikke læst. Svar kun, at brugeren skal trykke på "Vælg filen igen" ved ${name} under sagsdokumenter og vælge filen én gang. Påstå ikke, at du har læst det, og find ikke på indhold. Nævn ikke kildegrundlaget.`;
   }
-  return `${name}\n${text}`;
+  return `Dokument: ${name}\nIndhold:\n${text}`;
 }
 
 export async function POST(req: Request) {
@@ -130,7 +130,7 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
       supplementaryFiles.length
         ? `Sekundære dokumenter:\n${supplementaryFiles.map((file) => documentContext(file.name, file.text)).join("\n\n")}\nSekundære dokumenter er materiale, sagen skal sammenholdes med.`
         : "Sekundære dokumenter: ingen.",
-      "Teksten under hvert dokument er filens indhold. Du kan læse den. Sig aldrig, at du ikke kan læse eller tilgå uploadede dokumenter. Hvis brugeren spørger, om du kan læse dokumentet, eller siger, at sagen er uploadet, så svar ud fra dokumentets tekst. Sagens titel er kun en overskrift. Hvis teksten ikke er gemt, så bed brugeren vælge filen igen under sagsdokumenter.",
+      "Under hvert dokument står først navnet og derefter indholdet. Indholdet er filens tekst, ikke et nyt dokument. Når indholdet er der, kan du læse det. Sig aldrig, at du generelt ikke kan læse eller tilgå uploadede dokumenter. Hvis brugeren spørger, om du kan læse dokumentet, så svar ud fra indholdet. Sagens titel er kun en overskrift. Står der TEKST MANGLER, skal svaret kun bede brugeren trykke på \"Vælg filen igen\" ved filen. Sig ikke, at du allerede kan læse den fil, og nævn ikke kildegrundlaget.",
     ];
     const fileContext = fileBlocks.join("\n\n");
 
