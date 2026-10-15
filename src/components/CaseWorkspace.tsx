@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { CitationText } from "@/components/CitationText";
-import { publicModelLabel } from "@/lib/modelLabel";
 import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { buildQuestion } from "@/lib/promptSupport";
@@ -20,7 +19,6 @@ import {
   Search,
   CornerDownLeft,
   BookOpen,
-  ShieldCheck,
   ArrowLeft,
   Copy,
   Check,
@@ -973,11 +971,6 @@ export function CaseWorkspace({
                       <span className={msg.sender === "user" ? "text-slate-300 font-semibold" : "text-[#0F382C] font-bold"}>
                         {msg.sender === "user" ? "Du" : "MVAI Afgørelsesanalyse"}
                       </span>
-                      {publicModelLabel(msg.modelUsed) && (
-                        <span className="rounded bg-emerald-100 text-[#0F382C] px-1.5 py-0.2 text-[9px] font-mono font-medium">
-                          {publicModelLabel(msg.modelUsed)}
-                        </span>
-                      )}
                     </div>
                     <span className={msg.sender === "user" ? "text-slate-400" : "text-slate-400 font-mono"}>
                       {msg.timestamp}
@@ -1163,10 +1156,6 @@ export function CaseWorkspace({
                       <ClipboardList className="w-3.5 h-3.5" />
                       Byg spørgsmål
                     </button>
-                    <span className="hidden items-center gap-1 sm:inline-flex">
-                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                      Claude Sonnet
-                    </span>
                   </div>
 
                   <div className="flex items-center gap-2">
