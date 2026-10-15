@@ -55,14 +55,14 @@ function source(value: unknown): StoredSource | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
   const id = text(row.id, 80);
-  const title = text(row.title, 180);
+  const title = text(row.title, 500);
   if (!id || !title) return null;
   const score = Number(row.relevanceScore);
   return {
     id,
     title,
-    citation: text(row.citation, 180),
-    lawSection: text(row.lawSection, 120),
+    citation: text(row.citation, 400),
+    lawSection: text(row.lawSection, 300),
     date: text(row.date, 40),
     textSnippet: text(row.textSnippet, 2000),
     pdfUrl: text(row.pdfUrl, 300),

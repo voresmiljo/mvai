@@ -222,7 +222,9 @@ ${scopeRules}
 
 6. KILDEHENVISNINGER:
 Kilderne ovenfor er nummereret [1], [2], [3]. Henvis med det nummer, kilden har i listen, og kun nummeret. Samme kilde beholder samme nummer, hver gang den bruges.
-Skriv ikke titel, paragraf eller journalnummer i hakparenteserne. Skriv ikke markdown-links. Brug kun numre, der findes i listen. Sæt ikke et nummer på en påstand, kilderne ikke støtter.
+Sæt kildemærket i samme sætning som enhver lovhenvisning og enhver juridisk eller miljøfaglig påstand, også i den første sætning. Eksempel: miljøvurderingslovens afsnit III, § 21 [1].
+Skriv ikke titel, paragraf eller journalnummer inde i hakparenteserne. Skriv ikke markdown-links. Brug kun numre, der findes i listen. Sæt ikke et nummer på en påstand, kilderne ikke støtter.
+Når du nævner et dokument ved navn, så brug den fulde officielle titel fra kildelisten. Forkort den ikke.
 
 7. LÆNGDE:
 Svar kun på det, der spørges om. Hold svaret kort, direkte og sammenhængende. Et generelt spørgsmål klares i ét til tre korte afsnit.

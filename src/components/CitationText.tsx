@@ -16,7 +16,7 @@ export interface CitationSource {
   hasOriginal?: boolean;
 }
 
-const POPOVER_WIDTH = 384;
+const POPOVER_WIDTH = 420;
 
 function richText(value: string): React.ReactNode[] {
   const pieces: React.ReactNode[] = [];
@@ -129,9 +129,12 @@ function CitationMark<T extends CitationSource>({
             className="fixed z-[80] flex max-h-[70vh] flex-col rounded-xl border border-slate-200 bg-white/95 p-4 text-left shadow-xl backdrop-blur-md"
           >
             <div className="mb-2 min-w-0 shrink-0">
-              <p className="text-sm font-bold leading-snug text-slate-900">{source.title}</p>
+              <p className="break-words text-base font-bold leading-snug text-slate-900">{source.title}</p>
+              {source.lawSection && (
+                <p className="mt-1 break-words text-xs leading-snug text-slate-500">{source.lawSection}</p>
+              )}
               {sourceMeta(source) && (
-                <p className="mt-1 text-xs leading-snug text-slate-500">{sourceMeta(source)}</p>
+                <p className="mt-1 break-words text-[11px] leading-snug text-slate-400">{sourceMeta(source)}</p>
               )}
             </div>
             <div className="mb-3 max-h-48 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap rounded-lg border-l-4 border-emerald-600 bg-slate-50 p-3 text-xs italic leading-relaxed text-slate-700">

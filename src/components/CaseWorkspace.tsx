@@ -9,7 +9,7 @@ import { loadCaseFile, saveCaseFile } from "@/lib/caseFileStore";
 import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { downloadNote } from "@/lib/noteDownload";
-import { sourceLevel, sourceLevelClass, sourceLevelLabel, sourceMeta } from "@/lib/sourceLevel";
+import { sourceMeta } from "@/lib/sourceLevel";
 import { buildQuestion } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
@@ -1360,21 +1360,14 @@ export function CaseWorkspace({
                 {activeSnippet ? (
                   <div className="mt-4 space-y-4">
                     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                      {sourceLevel(activeSnippet) && (
-                        <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${sourceLevelClass(sourceLevel(activeSnippet)!)}`}>
-                          {sourceLevelLabel(sourceLevel(activeSnippet)!)}
-                        </span>
-                      )}
-                      <h4 className="mt-2 font-bold text-sm text-slate-900 leading-snug">
+                      <h3 className="break-words text-base font-bold leading-snug text-slate-900">
                         {activeSnippet.title}
-                      </h4>
-                      {sourceMeta(activeSnippet) && (
-                        <p className="mt-1 text-xs text-slate-500">{sourceMeta(activeSnippet)}</p>
-                      )}
+                      </h3>
                       {activeSnippet.lawSection && (
-                        <p className="mt-2 text-[11px] text-slate-600">
-                          <span className="font-semibold text-slate-700">Afsnit:</span> {activeSnippet.lawSection}
-                        </p>
+                        <p className="mt-2 break-words text-xs leading-snug text-slate-500">{activeSnippet.lawSection}</p>
+                      )}
+                      {sourceMeta(activeSnippet) && (
+                        <p className="mt-2 break-words text-[11px] leading-snug text-slate-400">{sourceMeta(activeSnippet)}</p>
                       )}
                     </div>
 
