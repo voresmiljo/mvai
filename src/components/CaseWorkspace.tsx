@@ -311,8 +311,6 @@ export function CaseWorkspace({
   }
   const fileTextRef = useRef<Map<string, string>>(new Map());
   const pendingReads = useRef<Map<string, Promise<void>>>(new Map());
-  const reselectTarget = useRef<{ kind: "primary" | "secondary"; id: string } | null>(null);
-  const reselectInputRef = useRef<HTMLInputElement>(null);
   if (primaryFile?.text) fileTextRef.current.set(primaryFile.id, primaryFile.text);
   for (const file of supplementaryFiles) {
     if (file.text) fileTextRef.current.set(file.id, file.text);
@@ -672,20 +670,6 @@ export function CaseWorkspace({
     }
   };
 
-  const chooseFileAgain = (kind: "primary" | "secondary", id: string) => {
-    reselectTarget.current = { kind, id };
-    reselectInputRef.current?.click();
-  };
-
-  const handleReselect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    const target = reselectTarget.current;
-    event.target.value = "";
-    reselectTarget.current = null;
-    if (!file || !target) return;
-    readIntoDocument(target.kind, target.id, file);
-  };
-
   useEffect(() => {
     let cancel = false;
     const boot = bootDocuments.current;
@@ -938,22 +922,11 @@ export function CaseWorkspace({
                 </span>
               </div>
 
-              <input
-                ref={reselectInputRef}
-                id="mvai-reselect-file"
-                type="file"
-                accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
-                className="absolute h-px w-px overflow-hidden opacity-0"
-                onChange={handleReselect}
-              />
               <div className="space-y-2">
                 {primaryFile ? (
                   <div
                     data-case-file="primary"
-                    onClick={(event) => {
-                      if ((event.target as HTMLElement).closest("[data-reselect]")) return;
-                      togglePrimaryFile();
-                    }}
+                    onClick={togglePrimaryFile}
                     className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
                       primaryFile.included
                         ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
@@ -966,20 +939,8 @@ export function CaseWorkspace({
                       onChange={() => {}}
                       className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
                     />
-                    <span className="min-w-0 flex-1">
-                      <span className={`block truncate font-semibold ${primaryFile.included ? "text-[#0F382C]" : "text-slate-700"}`}>
-                        {primaryFile.name}
-                      </span>
-                      {!primaryFile.text ? (
-                        <button
-                          type="button"
-                          data-reselect="primary"
-                          className="mt-1 text-[10px] font-bold uppercase tracking-wide text-[#0F382C] underline"
-                          onClick={() => chooseFileAgain("primary", primaryFile.id)}
-                        >
-                          {primaryFile.reading ? "Læser…" : "Vælg filen igen"}
-                        </button>
-                      ) : null}
+                    <span className={`min-w-0 flex-1 truncate font-semibold ${primaryFile.included ? "text-[#0F382C]" : "text-slate-700"}`}>
+                      {primaryFile.name}
                     </span>
                     <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono shrink-0">
                       Primært
@@ -990,10 +951,7 @@ export function CaseWorkspace({
                     <div
                       key={file.id}
                       data-case-file={file.id}
-                      onClick={(event) => {
-                        if ((event.target as HTMLElement).closest("[data-reselect]")) return;
-                        toggleSupplementaryFile(file.id);
-                      }}
+                      onClick={() => toggleSupplementaryFile(file.id)}
                       className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
                         file.included
                           ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
@@ -1006,20 +964,8 @@ export function CaseWorkspace({
                         onChange={() => {}}
                         className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
                       />
-                      <span className="min-w-0 flex-1">
-                        <span className={`block truncate font-semibold ${file.included ? "text-[#0F382C]" : "text-slate-700"}`}>
-                          {file.name}
-                        </span>
-                        {!file.text ? (
-                          <button
-                            type="button"
-                            data-reselect={file.id}
-                            className="mt-1 text-[10px] font-bold uppercase tracking-wide text-[#0F382C] underline"
-                            onClick={() => chooseFileAgain("secondary", file.id)}
-                          >
-                            {file.reading ? "Læser…" : "Vælg filen igen"}
-                          </button>
-                        ) : null}
+                      <span className={`min-w-0 flex-1 truncate font-semibold ${file.included ? "text-[#0F382C]" : "text-slate-700"}`}>
+                        {file.name}
                       </span>
                     </div>
                 ))}

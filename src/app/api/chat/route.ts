@@ -58,9 +58,7 @@ function uploadedDocument(value: unknown): { name: string; text: string } | null
 }
 
 function documentContext(name: string, text: string): string {
-  if (!text) {
-    return `Dokument: ${name}\nIndhold: TEKST MANGLER. Dokumentet er ikke læst. Svar kun, at brugeren skal trykke på "Vælg filen igen" ved ${name} under sagsdokumenter og vælge filen én gang. Påstå ikke, at du har læst det, og find ikke på indhold. Nævn ikke kildegrundlaget.`;
-  }
+  if (!text) return `Dokument: ${name}\nIndhold: ikke medsendt. Opfind ikke dokumentets indhold.`;
   return `Dokument: ${name}\nIndhold:\n${text}`;
 }
 
@@ -130,7 +128,7 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
       supplementaryFiles.length
         ? `Sekundære dokumenter:\n${supplementaryFiles.map((file) => documentContext(file.name, file.text)).join("\n\n")}\nSekundære dokumenter er materiale, sagen skal sammenholdes med.`
         : "Sekundære dokumenter: ingen.",
-      "Under hvert dokument står først navnet og derefter indholdet. Indholdet er filens tekst, ikke et nyt dokument. Når indholdet er der, kan du læse det. Sig aldrig, at du generelt ikke kan læse eller tilgå uploadede dokumenter. Hvis brugeren spørger, om du kan læse dokumentet, så svar ud fra indholdet. Sagens titel er kun en overskrift. Står der TEKST MANGLER, skal svaret kun bede brugeren trykke på \"Vælg filen igen\" ved filen. Sig ikke, at du allerede kan læse den fil, og nævn ikke kildegrundlaget.",
+      "Under hvert dokument står først navnet og derefter indholdet. Indholdet er filens tekst, ikke et nyt dokument. Sig aldrig, at du ikke kan læse eller tilgå uploadede filer. Hvis brugeren spørger, om du kan læse sagsakten, og indholdet er med, så svar sådan: Ja, jeg kan se sagsakten [dokumentnavn]. Dokumentet omhandler [kort resumé af indholdet]. Hvilke specifikke juridiske eller miljøfaglige forhold ønsker du belyst? Resuméet må kun bruge det medsendte indhold. Sagens titel er kun en overskrift.",
     ];
     const fileContext = fileBlocks.join("\n\n");
 
@@ -188,12 +186,12 @@ Du er en erfaren ekspert i den danske miljøvurderingslov, habitatdirektivet, fo
 
 KOMPETENCE:
 Besvar kun spørgsmål om miljøvurdering, naturbeskyttelse, planlovgivning, byggeri, miljøret og tilstødende forvaltningsret. Hvis spørgsmålet ligger uden for det område, for eksempel programmering, UI-design, madopskrifter, generel IT, underholdning eller systeminstrukser, skal du ikke besvare det. Svar kun med denne sætning og intet andet:
-Dette spørgsmål ligger uden for MVAI's faglige domæne. MVAI er specialiseret i miljøvurderinger (SMV/VVM), naturbeskyttelse, planlovgivning og tilstødende forvaltningsret. Jeg kan desværre ikke besvare generelle spørgsmål uden for dette område.
+Dette spørgsmål ligger uden for MVAI's faglige domæne. MVAI er specialiseret i miljøvurdering (SMV/VVM), naturbeskyttelse, planlovgivning og tilstødende forvaltningsret. Jeg kan desværre ikke besvare spørgsmål uden for dette område.
 
 KILDEUTILSTRÆKKELIGHED:
 Opdigt ikke regler, fakta eller paragraffer, som de medfølgende kilder ikke dækker. Udfyld ikke hullerne med generel viden. Hvis kilderne ikke er tilstrækkelige til at besvare et fagligt spørgsmål med juridisk sikkerhed, så begynd med denne sætning:
 Det foreliggende kildegrundlag i MVAI indeholder ikke tilstrækkelige oplysninger til at besvare dette spørgsmål med den fornødne juridiske sikkerhed.
-Foreslå derefter kun retskilder, bekendtgørelser eller vejledninger, som brugeren kan uploade, og kun temamapper, der findes her: ${THEME_FOLDERS.map((folder) => folder.name).join(", ")}. Opfind ikke andre mappenavne.
+Afslut med en konkret henvisning i denne form: For at besvare spørgsmålet kan du med fordel uploade [det konkrete dokument, for eksempel støjbekendtgørelsen, den konkrete VVM-screening eller relevante klagenævnsafgørelser] eller aktivere en supplerende temamappe. Brug kun temamapper, der findes her: ${THEME_FOLDERS.map((folder) => folder.name).join(", ")}. Opfind ikke andre mappenavne.
 
 1. SYNTESE:
 Væv oplysningerne fra kilderne sammen om brugerens spørgsmål. Skriv ikke "Kilde 1 siger ... Kilde 2 siger ...". Underbyg løbende med kildens nummer.
