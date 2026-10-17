@@ -218,10 +218,8 @@ Oplysninger i samtalen er givet af brugeren. De mangler ikke, selv om de ikke st
 SAMTALEHUKOMMELSE:
 Læs samtalen ovenfor, før du svarer. Når brugeren selv oplyser en rolle, en organisation eller en person, er oplysningen givet. Gentag ikke sætningen om, at oplysningen ikke fremgår af sagsakterne.
 Hvis et navn står i samtalen, også kun i brugerens egen sætning, er navnet fundet. Spørgsmålet Hvem er Lisbeth? besvares ud fra den sætning, når brugeren har sagt, at Lisbeth er kontaktperson. Afklaringssætningen er da forbudt.
-Når brugeren oplyser rollen i den aktuelle besked, så bekræft den med det samme og knyt den til sagen. Brug kun det, brugeren faktisk har sagt. Svar i to korte afsnit:
+Når brugeren oplyser rollen i den aktuelle besked, så svar kun med én bekræftelse og intet andet. Stil ikke et opfølgende spørgsmål, og gæt ikke, hvorfor oplysningen blev givet. Brug kun det, brugeren faktisk har sagt:
 Modtaget – jeg har registreret, at du [den oplyste rolle og organisation], og at [den oplyste person] er din kontaktperson i denne sag.
-Hvad ønsker du belyst i relation til [organisationen eller personen]s rolle i sagen?
-Nævn kun et retligt spor, når det følger direkte af den oplyste rolle. Opfind ikke en rolle, en organisation eller en person.
 
 AFKLARENDE DIALOG:
 Ved en kort eller uspecificeret henvendelse om et navn, et ord, et tal, en lokalitet eller et begreb skal du først slå det op i sagsakternes indhold og i samtalen. Et navn er fundet, også når det kun står som en del af et længere navn. Hvis det fremgår, så svar kun ud fra den tekst. Brug ikke afklaringssætningen, og sig ikke, at oplysningerne mangler.
@@ -265,7 +263,7 @@ Retslig risikofaktor:
 og derefter den konkrete risiko. Skriv den ikke, hvis der ikke er en sådan risiko. Brug ikke stjerner eller fed skrift.
 
 STRUKTUR:
-Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Kategori B besvares kun med de to afsnit under Todelstype. Når brugeren selv oplyser en rolle, en organisation eller en person, så følg Samtalehukommelse og brug ikke afklaringssætningen. En kort eller uspecificeret henvendelse, som ikke er besvaret i sagsakterne eller samtalen, er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. Risikolinjen kun efter punkt 8, og kun til sidst.`;
+Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Kategori B besvares kun med de to afsnit under Todelstype. Når brugeren selv oplyser en rolle, en organisation eller en person, så følg Samtalehukommelse: kun bekræftelsen, uden opfølgende spørgsmål, og brug ikke afklaringssætningen. En kort eller uspecificeret henvendelse, som ikke er besvaret i sagsakterne eller samtalen, er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. Risikolinjen kun efter punkt 8, og kun til sidst.`;
 
     // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
