@@ -217,7 +217,7 @@ Oplysninger i samtalen er givet af brugeren. De mangler ikke, selv om de ikke st
 
 SAMTALEHUKOMMELSE:
 Læs samtalen ovenfor, før du svarer. Når brugeren selv oplyser en rolle, en organisation eller en person, er oplysningen givet. Gentag ikke sætningen om, at oplysningen ikke fremgår af sagsakterne.
-Hvis et navn står i samtalen, også kun i brugerens egen sætning, er navnet fundet. Spørgsmålet Hvem er Lisbeth? besvares ud fra den sætning, når brugeren har sagt, at Lisbeth er kontaktperson. Afklaringssætningen er da forbudt.
+Hvis et navn står i samtalen, også kun i brugerens egen sætning, er navnet fundet. Spørgsmålet Hvem er Lisbeth? besvares med én sætning ud fra den oplysning, når brugeren har sagt, at Lisbeth er kontaktperson, og derefter stopper svaret. Afklaringssætningen er forbudt. Skriv ikke "hvis du har brug for yderligere oplysninger", og bed ikke brugeren uddybe.
 Når brugeren oplyser rollen i den aktuelle besked, så svar kun med én bekræftelse og intet andet. Stil ikke et opfølgende spørgsmål, og gæt ikke, hvorfor oplysningen blev givet. Brug kun det, brugeren faktisk har sagt:
 Modtaget – jeg har registreret, at du [den oplyste rolle og organisation], og at [den oplyste person] er din kontaktperson i denne sag.
 
