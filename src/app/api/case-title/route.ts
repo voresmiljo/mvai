@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { composeCaseTitle, normalizeCaseTitle } from "@/lib/caseTitles";
+import { composeCaseTitle, normalizeCaseTitle, titleIsGrounded } from "@/lib/caseTitles";
 
 const instruction = `Du navngiver en dansk miljøsag ud fra sagsakterne.
 Svar kun med én titel.
@@ -93,9 +93,14 @@ export async function POST(req: Request) {
     .join("\n\n")
     .slice(0, 14000);
 
-  const title = (await titleFromModel(source)) || composeCaseTitle([...documents, { text: question }]);
-  if (!title) {
-    return NextResponse.json({ title: null });
+  const parts = [...documents, ...(question ? [{ text: question }] : [])];
+  const composed = composeCaseTitle(parts);
+  if (composed) return NextResponse.json({ title: composed });
+
+  const hasDocumentText = documents.some((item) => item.text.trim().length > 40);
+  const modeled = hasDocumentText ? await titleFromModel(source) : null;
+  if (modeled && titleIsGrounded(modeled, source)) {
+    return NextResponse.json({ title: modeled });
   }
-  return NextResponse.json({ title });
+  return NextResponse.json({ title: null });
 }

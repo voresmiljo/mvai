@@ -50,16 +50,35 @@ function findTopics(text: string): string[] {
   return found.slice(0, 2);
 }
 
+function fileLabel(name: string): string {
+  return name.replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[_-]+/g, " ");
+}
+
 export function composeCaseTitle(parts: { name?: string; text?: string }[]): string | null {
-  const blob = parts
-    .map((part) => `${part.name || ""}\n${part.text || ""}`)
-    .join("\n")
-    .slice(0, 20000);
-  if (!blob.trim()) return null;
-  const place = findPlace(blob);
-  const topics = findTopics(blob);
+  const texts = parts.map((part) => part.text || "").filter((text) => text.trim());
+  const names = parts.map((part) => fileLabel(part.name || "")).filter((name) => name.trim());
+  const body = texts.join("\n").slice(0, 20000);
+  const labels = names.join("\n");
+  if (!body.trim() && !labels.trim()) return null;
+  const place = findPlace(body) || findPlace(labels);
+  const topics = findTopics(`${body}\n${labels}`);
   if (!place || topics.length === 0) return null;
   return normalizeCaseTitle(`${place} – ${topics.join(" & ")}`);
+}
+
+const TITLE_STOP = new Set(["og", "ved", "for", "med", "den", "det", "som", "til", "fra", "eller", "samt", "efter", "uden", "ikke"]);
+
+export function titleIsGrounded(title: string, source: string): boolean {
+  const hay = source.toLocaleLowerCase("da-DK");
+  const parts = title.split(" – ");
+  if (parts.length < 2) return false;
+  return parts.every((part) => {
+    const words = part
+      .toLocaleLowerCase("da-DK")
+      .split(/[^\p{L}\d]+/u)
+      .filter((word) => word.length > 2 && !TITLE_STOP.has(word));
+    return words.some((word) => hay.includes(word));
+  });
 }
 
 export function normalizeCaseTitle(raw: string): string | null {
