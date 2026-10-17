@@ -23,7 +23,8 @@ export async function POST(req: Request) {
   }
 
   const question = typeof body?.question === "string" ? body.question : undefined;
-  const result = await createOwnCase(scope, question);
+  const title = typeof body?.title === "string" ? body.title : undefined;
+  const result = await createOwnCase(scope, question, title);
   if (result.error === "Log ind, før du opretter en sag.") {
     return NextResponse.json({ error: result.error }, { status: 401 });
   }

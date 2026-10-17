@@ -1,5 +1,5 @@
 import { parseCaseRoom, sanitizeCaseRoom, type CaseRoom } from "@/lib/caseRoom";
-import { topicFromQuestion, uniqueCaseTitle } from "@/lib/caseTitles";
+import { isPlaceholderTitle, normalizeCaseTitle, topicFromQuestion, uniqueCaseTitle } from "@/lib/caseTitles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/session";
 
@@ -223,7 +223,8 @@ async function titlesForUser(
 
 export async function createOwnCase(
   scope: "projekt" | "plan",
-  question?: string
+  question?: string,
+  requestedTitle?: string
 ): Promise<{ case?: StoredCase; error?: string }> {
   const user = await getSessionUser();
   if (!user) return { error: "Log ind, før du opretter en sag." };
@@ -236,9 +237,13 @@ export async function createOwnCase(
   const caseNumber = scope === "plan" ? `${year}-PLAN-${suffix}` : `${year}-VVM-${suffix}`;
   await assignLegacyCaseTitles(supabase, user.id);
   const titles = await titlesForUser(supabase, user.id);
-  const title = question?.trim()
-    ? uniqueCaseTitle(topicFromQuestion(question), titles)
-    : formatScopedTitle(scope, nextScopedNumber(scope, titles));
+  const composed = requestedTitle ? normalizeCaseTitle(requestedTitle) : null;
+  const fromQuestion = question?.trim() ? topicFromQuestion(question) : "";
+  const title = composed
+    ? uniqueCaseTitle(composed, titles)
+    : fromQuestion && !isPlaceholderTitle(fromQuestion)
+      ? uniqueCaseTitle(fromQuestion, titles)
+      : formatScopedTitle(scope, nextScopedNumber(scope, titles));
   const lawReference =
     scope === "plan" ? "Miljøvurderingslovens afsnit II, §§ 8–14" : "Miljøvurderingslovens afsnit III, §§ 15–25";
 

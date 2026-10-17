@@ -21,7 +21,7 @@ import {
   ChevronDown,
   Sparkles,
   Search,
-  CornerDownLeft,
+  ArrowUp,
   BookOpen,
   ArrowLeft,
   Copy,
@@ -438,14 +438,77 @@ export function CaseWorkspace({
     setStoredCaseTick((tick) => tick + 1);
   };
 
+  const namingTask = useRef<Promise<string | null> | null>(null);
+
+  const documentsForTitle = () =>
+    [filesRef.current.primary, ...filesRef.current.secondary]
+      .filter((file): file is CaseDocument => Boolean(file))
+      .map((file) => ({
+        name: file.name,
+        text: (fileTextRef.current.get(file.id) || file.text || "").slice(0, 6000),
+      }))
+      .filter((file) => file.text.trim());
+
+  const proposeCaseTitle = (question?: string) => {
+    if (!isPlaceholderTitle(savedTitle.current)) return Promise.resolve(null);
+    if (namingTask.current) return namingTask.current;
+    const documents = documentsForTitle();
+    if (!documents.length && !question?.trim()) return Promise.resolve(null);
+    const task = fetch("/api/case-title", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documents, scope, question: question || "" }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        return typeof data.title === "string" && data.title.trim() ? data.title.trim() : null;
+      })
+      .catch(() => null)
+      .finally(() => {
+        namingTask.current = null;
+      });
+    namingTask.current = task;
+    return task;
+  };
+
+  const applyCaseTitle = async (title: string) => {
+    if (!title || !isPlaceholderTitle(savedTitle.current)) return;
+    const id = activeCaseIdRef.current;
+    if (!isStoredCaseId(id)) {
+      savedTitle.current = title;
+      setTitleDraft(title);
+      return;
+    }
+    const res = await fetch(`/api/cases/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.case?.title) return;
+    savedTitle.current = data.case.title;
+    setTitleDraft(data.case.title);
+    titledFromQuestion.current = true;
+  };
+
+  const nameFromDocuments = () => {
+    void proposeCaseTitle().then((title) => {
+      if (title) void applyCaseTitle(title);
+    });
+  };
+
   const ensureSavedCase = async (question: string) => {
     const currentId = activeCaseIdRef.current;
+    await Promise.all([...pendingReads.current.values()]);
+    const proposed = isPlaceholderTitle(savedTitle.current) ? await proposeCaseTitle(question) : null;
+    const title = proposed && !isPlaceholderTitle(proposed) ? proposed : null;
+
     if (!isStoredCaseId(currentId)) {
       if (currentId !== "ny") return;
       const res = await fetch("/api/cases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scope, question }),
+        body: JSON.stringify({ scope, question, title }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.case?.id) {
@@ -460,7 +523,7 @@ export function CaseWorkspace({
       const res = await fetch(`/api/cases/${currentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify(title ? { title } : { question }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.case?.title) {
@@ -632,7 +695,10 @@ export function CaseWorkspace({
       );
     };
     markReading(true, "");
-    rememberDocumentText(id, file, (text) => markReading(false, text));
+    rememberDocumentText(id, file, (text) => {
+      markReading(false, text);
+      nameFromDocuments();
+    });
   };
 
   const handlePrimarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -644,6 +710,7 @@ export function CaseWorkspace({
     void saveCaseFile(document.id, file).catch(() => undefined);
     rememberDocumentText(document.id, file, (text) => {
       setPrimaryFile((current) => (current?.id === document.id ? { ...current, text, reading: false } : current));
+      nameFromDocuments();
     });
   };
 
@@ -672,6 +739,7 @@ export function CaseWorkspace({
         setSupplementaryFiles((prev) =>
           prev.map((current) => (current.id === item.id ? { ...current, text, reading: false } : current))
         );
+        nameFromDocuments();
       });
     }
   };
@@ -1184,12 +1252,20 @@ export function CaseWorkspace({
                         <button
                           type="button"
                           onClick={() => {
-                            const heading = msg.text.match(/^###\s+(.+)$/m)?.[1];
+                            const heading = msg.text.match(/^###\s+(.+)$/m)?.[1]?.replace(/^#+\s*/, "").trim() || "";
+                            const line = msg.text
+                              .split("\n")
+                              .map((item) => item.replace(/^#+\s*/, "").trim())
+                              .find((item) => item && !isPlaceholderTitle(item));
+                            const noteTitle =
+                              heading && !isPlaceholderTitle(heading)
+                                ? heading
+                                : !isPlaceholderTitle(savedTitle.current)
+                                  ? savedTitle.current
+                                  : line || "Sagsnotat";
                             const newNote: GeneratedNote = {
                               id: `note-${Date.now()}`,
-                              title: (heading || msg.text.split("\n").find((line) => line.trim()) || "Analysenotat")
-                                .replace(/^#+\s*/, "")
-                                .slice(0, 120),
+                              title: noteTitle.slice(0, 120),
                               caseType: scope === "plan" ? "Miljøvurdering af plan (afsnit II, §§ 8–14)" : "Konkret projekt (afsnit III, §§ 15–25)",
                               date: new Date().toLocaleString("da-DK", {
                                 day: "numeric",
@@ -1307,10 +1383,15 @@ export function CaseWorkspace({
                     <button
                       type="submit"
                       disabled={!inputPrompt.trim() || isAnalyzing}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F382C] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#14493a] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                      title="Send forespørgsel"
+                      aria-label="Send forespørgsel"
+                      className={`inline-flex items-center justify-center rounded-full p-2 transition-all cursor-pointer ${
+                        inputPrompt.trim() && !isAnalyzing
+                          ? "bg-slate-900 text-white hover:bg-slate-800"
+                          : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      }`}
                     >
-                      <span>{isAnalyzing ? "Analyserer..." : "Analysér"}</span>
-                      <CornerDownLeft className="w-3.5 h-3.5" />
+                      <ArrowUp className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
