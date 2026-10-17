@@ -25,6 +25,12 @@ export function renumberCitations<T>(text: string, sources: T[]): { text: string
   return { text: nextText, sources: [...cited, ...rest] };
 }
 
+export function colleagueReply(message: string, text: string): string {
+  const pastedQuestion = /\bskriver\b|\bspørger\b|e-mail|korrespondance/i.test(message);
+  if (!pastedQuestion) return text;
+  return text.replace(/^\s*Det er en præcis forvaltningsretlig vejledning, du har givet\.?\s*/i, "").trim();
+}
+
 export function splitLegalRisk(text: string): { text: string; warning?: string } {
   const match = text.match(/(?:^|\n)\s*(?:\*\*)?\s*Retslig risikofaktor:\s*(?:\*\*)?\s*([\s\S]+?)\s*$/i);
   if (!match || match.index === undefined) return { text };
@@ -194,8 +200,8 @@ KRITISK KOLLEGA:
 Brugeren er eksperten og projektlederen. Du er en kritisk faglig kollega, ikke en sekretær.
 Foreslå aldrig at skrive et udkast til et brev, en klage, et høringssvar eller en afgørelse. Skriv ikke dokumentet, heller ikke når brugeren beder om det. Giv i stedet den retlige analyse, så brugeren selv kan skrive.
 Opstil ikke næste skridt, en strategi eller en handlingsplan. Peg i stedet på et åbent retligt spørgsmål, en usikkerhed, en modstrid i nævnspraksis eller en sagsbehandlingsmæssig faldgrube. Vær ikke mere konkluderende, end kilderne bærer.
-Start ikke med ros. Hvis brugeren selv har givet en holdbar vurdering, må du højst skrive denne sætning og derefter gå til sagen: Det er en præcis forvaltningsretlig vejledning, du har givet.
-Når brugeren indsender en e-mail, en korrespondance eller en sagsakt, så find hvert direkte spørgsmål i teksten og analysér det. Overses det ikke. Et spørgsmål som "De kører vel bare videre så længe der ikke er en afgørelse?" skal analyseres, herunder om der er opsættende virkning, og hvad kilderne siger om håndhævelse. Giv brugeren modspillet, så brugeren selv kan svare borgeren. Opfind ikke en regel, kilderne ikke dækker.
+Start ikke med ros. Sætningen Det er en præcis forvaltningsretlig vejledning, du har givet, må kun bruges, når brugeren selv har fremsat en retlig vurdering, og kun som én kort sætning før analysen. Brug den ikke, når brugeren indsætter en andens spørgsmål.
+Når brugeren indsender en e-mail, en korrespondance eller en sagsakt, så find hvert direkte spørgsmål i teksten og start med analysen af det. Overses det ikke. Et spørgsmål som "De kører vel bare videre så længe der ikke er en afgørelse?" skal analyseres, herunder om der er opsættende virkning, og hvad kilderne siger om håndhævelse. Giv brugeren modspillet, så brugeren selv kan svare borgeren. Skriv ikke, hvad brugeren bør sige til borgeren. Opfind ikke en regel, kilderne ikke dækker.
 
 BEGREBSDISCIPLIN:
 Brug kun de lovdefinerede fagbegreber i deres lovbestemte betydning. Brug dem aldrig som hverdagssprog. Hvis brugeren beder dig screene, afgrænse eller miljøvurdere en uploadet fil i hverdagssprog, skal du læse sagsakten og svare på dens indhold. Kald ikke den gennemgang en screening, en afgrænsning eller en miljørapport. Sig kort, at de ord er myndighedens afgørelser, og gennemgå derefter dokumentet.
@@ -316,7 +322,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
                 .trim() || "Ingen analyse kunne genereres."
             : "Ingen analyse kunne genereres.";
 
-        const cited = renumberCitations(responseText, sources);
+        const cited = renumberCitations(colleagueReply(message, responseText), sources);
         const risk = splitLegalRisk(cited.text);
 
         return NextResponse.json({
@@ -356,7 +362,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           completion.choices[0]?.message?.content ||
           "Ingen analyse kunne genereres.";
 
-        const cited = renumberCitations(responseText, sources);
+        const cited = renumberCitations(colleagueReply(message, responseText), sources);
         const risk = splitLegalRisk(cited.text);
 
         return NextResponse.json({
@@ -386,7 +392,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
         savedOutput.map((item) => "- " + item.citation + "\n" + item.textSnippet).join("\n")
       : "";
 
-    const cited = renumberCitations(`${dynamicResponse.text}${outputNote}`, sources);
+    const cited = renumberCitations(colleagueReply(message, `${dynamicResponse.text}${outputNote}`), sources);
 
     return NextResponse.json({
       ...dynamicResponse,
