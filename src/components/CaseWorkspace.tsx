@@ -590,7 +590,7 @@ export function CaseWorkspace({
               name: file.name,
               text: fileTextRef.current.get(file.id) || file.text || "",
             })),
-          history: messages.slice(-4).map((m) => ({ sender: m.sender, text: m.text })),
+          history: messages.slice(-20).map((m) => ({ sender: m.sender, text: m.text })),
           output: generatedNotes
             .filter((note) => note.included)
             .map((note) => ({

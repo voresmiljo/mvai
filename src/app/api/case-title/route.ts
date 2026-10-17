@@ -4,10 +4,9 @@ import OpenAI from "openai";
 import { composeCaseTitle, normalizeCaseTitle, titleIsGrounded } from "@/lib/caseTitles";
 
 const instruction = `Du navngiver en dansk miljøsag ud fra sagsakterne.
-Svar kun med én titel.
-Formen er: [Lokalitet/Plan/Projekt] – [Miljøretligt kerneemne]
-Brug tankestreg. Højst 120 tegn.
-Opfind ikke sted, anlæg eller emne, som ikke står i materialet.
+Svar kun med det miljøretlige kerneemne. Tag ikke lokalitet, plannavn eller projekt med. Det står allerede i brugerfladen.
+Eksempler: VVM-screening & Bilag IV (Flagermus). Landzone-tilladelse & Nabostøj. VVM-miljøkonsekvensrapport & Fugletræk.
+Højst 120 tegn. Opfind ikke et emne, som ikke står i materialet.
 Brug aldrig Sag 1, Uploadet dokument, Sagsanalyse, Analysenotat, Notat, Ny sag eller Ny Miljøvurdering.
 Kald ikke et fagnotat for en miljørapport eller en miljøkonsekvensrapport.`;
 

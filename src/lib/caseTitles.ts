@@ -5,33 +5,6 @@ export function isPlaceholderTitle(title: string): boolean {
   return PLACEHOLDER_TITLE.test(title.trim());
 }
 
-function tidy(value: string): string {
-  return value.replace(/\s+/g, " ").trim().replace(/[.,:;]+$/g, "");
-}
-
-function sentenceCase(value: string): string {
-  const text = tidy(value);
-  if (!text) return "";
-  return text.charAt(0).toLocaleUpperCase("da-DK") + text.slice(1);
-}
-
-function findPlace(text: string): string | null {
-  const lokalplan = text.match(/lokalplan\s+\d+(?:[.\-]\d+)*(?:\s+[A-ZÆØÅ][\p{L}'-]*){0,4}/iu);
-  if (lokalplan) return sentenceCase(lokalplan[0]);
-
-  const park = text.match(/\b[A-ZÆØÅ][\p{L}'-]*(?:\s+[A-ZÆØÅ][\p{L}'-]*){0,3}\s+vindmøllepark(?:en)?/iu);
-  if (park) return tidy(park[0]).replace(/parken$/i, "park");
-
-  const plant = text.match(
-    /\b(solcelleanlæg(?:get)?|solceller|vindmøller)(?:\s+(?:ved|i))?(?:\s+[A-ZÆØÅ][\p{L}'-]+){1,3}/iu
-  );
-  if (plant) return sentenceCase(plant[0].replace(/anlægget/i, "anlæg"));
-
-  const named = text.match(/\b(?:ved|i)\s+([A-ZÆØÅ][\p{L}'-]+(?:\s+[A-ZÆØÅ][\p{L}'-]+){0,2})/u);
-  if (named) return tidy(named[1]);
-  return null;
-}
-
 function findTopics(text: string): string[] {
   const found: string[] = [];
   const add = (label: string) => {
@@ -46,7 +19,8 @@ function findTopics(text: string): string[] {
   if (/fugletræk|\bfugle\b/i.test(text)) add("Fugletræk");
   if (/natura\s*2000/i.test(text)) add("Natura 2000");
   if (/grundvand/i.test(text)) add("Grundvand");
-  if (/afgrænsning/i.test(text) && /miljørapport/i.test(text)) add("SMV-afgrænsning");
+  if (/smv-?afgrænsning|afgrænsning af miljørapport/i.test(text)) add("SMV-afgrænsning");
+  if (/habitatkonsekvens/i.test(text)) add("Habitatkonsekvensvurdering");
   return found.slice(0, 2);
 }
 
@@ -60,35 +34,30 @@ export function composeCaseTitle(parts: { name?: string; text?: string }[]): str
   const body = texts.join("\n").slice(0, 20000);
   const labels = names.join("\n");
   if (!body.trim() && !labels.trim()) return null;
-  const place = findPlace(body) || findPlace(labels);
   const topics = findTopics(`${body}\n${labels}`);
-  if (!place || topics.length === 0) return null;
-  return normalizeCaseTitle(`${place} – ${topics.join(" & ")}`);
+  if (topics.length === 0) return null;
+  return normalizeCaseTitle(topics.join(" & "));
 }
 
 const TITLE_STOP = new Set(["og", "ved", "for", "med", "den", "det", "som", "til", "fra", "eller", "samt", "efter", "uden", "ikke"]);
 
 export function titleIsGrounded(title: string, source: string): boolean {
   const hay = source.toLocaleLowerCase("da-DK");
-  const parts = title.split(" – ");
-  if (parts.length < 2) return false;
-  return parts.every((part) => {
-    const words = part
-      .toLocaleLowerCase("da-DK")
-      .split(/[^\p{L}\d]+/u)
-      .filter((word) => word.length > 2 && !TITLE_STOP.has(word));
-    return words.some((word) => hay.includes(word));
-  });
+  const words = title
+    .toLocaleLowerCase("da-DK")
+    .split(/[^\p{L}\d]+/u)
+    .filter((word) => word.length > 2 && !TITLE_STOP.has(word));
+  return words.some((word) => hay.includes(word));
 }
 
 export function normalizeCaseTitle(raw: string): string | null {
   let text = raw.replace(/\s+/g, " ").trim().replace(/^["'«»]+|["'«»]+$/g, "");
-  text = text.replace(/\s+[-–—]\s+/, " – ");
+  const sides = text.split(/\s+[-–—]\s+/).map((part) => part.trim()).filter(Boolean);
+  if (sides.length >= 2) text = sides[sides.length - 1];
   text = text.replace(/[.\s]+$/g, "");
   if (text.length > 120) text = text.slice(0, 120).trim();
-  if (!text.includes(" – ") || isPlaceholderTitle(text)) return null;
-  const [left, right] = text.split(" – ");
-  if (!left.trim() || !right.trim()) return null;
+  if (!text || text.length < 4 || isPlaceholderTitle(text)) return null;
+  if (findTopics(text).length === 0) return null;
   return text;
 }
 

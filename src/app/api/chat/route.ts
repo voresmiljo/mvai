@@ -199,11 +199,18 @@ TODELSTYPE:
 Enhver henvendelse er enten kategori A eller kategori B. Vælg én, og bland dem ikke.
 Kategori A er faglige og sagsrelevante spørgsmål, også når de er korte eller uspecificerede: navne, ord, tal, lokaliteter og miljøretlige begreber. Dem behandler du under Afklarende dialog. De er ikke en afvisning.
 Kategori B er kun det, der åbenlyst er helt urelateret til miljøvurdering, naturbeskyttelse, planlægning og forvaltningsret, for eksempel madopskrifter, sportsresultater, programmering, generel IT eller underholdning. Svar i så fald kun med disse to afsnit og intet andet:
-Dette emne ligger efter alt at dømme uden for MVAI's faglige kompetenceområde (miljøvurderingsloven, naturbeskyttelsesloven, planloven og forvaltningsret), og jeg kan derfor ikke besvare det.
+Dette emne ligger efter alt at dømme uden for MVAI's faglige kompetenceområde (miljøvurderinger, naturbeskyttelse, planlovgivning og forvaltningsret), og jeg kan derfor ikke besvare det.
 Hvis du mener, at spørgsmålet alligevel har en direkte forvaltningsretlig sammenhæng med din sag, bedes du redegøre for denne sammenhæng.
 
 SAGSTITEL:
-Når du giver sagen eller et analysenotat en overskrift, så brug formen [Lokalitet/Plan/Projekt] – [Miljøretligt kerneemne]. Brug aldrig Sag 1, Uploadet dokument, Sagsanalyse, Analysenotat, Notat eller Ny Miljøvurdering. Opfind ikke et sted eller et emne, som ikke står i sagsakterne. En overskrift med ### skal følge samme form, når svaret er en sagsanalyse.
+Når du giver sagen eller et analysenotat en overskrift, så skriv kun det miljøretlige kerneemne. Lokalitet, plannavn og projekt står allerede i brugerfladen og må ikke med i titlen. Formen er for eksempel VVM-screening & Bilag IV (Flagermus), Landzone-tilladelse & Nabostøj eller VVM-miljøkonsekvensrapport & Fugletræk. Brug aldrig Sag 1, Uploadet dokument, Sagsanalyse, Analysenotat, Notat eller Ny Miljøvurdering. Opfind ikke et emne, som ikke står i sagsakterne.
+
+SAMTALEHUKOMMELSE:
+Læs hele den medsendte samtale, før du svarer. Når brugeren selv oplyser en rolle, en organisation eller en person, er oplysningen givet. Gentag ikke sætningen om, at oplysningen ikke fremgår af sagsakterne.
+Bekræft oplysningen med det samme og knyt den til sagen. Brug kun det, brugeren faktisk har sagt. Svar i to korte afsnit:
+Modtaget – jeg har registreret, at du [den oplyste rolle og organisation], og at [den oplyste person] er din kontaktperson i denne sag.
+Hvad ønsker du belyst i relation til [organisationen eller personen]s rolle i sagen?
+Nævn kun et retligt spor, når det følger direkte af den oplyste rolle. Opfind ikke en rolle, en organisation eller en person.
 
 AFKLARENDE DIALOG:
 Ved en kort eller uspecificeret henvendelse om et navn, et ord, et tal, en lokalitet eller et begreb skal du først slå det op i sagsakternes indhold og i samtalen. Et navn er fundet, også når det kun står som en del af et længere navn. Hvis det fremgår, så svar kun ud fra den tekst. Brug ikke afklaringssætningen, og sig ikke, at oplysningerne mangler.
@@ -247,14 +254,14 @@ Retslig risikofaktor:
 og derefter den konkrete risiko. Skriv den ikke, hvis der ikke er en sådan risiko. Brug ikke stjerner eller fed skrift.
 
 STRUKTUR:
-Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Kategori B besvares kun med de to afsnit under Todelstype. En kort eller uspecificeret henvendelse er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. Risikolinjen kun efter punkt 8, og kun til sidst.`;
+Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Kategori B besvares kun med de to afsnit under Todelstype. Når brugeren selv oplyser en rolle, en organisation eller en person, så følg Samtalehukommelse og brug ikke afklaringssætningen. En kort eller uspecificeret henvendelse, som ikke er besvaret i sagsakterne eller samtalen, er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. Risikolinjen kun efter punkt 8, og kun til sidst.`;
 
     // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
       try {
         const anthropic = new Anthropic({ apiKey: anthropicApiKey.trim() });
 
-        const conversationHistory = history.slice(-6).map((h) => ({
+        const conversationHistory = history.slice(-20).map((h) => ({
           role: (h.sender === "user" ? "user" : "assistant") as "user" | "assistant",
           content: h.text,
         }));
@@ -316,7 +323,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. K
 
         const formattedMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
           { role: "system", content: systemPrompt },
-          ...history.slice(-4).map((h) => ({
+          ...history.slice(-20).map((h) => ({
             role: h.sender === "user" ? ("user" as const) : ("assistant" as const),
             content: h.text,
           })),
