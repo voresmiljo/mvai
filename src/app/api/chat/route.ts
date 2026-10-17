@@ -131,6 +131,12 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
       "Under hvert dokument står først navnet og derefter indholdet. Indholdet er filens tekst, ikke et nyt dokument. Sig aldrig, at du ikke kan læse eller tilgå uploadede filer. Hvis brugeren spørger, om du kan læse sagsakten, og indholdet er med, så svar sådan: Ja, jeg kan se sagsakten [dokumentnavn]. Dokumentet omhandler [kort resumé af indholdet]. Hvilke specifikke juridiske eller miljøfaglige forhold ønsker du belyst? Resuméet må kun bruge det medsendte indhold. Kald ikke dokumentet en miljørapport eller en miljøkonsekvensrapport, medmindre indholdet selv er det lovdefinerede dokument. Sagens titel er kun en overskrift. Hvis brugerens ord indgår i et dokuments indhold, også som del af et længere navn, er emnet fundet. Svar ud fra det indhold.",
     ];
     const fileContext = fileBlocks.join("\n\n");
+    const dialogue = history
+      .slice(-20)
+      .filter((item) => item && (item.sender === "user" || item.sender === "ai") && typeof item.text === "string" && item.text.trim())
+      .map((item) => `${item.sender === "user" ? "Bruger" : "MVAI"}: ${item.text.trim().slice(0, 2000)}`)
+      .join("\n")
+      .slice(0, 12000);
 
     // Hent retskilder via semantisk vektorsøgning i Supabase
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
@@ -205,9 +211,14 @@ Hvis du mener, at spørgsmålet alligevel har en direkte forvaltningsretlig samm
 SAGSTITEL:
 Når du giver sagen eller et analysenotat en overskrift, så skriv kun det miljøretlige kerneemne. Lokalitet, plannavn og projekt står allerede i brugerfladen og må ikke med i titlen. Formen er for eksempel VVM-screening & Bilag IV (Flagermus), Landzone-tilladelse & Nabostøj eller VVM-miljøkonsekvensrapport & Fugletræk. Brug aldrig Sag 1, Uploadet dokument, Sagsanalyse, Analysenotat, Notat eller Ny Miljøvurdering. Opfind ikke et emne, som ikke står i sagsakterne.
 
+SAMTALEN INDTIL NU:
+${dialogue || "Ingen tidligere beskeder."}
+Oplysninger i samtalen er givet af brugeren. De mangler ikke, selv om de ikke står i sagsakterne.
+
 SAMTALEHUKOMMELSE:
-Læs hele den medsendte samtale, før du svarer. Når brugeren selv oplyser en rolle, en organisation eller en person, er oplysningen givet. Gentag ikke sætningen om, at oplysningen ikke fremgår af sagsakterne.
-Bekræft oplysningen med det samme og knyt den til sagen. Brug kun det, brugeren faktisk har sagt. Svar i to korte afsnit:
+Læs samtalen ovenfor, før du svarer. Når brugeren selv oplyser en rolle, en organisation eller en person, er oplysningen givet. Gentag ikke sætningen om, at oplysningen ikke fremgår af sagsakterne.
+Hvis et navn står i samtalen, også kun i brugerens egen sætning, er navnet fundet. Spørgsmålet Hvem er Lisbeth? besvares ud fra den sætning, når brugeren har sagt, at Lisbeth er kontaktperson. Afklaringssætningen er da forbudt.
+Når brugeren oplyser rollen i den aktuelle besked, så bekræft den med det samme og knyt den til sagen. Brug kun det, brugeren faktisk har sagt. Svar i to korte afsnit:
 Modtaget – jeg har registreret, at du [den oplyste rolle og organisation], og at [den oplyste person] er din kontaktperson i denne sag.
 Hvad ønsker du belyst i relation til [organisationen eller personen]s rolle i sagen?
 Nævn kun et retligt spor, når det følger direkte af den oplyste rolle. Opfind ikke en rolle, en organisation eller en person.
