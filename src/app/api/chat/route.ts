@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { archiveAnswer, withSearchCoverage } from "@/lib/sourceInquiry";
 import { THEME_FOLDERS } from "@/lib/themeFolders";
 import { searchSupabaseLegalSources } from "@/lib/vectorSearch";
 
@@ -29,15 +30,6 @@ export function colleagueReply(message: string, text: string): string {
   const pastedQuestion = /\bskriver\b|\bspørger\b|e-mail|korrespondance/i.test(message);
   if (!pastedQuestion) return text;
   return text.replace(/^\s*Det er en præcis forvaltningsretlig vejledning, du har givet\.?\s*/i, "").trim();
-}
-
-export function splitLegalRisk(text: string): { text: string; warning?: string } {
-  const match = text.match(/(?:^|\n)\s*(?:\*\*)?\s*Retslig risikofaktor:\s*(?:\*\*)?\s*([\s\S]+?)\s*$/i);
-  if (!match || match.index === undefined) return { text };
-  const warning = match[1].replace(/\*\*/g, "").trim();
-  if (!warning) return { text };
-  const body = text.slice(0, match.index).replace(/\s+$/, "");
-  return { text: body || warning, warning };
 }
 
 interface RequestBody {
@@ -88,6 +80,16 @@ export async function POST(req: Request) {
         { error: "Et gyldigt spørgsmål skal angives." },
         { status: 400 }
       );
+    }
+
+    const directArchiveAnswer = await archiveAnswer(message);
+    if (directArchiveAnswer) {
+      return NextResponse.json({
+        text: `${directArchiveAnswer}\n\nSøgning foretaget i: hele arkivet`,
+        sources: [],
+        modelUsed: "",
+        isLiveLLM: false,
+      });
     }
 
     const scopeName =
@@ -270,13 +272,14 @@ Når du nævner et dokument ved navn, så brug den fulde officielle titel fra ki
 Svar kun på det, der spørges om. Hold svaret kort, direkte og sammenhængende. Et generelt spørgsmål klares i ét til tre korte afsnit.
 Når svaret har flere led, så brug ### til overskrifter med en tom linje før og efter. Brug nummererede lister til regler og punktopstillinger, der starter med *, under et hovedpunkt. Fed skrift kun på nøgleordet i starten af et punkt, ikke på hele sætninger.
 
-8. RETSLIG RISIKOFAKTOR:
-Skriv kun en risikolinje, hvis analysen viser en direkte procesrisiko, en ophævelsesrisiko ved klagenævnet eller manglende overholdelse af officialprincippet eller forsigtighedsprincippet. Afslut i så fald svaret med en linje, der begynder præcis sådan:
-Retslig risikofaktor: 
-og derefter den konkrete risiko. Skriv den ikke, hvis der ikke er en sådan risiko. Brug ikke stjerner eller fed skrift.
+8. RETSLIG RISIKO:
+Skriv ikke overskriften Retslig risikofaktor eller Risikoadvarsel. Hvis analysen viser en direkte procesrisiko, en ophævelsesrisiko ved klagenævnet eller manglende overholdelse af officialprincippet eller forsigtighedsprincippet, så flet den ind i brødteksten som en almindelig sætning. Skriv den ikke, hvis der ikke er en sådan risiko.
+
+KILDETRANSPARENS:
+Udskriv ikke en liste over alle kilder i alle mapper. Spørgsmål om, hvorvidt en bestemt kilde indgår, besvares uden for denne instruks ud fra arkivet. Skriv ikke selv linjen Søgning foretaget i. Den sættes på svaret bagefter.
 
 STRUKTUR:
-Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Følg Kritisk kollega: intet udkast, ingen handlingsplan og ingen indledende ros. Et direkte spørgsmål i indsat korrespondance skal analyseres. Kategori B besvares kun med de to afsnit under Todelstype. Når brugeren selv oplyser en rolle, en organisation eller en person, og ikke stiller et retligt spørgsmål, så følg Samtalehukommelse: kun bekræftelsen, uden opfølgende spørgsmål, og brug ikke afklaringssætningen. En kort eller uspecificeret henvendelse, som ikke er besvaret i sagsakterne eller samtalen, er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. Risikolinjen kun efter punkt 8, og kun til sidst.`;
+Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Følg Kritisk kollega: intet udkast, ingen handlingsplan og ingen indledende ros. Et direkte spørgsmål i indsat korrespondance skal analyseres. Kategori B besvares kun med de to afsnit under Todelstype. Når brugeren selv oplyser en rolle, en organisation eller en person, og ikke stiller et retligt spørgsmål, så følg Samtalehukommelse: kun bekræftelsen, uden opfølgende spørgsmål, og brug ikke afklaringssætningen. En kort eller uspecificeret henvendelse, som ikke er besvaret i sagsakterne eller samtalen, er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. En risiko skrives ind i brødteksten, aldrig som egen overskrift.`;
 
     // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
@@ -323,11 +326,9 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
             : "Ingen analyse kunne genereres.";
 
         const cited = renumberCitations(colleagueReply(message, responseText), sources);
-        const risk = splitLegalRisk(cited.text);
 
         return NextResponse.json({
-          text: risk.text,
-          warning: risk.warning,
+          text: withSearchCoverage(cited.text, themes),
           sources: cited.sources,
           modelUsed: usedModel,
           isLiveLLM: true,
@@ -363,11 +364,9 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           "Ingen analyse kunne genereres.";
 
         const cited = renumberCitations(colleagueReply(message, responseText), sources);
-        const risk = splitLegalRisk(cited.text);
 
         return NextResponse.json({
-          text: risk.text,
-          warning: risk.warning,
+          text: withSearchCoverage(cited.text, themes),
           sources: cited.sources,
           modelUsed: "GPT-4o",
           isLiveLLM: true,
@@ -396,7 +395,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
 
     return NextResponse.json({
       ...dynamicResponse,
-      text: cited.text,
+      text: withSearchCoverage(cited.text, themes),
       sources: cited.sources,
       modelUsed: "",
       isLiveLLM: false,

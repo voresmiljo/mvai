@@ -126,6 +126,13 @@ export function AnswerBody<T extends CitationSource>({
             </ul>
           );
         }
+        if (/^Søgning foretaget i:/.test(block.text)) {
+          return (
+            <p key={index} className="pt-1 text-[11px] italic leading-snug text-slate-400">
+              {block.text}
+            </p>
+          );
+        }
         return <p key={index}>{line(block.text)}</p>;
       })}
     </div>
