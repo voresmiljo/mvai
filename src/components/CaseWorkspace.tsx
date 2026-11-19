@@ -9,6 +9,7 @@ import { loadCaseFile, saveCaseFile } from "@/lib/caseFileStore";
 import type { CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { downloadNote } from "@/lib/noteDownload";
+import { isOutputSaveOnly, outputDraft } from "@/lib/outputSave";
 import { sourceMeta } from "@/lib/sourceLevel";
 import { buildQuestion } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
@@ -567,6 +568,48 @@ export function CaseWorkspace({
 
     void touchStoredCase(activeCaseIdRef.current);
     await Promise.all([...pendingReads.current.values()]);
+
+    const draft = outputDraft(
+      userText,
+      messages.map((item) => ({ sender: item.sender, text: item.text }))
+    );
+    if (draft && "content" in draft) {
+      setGeneratedNotes((prev) => [
+        {
+          id: `note-${Date.now()}`,
+          title: draft.title,
+          caseType:
+            scope === "plan"
+              ? "Miljøvurdering af plan (afsnit II, §§ 8–14)"
+              : "Konkret projekt (afsnit III, §§ 15–25)",
+          date: new Date().toLocaleString("da-DK", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          format: "docx",
+          content: draft.content,
+          included: false,
+        },
+        ...prev,
+      ]);
+      setRightPanelTab("notater");
+    }
+    if (draft && isOutputSaveOnly(userText)) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now() + 1}`,
+          sender: "ai",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: "content" in draft ? "Lagt i output." : "Der er ingen tidligere tekst at lægge i output.",
+        },
+      ]);
+      setIsAnalyzing(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/chat", {
@@ -1674,7 +1717,7 @@ export function CaseWorkspace({
                     <div className="mt-12 text-center text-slate-400 p-6">
                       <FileCode className="w-8 h-8 mx-auto mb-2 opacity-40" />
                       <p className="text-xs">
-                        Intet output endnu. Gem et svar fra chatten med Gem i output.
+                        Intet output endnu. Gem et svar med Gem i output, eller bed om at lægge en tekst i output.
                       </p>
                     </div>
                   )}
