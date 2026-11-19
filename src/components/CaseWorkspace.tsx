@@ -548,29 +548,11 @@ export function CaseWorkspace({
     setInputPrompt("");
     setIsAnalyzing(true);
 
-    try {
-      await ensureSavedCase(userText);
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `msg-${Date.now() + 1}`,
-          sender: "ai",
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          text: err instanceof Error ? err.message : "Sagen kunne ikke gemmes.",
-        },
-      ]);
-      setIsAnalyzing(false);
-      return;
-    }
-
-    void touchStoredCase(activeCaseIdRef.current);
-    await Promise.all([...pendingReads.current.values()]);
-
     const draft = outputDraft(
       userText,
       messages.map((item) => ({ sender: item.sender, text: item.text }))
     );
+    const saveOnly = Boolean(draft && isOutputSaveOnly(userText));
     if (draft && "content" in draft) {
       const noteId = `note-${Date.now()}`;
       setOpenNoteId(noteId);
@@ -597,7 +579,7 @@ export function CaseWorkspace({
       ]);
       setRightPanelTab("notater");
     }
-    if (draft && isOutputSaveOnly(userText)) {
+    if (saveOnly && draft) {
       setMessages((prev) => [
         ...prev,
         {
@@ -608,8 +590,29 @@ export function CaseWorkspace({
         },
       ]);
       setIsAnalyzing(false);
+    }
+
+    try {
+      await ensureSavedCase(userText);
+    } catch (err) {
+      if (saveOnly) return;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now() + 1}`,
+          sender: "ai",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: err instanceof Error ? err.message : "Sagen kunne ikke gemmes.",
+        },
+      ]);
+      setIsAnalyzing(false);
       return;
     }
+
+    void touchStoredCase(activeCaseIdRef.current);
+    await Promise.all([...pendingReads.current.values()]);
+
+    if (saveOnly) return;
 
     try {
       const res = await fetch("/api/chat", {
