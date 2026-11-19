@@ -1053,7 +1053,10 @@ export function CaseWorkspace({
                     <input
                       type="checkbox"
                       checked={primaryFile.included}
-                      onChange={() => {}}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={togglePrimaryFile}
+                      aria-label="Brug det primære dokument som kilde i næste spørgsmål"
+                      title="Brug som kilde i næste spørgsmål"
                       className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
                     />
                     <span className={`min-w-0 flex-1 truncate font-semibold ${primaryFile.included ? "text-[#0F382C]" : "text-slate-700"}`}>
@@ -1078,7 +1081,10 @@ export function CaseWorkspace({
                       <input
                         type="checkbox"
                         checked={file.included}
-                        onChange={() => {}}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={() => toggleSupplementaryFile(file.id)}
+                        aria-label={`Brug ${file.name} som kilde i næste spørgsmål`}
+                        title="Brug som kilde i næste spørgsmål"
                         className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
                       />
                       <span className={`min-w-0 flex-1 truncate font-semibold ${file.included ? "text-[#0F382C]" : "text-slate-700"}`}>
@@ -1102,7 +1108,17 @@ export function CaseWorkspace({
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(primaryFile?.included)}
+                    disabled={!primaryFile}
+                    onChange={togglePrimaryFile}
+                    aria-label="Brug det primære dokument som kilde i næste spørgsmål"
+                    title="Brug som kilde i næste spørgsmål"
+                    className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C] disabled:opacity-40"
+                  />
                 <div
                   ref={primaryAnchorRef}
                   className="relative"
@@ -1136,6 +1152,28 @@ export function CaseWorkspace({
                     onMouseLeave={releasePrimaryMenu}
                   />
                 </div>
+                </div>
+
+                {supplementaryFiles.map((file) => (
+                  <label
+                    key={file.id}
+                    className={`inline-flex h-8 max-w-[14rem] items-center gap-1.5 rounded-lg border px-2 text-xs ${
+                      file.included
+                        ? "border-emerald-600/40 bg-white text-[#0F382C]"
+                        : "border-slate-200 bg-white/60 text-slate-600"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={file.included}
+                      onChange={() => toggleSupplementaryFile(file.id)}
+                      aria-label={`Brug ${file.name} som kilde i næste spørgsmål`}
+                      title="Brug som kilde i næste spørgsmål"
+                      className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+                    />
+                    <span className="truncate font-semibold">{file.name}</span>
+                  </label>
+                ))}
 
                 <div
                   ref={secondaryAnchorRef}
