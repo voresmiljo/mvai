@@ -14,7 +14,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh, configured, loading } = useAuth();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -38,18 +38,28 @@ function LoginForm() {
     setSubmitting(true);
 
     try {
-      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
+      const endpoint =
+        mode === "login" ? "/api/auth/login" : mode === "signup" ? "/api/auth/signup" : "/api/auth/recover";
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          mode === "signup" ? { email, password, passwordConfirm } : { email, password }
+          mode === "signup"
+            ? { email, password, passwordConfirm }
+            : mode === "reset"
+              ? { email }
+              : { email, password }
         ),
       });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         setError(data.error || "Login kunne ikke gennemføres.");
+        return;
+      }
+
+      if (mode === "reset") {
+        setInfo(data.message || "Hvis der findes en konto, er linket sendt.");
         return;
       }
 
@@ -75,10 +85,12 @@ function LoginForm() {
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-xs">
           <h1 className="text-xl font-extrabold text-slate-900">
-            {mode === "login" ? "Log ind" : "Opret konto"}
+            {mode === "login" ? "Log ind" : mode === "signup" ? "Opret konto" : "Glemt adgangskode"}
           </h1>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
-            Når du er logget ind i denne browser, åbner mvai.dk direkte på dine sager. Du bliver, indtil du trykker Log ud.
+            {mode === "reset"
+              ? "Skriv e-mailen fra kontoen. Hvis den findes, sender vi et link til en ny adgangskode fra kontakt@mvai.dk."
+              : "Når du er logget ind i denne browser, åbner mvai.dk direkte på dine sager. Du bliver, indtil du trykker Log ud."}
           </p>
 
           {!loading && !configured && (
@@ -99,6 +111,7 @@ function LoginForm() {
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal focus:border-[#0F382C] focus:outline-none"
               />
             </label>
+            {mode !== "reset" && (
             <label className="block text-xs font-semibold text-slate-700">
               Adgangskode
               <input
@@ -111,6 +124,7 @@ function LoginForm() {
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal focus:border-[#0F382C] focus:outline-none"
               />
             </label>
+            )}
             {mode === "signup" && (
               <label className="block text-xs font-semibold text-slate-700">
                 Gentag adgangskode
@@ -139,22 +153,37 @@ function LoginForm() {
               disabled={submitting || (!loading && !configured)}
               className="w-full rounded-lg bg-[#0F382C] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#14493a] disabled:opacity-50"
             >
-              {submitting ? "Arbejder..." : mode === "login" ? "Log ind" : "Opret konto"}
+              {submitting ? "Arbejder..." : mode === "login" ? "Log ind" : mode === "signup" ? "Opret konto" : "Send link"}
             </button>
           </form>
 
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === "login" ? "signup" : "login");
-              setPasswordConfirm("");
-              setError("");
-              setInfo("");
-            }}
-            className="mt-4 text-xs font-semibold text-[#0F382C] hover:underline"
-          >
-            {mode === "login" ? "Ny bruger? Opret konto" : "Har du allerede en konto? Log ind"}
-          </button>
+          <div className="mt-4 flex flex-col items-start gap-2">
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("reset");
+                  setError("");
+                  setInfo("");
+                }}
+                className="text-xs font-semibold text-[#0F382C] hover:underline"
+              >
+                Glemt adgangskode
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "login" ? "signup" : "login");
+                setPasswordConfirm("");
+                setError("");
+                setInfo("");
+              }}
+              className="text-xs font-semibold text-[#0F382C] hover:underline"
+            >
+              {mode === "login" ? "Ny bruger? Opret konto" : "Har du allerede en konto? Log ind"}
+            </button>
+          </div>
         </div>
       </main>
     </div>

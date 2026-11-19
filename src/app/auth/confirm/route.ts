@@ -26,7 +26,10 @@ export async function GET(req: Request) {
 
   if (tokenHash && type) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-    if (!error) return NextResponse.redirect(destination);
+    if (!error) {
+      const target = type === "recovery" ? new URL("/login/ny-kode", url.origin) : destination;
+      return NextResponse.redirect(target);
+    }
   }
 
   return NextResponse.redirect(loginUrl);
