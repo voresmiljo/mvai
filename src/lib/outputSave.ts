@@ -43,6 +43,19 @@ export function createdOutputTitle(message: string): string {
   return "Sagsnotat";
 }
 
+const OUTPUT_HEADING = /^(?:#{1,6}\s+)?(?:\*\*)?output(?:\*\*)?\s*:?\s*$/i;
+const CHROME_LINE = /^(?:\+\s*)?(?:gem i output|kopier tekst)\s*$/i;
+
+export function resumeText(text: string): string {
+  const withoutCoverage = text.replace(/\n*_?Søgning foretaget i:[^\n]*_?\s*$/i, "").trim();
+  const lines = withoutCoverage.split("\n");
+  const cut = lines.findIndex((line) => OUTPUT_HEADING.test(line.trim()));
+  return (cut >= 0 ? lines.slice(0, cut) : lines)
+    .filter((line) => !CHROME_LINE.test(line.trim()))
+    .join("\n")
+    .trim();
+}
+
 export function asksToSaveOutput(message: string): boolean {
   const text = message.trim();
   if (/\bhvordan\b/iu.test(text)) return false;

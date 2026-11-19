@@ -9,7 +9,7 @@ import { loadCaseFile, saveCaseFile } from "@/lib/caseFileStore";
 import { prepareRoomSave, type CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { downloadNote } from "@/lib/noteDownload";
-import { asksToCreateOutput, createdOutputTitle, isOutputSaveOnly, outputDraft } from "@/lib/outputSave";
+import { asksToCreateOutput, createdOutputTitle, isOutputSaveOnly, outputDraft, resumeText } from "@/lib/outputSave";
 import { sourceMeta } from "@/lib/sourceLevel";
 import { buildQuestion } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
@@ -67,6 +67,7 @@ interface ChatMessage {
   warning?: string;
   sources?: SourceSnippet[];
   modelUsed?: string;
+  placedInOutput?: boolean;
 }
 
 interface GeneratedNote {
@@ -697,24 +698,25 @@ export function CaseWorkspace({
       }
 
       const data = await res.json();
-
-      const aiMsg: ChatMessage = {
-        id: `msg-${Date.now() + 1}`,
-        sender: "ai",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        text: data.text,
-        warning: data.warning,
-        sources: data.sources || [],
-        modelUsed: data.modelUsed,
-      };
-
-      setMessages((prev) => [...prev, aiMsg]);
-      const reply = typeof data.text === "string" ? data.text.trim() : "";
+      const rawReply = typeof data.text === "string" ? data.text.trim() : "";
+      const reply = createOutput ? resumeText(rawReply) : rawReply;
       const usableReply =
         data.isLiveLLM === true &&
         reply.length >= 20 &&
         !/^(?:Jeg kan ikke gemme|Der er på nuværende tidspunkt ikke uploadet|Lagt i output|Sagen kunne ikke|Fejl fra)/.test(reply);
-      if (createOutput && usableReply) {
+      const aiMsg: ChatMessage = {
+        id: `msg-${Date.now() + 1}`,
+        sender: "ai",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        text: reply,
+        warning: data.warning,
+        sources: data.sources || [],
+        modelUsed: data.modelUsed,
+        placedInOutput: createOutput && usableReply,
+      };
+
+      setMessages((prev) => [...prev, aiMsg]);
+      if (aiMsg.placedInOutput) {
         storeOutput(createdOutputTitle(userText), reply);
       }
     } catch {
@@ -1374,6 +1376,7 @@ export function CaseWorkspace({
                           </button>
                         </div>
 
+                        {!msg.placedInOutput && (
                         <button
                           type="button"
                           onClick={() => {
@@ -1411,6 +1414,7 @@ export function CaseWorkspace({
                         >
                           + Gem i output
                         </button>
+                        )}
                       </div>
                       {feedbackOpenId === msg.id && feedbackState[msg.id] !== "sent" && (
                         <form
