@@ -9,7 +9,7 @@ import { loadCaseFile, saveCaseFile } from "@/lib/caseFileStore";
 import { prepareRoomSave, type CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { downloadNote } from "@/lib/noteDownload";
-import { isOutputSaveOnly, outputDraft } from "@/lib/outputSave";
+import { asksToCreateOutput, createdOutputTitle, isOutputSaveOnly, outputDraft } from "@/lib/outputSave";
 import { sourceMeta } from "@/lib/sourceLevel";
 import { buildQuestion } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
@@ -571,6 +571,33 @@ export function CaseWorkspace({
     }
   };
 
+  const storeOutput = (title: string, content: string) => {
+    const noteId = `note-${Date.now()}`;
+    setOpenNoteId(noteId);
+    setGeneratedNotes((prev) => [
+      {
+        id: noteId,
+        title: title.slice(0, 120),
+        caseType:
+          scope === "plan"
+            ? "Miljøvurdering af plan (afsnit II, §§ 8–14)"
+            : "Konkret projekt (afsnit III, §§ 15–25)",
+        date: new Date().toLocaleString("da-DK", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        format: "docx",
+        content,
+        included: false,
+      },
+      ...prev,
+    ]);
+    setRightPanelTab("notater");
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputPrompt.trim() || isAnalyzing) return;
@@ -592,31 +619,9 @@ export function CaseWorkspace({
       messages.map((item) => ({ sender: item.sender, text: item.text }))
     );
     const saveOnly = Boolean(draft && isOutputSaveOnly(userText));
+    const createOutput = asksToCreateOutput(userText);
     if (draft && "content" in draft) {
-      const noteId = `note-${Date.now()}`;
-      setOpenNoteId(noteId);
-      setGeneratedNotes((prev) => [
-        {
-          id: noteId,
-          title: draft.title,
-          caseType:
-            scope === "plan"
-              ? "Miljøvurdering af plan (afsnit II, §§ 8–14)"
-              : "Konkret projekt (afsnit III, §§ 15–25)",
-          date: new Date().toLocaleString("da-DK", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          format: "docx",
-          content: draft.content,
-          included: false,
-        },
-        ...prev,
-      ]);
-      setRightPanelTab("notater");
+      storeOutput(draft.title, draft.content);
     }
     if (saveOnly && draft) {
       setMessages((prev) => [
@@ -704,6 +709,14 @@ export function CaseWorkspace({
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+      const reply = typeof data.text === "string" ? data.text.trim() : "";
+      const usableReply =
+        data.isLiveLLM === true &&
+        reply.length >= 20 &&
+        !/^(?:Jeg kan ikke gemme|Der er på nuværende tidspunkt ikke uploadet|Lagt i output|Sagen kunne ikke|Fejl fra)/.test(reply);
+      if (createOutput && usableReply) {
+        storeOutput(createdOutputTitle(userText), reply);
+      }
     } catch {
       // Graceful fallback
       const aiMsg: ChatMessage = {

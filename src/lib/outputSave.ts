@@ -27,6 +27,22 @@ function instructionPattern(): RegExp {
   );
 }
 
+const CREATE_OUTPUT =
+  /\b(?:sammenfat(?:te[rs]?|ning)?|opsummer(?:e[rs]?|ing)?|resum[eé](?:r(?:e|et|ing)?)?|referat|overblik)\b/iu;
+
+export function asksToCreateOutput(message: string): boolean {
+  return CREATE_OUTPUT.test(message) && asksToSaveOutput(message);
+}
+
+export function createdOutputTitle(message: string): string {
+  if (/\bresum/iu.test(message)) return "Resume";
+  if (/\bsammenfat/iu.test(message)) return "Sammenfatning";
+  if (/\bopsummer/iu.test(message)) return "Opsummering";
+  if (/\breferat/iu.test(message)) return "Referat";
+  if (/\boverblik/iu.test(message)) return "Overblik";
+  return "Sagsnotat";
+}
+
 export function asksToSaveOutput(message: string): boolean {
   const text = message.trim();
   if (/\bhvordan\b/iu.test(text)) return false;
@@ -37,7 +53,7 @@ export function asksToSaveOutput(message: string): boolean {
 }
 
 export function isOutputSaveOnly(message: string): boolean {
-  if (!asksToSaveOutput(message)) return false;
+  if (!asksToSaveOutput(message) || asksToCreateOutput(message)) return false;
   const rest = message.replace(instructionPattern(), " ").replace(/\s+/g, " ").trim();
   if (rest.includes("?") && /\p{L}/u.test(rest)) return false;
   return rest.replace(/[?\s.!,]+/g, "").length < 40;
@@ -94,7 +110,7 @@ function noteTitle(content: string): string {
 }
 
 export function outputDraft(message: string, history: OutputTurn[]): OutputDraft | { empty: true } | null {
-  if (!asksToSaveOutput(message)) return null;
+  if (!asksToSaveOutput(message) || asksToCreateOutput(message)) return null;
 
   const attached = ownText(message);
   const wantsMail = /\b(e-?mail|mailen|mail|korrespondance|indsat)\b/iu.test(message);
