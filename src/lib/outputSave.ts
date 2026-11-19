@@ -44,7 +44,17 @@ export function isOutputSaveOnly(message: string): boolean {
 }
 
 function ownText(message: string): string {
-  return message.replace(instructionPattern(), "\n").replace(/\s+/g, " ").trim();
+  return message
+    .replace(instructionPattern(), "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line) return false;
+      const rest = line.replace(instructionPattern(), " ").replace(/\s+/g, " ").trim();
+      return !(SAVE_REQUEST.test(line) && rest.replace(/[?\s.!,]+/g, "").length < 15);
+    })
+    .join("\n")
+    .trim();
 }
 
 function usableText(text: string): boolean {
@@ -79,7 +89,7 @@ function noteTitle(content: string): string {
   const line = content
     .split("\n")
     .map((item) => item.trim())
-    .find((item) => item.length > 12 && !/^hej\b/iu.test(item));
+    .find((item) => item.length > 0 && !/^hej\b/iu.test(item));
   return (line || "Sagsnotat").slice(0, 120);
 }
 
@@ -91,7 +101,7 @@ export function outputDraft(message: string, history: OutputTurn[]): OutputDraft
   const wantsReply = /\b(dit svar|svaret|analysen|notatet|dit notat)\b/iu.test(message);
 
   let content = "";
-  if (attached.length >= 40) content = attached;
+  if (attached.length > 0) content = attached;
   else if (wantsMail && !wantsReply) content = lastText(history, "user");
   else if (wantsReply && !wantsMail) content = lastText(history, "ai");
   else {
@@ -104,6 +114,6 @@ export function outputDraft(message: string, history: OutputTurn[]): OutputDraft
     }
   }
 
-  if (content.length < 20) return { empty: true };
+  if (!content || (attached.length === 0 && content.length < 20)) return { empty: true };
   return { title: noteTitle(content), content };
 }
