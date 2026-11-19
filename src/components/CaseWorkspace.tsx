@@ -27,7 +27,6 @@ import {
   ArrowLeft,
   Copy,
   Check,
-  Pencil,
   Trash2,
   FileCode,
   ThumbsUp,
@@ -371,8 +370,7 @@ export function CaseWorkspace({
 
   // Generated long-form notes / outputs in studio
   const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>(restored?.notes ?? []);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState("");
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [sourceExpanded, setSourceExpanded] = useState(false);
   const [downloadMenuId, setDownloadMenuId] = useState<string | null>(null);
   const roomSnapshot = useRef("");
@@ -574,9 +572,11 @@ export function CaseWorkspace({
       messages.map((item) => ({ sender: item.sender, text: item.text }))
     );
     if (draft && "content" in draft) {
+      const noteId = `note-${Date.now()}`;
+      setOpenNoteId(noteId);
       setGeneratedNotes((prev) => [
         {
-          id: `note-${Date.now()}`,
+          id: noteId,
           title: draft.title,
           caseType:
             scope === "plan"
@@ -1322,6 +1322,7 @@ export function CaseWorkspace({
                               included: false,
                             };
                             setGeneratedNotes((prev) => [newNote, ...prev]);
+                            setOpenNoteId(newNote.id);
                             setRightPanelTab("notater");
                           }}
                           className="text-[11px] font-semibold text-[#2E8B57] hover:underline"
@@ -1539,177 +1540,122 @@ export function CaseWorkspace({
 
             {/* FANE 2: GENEREREDE NOTATER / OUTPUTS */}
             {rightPanelTab === "notater" && (
-              <div className="p-4 space-y-4">
-                {generatedNotes.length > 0 && (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-bold text-[#0F382C]">
-                      Gemte analysenotater ({generatedNotes.length})
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          downloadNote(
-                            "Gemte analysenotater",
-                            generatedNotes.map((note) => `${note.title}\n${note.date}\n\n${note.content}`).join("\n\n"),
-                            "docx"
-                          )
-                        }
-                        className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                      >
-                        Eksporter alle som Word
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          downloadNote(
-                            "Gemte analysenotater",
-                            generatedNotes.map((note) => `${note.title}\n${note.date}\n\n${note.content}`).join("\n\n"),
-                            "pdf"
-                          )
-                        }
-                        className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                      >
-                        Eksporter alle som PDF
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-3">
+              <div className="p-4">
+                <div className="space-y-2">
                   {generatedNotes.length > 0 ? (
                     generatedNotes.map((note) => {
-                      const editing = editingNoteId === note.id;
-                      const sourceCount = note.content.match(/\[\d{1,2}\]/g)?.length || 0;
+                      const open = openNoteId === note.id;
                       return (
                       <div
                         key={note.id}
                         data-output-note={note.id}
-                        data-output-open="true"
-                        className="rounded-xl border border-slate-200 bg-white p-5 text-xs shadow-sm"
+                        data-output-open={open ? "true" : "false"}
+                        className={`rounded-lg border text-xs transition-all ${
+                          open
+                            ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
+                            : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
+                        }`}
                       >
-                        <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                          <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-emerald-800">
-                            <input
-                              type="checkbox"
-                              checked={note.included}
-                              onChange={() =>
-                                setGeneratedNotes((prev) =>
-                                  prev.map((item) =>
-                                    item.id === note.id ? { ...item, included: !item.included } : item
-                                  )
+                        <div
+                          aria-expanded={open}
+                          onClick={() => setOpenNoteId(open ? null : note.id)}
+                          className="flex cursor-pointer items-center gap-2.5 p-2.5"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={note.included}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={() =>
+                              setGeneratedNotes((prev) =>
+                                prev.map((item) =>
+                                  item.id === note.id ? { ...item, included: !item.included } : item
                                 )
-                              }
-                              aria-label={`Brug ${note.title} som kilde i næste spørgsmål`}
-                              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                            />
-                            Brug som kilde i næste spørgsmål
-                          </label>
-                        </div>
-                        <h3 className="text-base font-bold leading-snug text-slate-900">{note.title}</h3>
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          {note.date}
-                          {sourceCount ? ` • ${sourceCount} kilder` : ""}
-                        </p>
-                        {editing ? (
-                          <textarea
-                            value={noteDraft}
-                            onChange={(event) => setNoteDraft(event.target.value)}
-                            rows={8}
-                            className="mt-3 w-full rounded-lg border border-slate-300 p-3 text-sm text-slate-800 focus:outline-none focus:border-[#0F382C]"
+                              )
+                            }
+                            aria-label={`Brug ${note.title} som kilde i næste spørgsmål`}
+                            className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
                           />
-                        ) : (
-                          <div className="mt-3 max-h-72 overflow-y-auto">
-                            <AnswerBody text={note.content} />
-                          </div>
-                        )}
-                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                          <div className="flex flex-wrap items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (editing) {
-                                  setGeneratedNotes((prev) =>
-                                    prev.map((item) => (item.id === note.id ? { ...item, content: noteDraft } : item))
-                                  );
-                                  setEditingNoteId(null);
-                                  return;
-                                }
-                                setNoteDraft(note.content);
-                                setEditingNoteId(note.id);
-                              }}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                              {editing ? "Gem ændringer" : "Rediger"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyText(editing ? noteDraft : note.content, note.id)}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                              {copiedMsgId === note.id ? "Kopieret" : "Kopier"}
-                            </button>
-                            <div className="relative" data-output-download-root={note.id}>
+                          <span className={`min-w-0 flex-1 truncate font-semibold ${open ? "text-[#0F382C]" : "text-slate-700"}`}>
+                            {note.title}
+                          </span>
+                          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                        </div>
+                        {open && (
+                          <div className="border-t border-slate-100 px-3 pb-3 pt-2">
+                            <p className="text-[11px] text-slate-400">{note.date}</p>
+                            <div className="mt-2">
+                              <AnswerBody text={note.content} />
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                              <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyText(note.content, note.id)}
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                  {copiedMsgId === note.id ? "Kopieret" : "Kopier"}
+                                </button>
+                                <div className="relative" data-output-download-root={note.id}>
+                                  <button
+                                    type="button"
+                                    aria-haspopup="menu"
+                                    aria-expanded={downloadMenuId === note.id}
+                                    data-output-download-toggle={note.id}
+                                    onClick={() => setDownloadMenuId((current) => (current === note.id ? null : note.id))}
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Hent
+                                  </button>
+                                  {downloadMenuId === note.id && (
+                                    <div
+                                      role="menu"
+                                      data-output-download-menu={note.id}
+                                      className="absolute left-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                                    >
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        data-output-download="pdf"
+                                        onClick={() => {
+                                          downloadNote(note.title, note.content, "pdf");
+                                          setDownloadMenuId(null);
+                                        }}
+                                        className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 cursor-pointer"
+                                      >
+                                        Som PDF
+                                      </button>
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        data-output-download="docx"
+                                        onClick={() => {
+                                          downloadNote(note.title, note.content, "docx");
+                                          setDownloadMenuId(null);
+                                        }}
+                                        className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 cursor-pointer"
+                                      >
+                                        Som Word
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                               <button
                                 type="button"
-                                aria-haspopup="menu"
-                                aria-expanded={downloadMenuId === note.id}
-                                data-output-download-toggle={note.id}
-                                onClick={() => setDownloadMenuId((current) => (current === note.id ? null : note.id))}
-                                className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
+                                onClick={() => {
+                                  setGeneratedNotes((prev) => prev.filter((item) => item.id !== note.id));
+                                  if (openNoteId === note.id) setOpenNoteId(null);
+                                }}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:text-red-800 cursor-pointer"
                               >
-                                <Download className="w-3.5 h-3.5" />
-                                Hent
-                                <ChevronDown className="w-3 h-3" />
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Slet fra output
                               </button>
-                              {downloadMenuId === note.id && (
-                                <div
-                                  role="menu"
-                                  data-output-download-menu={note.id}
-                                  className="absolute left-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
-                                >
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    data-output-download="pdf"
-                                    onClick={() => {
-                                      downloadNote(note.title, editing ? noteDraft : note.content, "pdf");
-                                      setDownloadMenuId(null);
-                                    }}
-                                    className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 cursor-pointer"
-                                  >
-                                    Som PDF
-                                  </button>
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    data-output-download="docx"
-                                    onClick={() => {
-                                      downloadNote(note.title, editing ? noteDraft : note.content, "docx");
-                                      setDownloadMenuId(null);
-                                    }}
-                                    className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 cursor-pointer"
-                                  >
-                                    Som Word
-                                  </button>
-                                </div>
-                              )}
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setGeneratedNotes((prev) => prev.filter((item) => item.id !== note.id));
-                              if (editingNoteId === note.id) setEditingNoteId(null);
-                            }}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:text-red-800 cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Slet fra output
-                          </button>
-                        </div>
+                        )}
                       </div>
                       );
                     })
