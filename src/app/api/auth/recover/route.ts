@@ -28,12 +28,8 @@ export async function POST(req: Request) {
     if (text.includes("not found") || text.includes("user not")) {
       return NextResponse.json({ message: SENT });
     }
-    const detail = [error.message, error.code, error.status]
-      .filter((part) => part != null && part !== "")
-      .join(" | ")
-      .slice(0, 300);
-    console.error("Password recovery error:", detail);
-    return NextResponse.json({ error: danishAuthError(error.message), detail }, { status: 400 });
+    console.error("Password recovery error:", error.message);
+    return NextResponse.json({ error: danishAuthError(error.message) }, { status: 400 });
   }
 
   return NextResponse.json({ message: SENT });
