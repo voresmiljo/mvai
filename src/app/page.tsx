@@ -342,6 +342,7 @@ export default function DashboardPage() {
                       {!isEditing && (
                         <Link
                           href={`/sag/${c.id}?scope=${c.scope}`}
+                          prefetch={false}
                           aria-label={`Åbn ${c.title}`}
                           className="absolute inset-0 rounded-xl"
                         />

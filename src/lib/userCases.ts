@@ -199,6 +199,17 @@ export async function saveOwnCaseRoom(
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { error: "Login er ikke konfigureret." };
 
+  if (clean.savedAt) {
+    const { data: current } = await supabase
+      .from("cases")
+      .select("preview_summary")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const previous = parseCaseRoom((current as { preview_summary?: string | null } | null)?.preview_summary);
+    if (previous?.savedAt && clean.savedAt < previous.savedAt) return {};
+  }
+
   const name = primaryDocument?.trim().slice(0, 180) || null;
   const { error } = await supabase
     .from("cases")

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { AnswerBody } from "@/components/AnswerBody";
 import { loadCaseFile, saveCaseFile } from "@/lib/caseFileStore";
-import type { CaseRoom } from "@/lib/caseRoom";
+import { prepareRoomSave, type CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { downloadNote } from "@/lib/noteDownload";
 import { isOutputSaveOnly, outputDraft } from "@/lib/outputSave";
@@ -387,7 +387,8 @@ export function CaseWorkspace({
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [sourceExpanded, setSourceExpanded] = useState(false);
   const [downloadMenuId, setDownloadMenuId] = useState<string | null>(null);
-  const roomSnapshot = useRef("");
+  const lastSavedRoom = useRef<string | null>(null);
+  const skipFirstRoomSave = useRef(Boolean(restored));
   const [storedCaseTick, setStoredCaseTick] = useState(0);
 
   const [inputPrompt, setInputPrompt] = useState("");
@@ -397,38 +398,50 @@ export function CaseWorkspace({
   const [builderProblem, setBuilderProblem] = useState("");
   const [enhancing, setEnhancing] = useState(false);
 
-  useEffect(() => {
-    const snapshot = JSON.stringify({
-      messages,
-      primaryFile,
-      supplementaryFiles,
-      notes: generatedNotes,
-      themes: selectedThemes,
-    });
-    if (!roomSnapshot.current) {
-      roomSnapshot.current = snapshot;
-      return;
-    }
-    if (snapshot === roomSnapshot.current) return;
+  const roomStateRef = useRef({ messages, primaryFile, supplementaryFiles, notes: generatedNotes });
+  roomStateRef.current = { messages, primaryFile, supplementaryFiles, notes: generatedNotes };
+
+  const sendRoom = (keepalive: boolean) => {
     const id = activeCaseIdRef.current;
     if (!isStoredCaseId(id)) return;
-    roomSnapshot.current = snapshot;
+    const prepared = prepareRoomSave({ ...roomStateRef.current, themes: [] });
+    if (!prepared || prepared.canonical === lastSavedRoom.current) return;
+    const sent = prepared.canonical;
     void fetch(`/api/cases/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        room: {
-          messages,
-          primaryFile,
-          supplementaryFiles,
-          notes: generatedNotes,
-          themes: [],
-        },
-        primaryDocument: primaryFile?.name ?? null,
+        room: JSON.parse(prepared.stamped) as CaseRoom,
+        primaryDocument: roomStateRef.current.primaryFile?.name ?? null,
       }),
-      keepalive: true,
-    }).catch(() => undefined);
-  }, [messages, primaryFile, supplementaryFiles, generatedNotes, selectedThemes, storedCaseTick]);
+      keepalive,
+    })
+      .then((res) => {
+        if (!res.ok) return;
+        const latest = prepareRoomSave({ ...roomStateRef.current, themes: [] });
+        if (latest?.canonical === sent) lastSavedRoom.current = sent;
+      })
+      .catch(() => undefined);
+  };
+
+  useEffect(() => {
+    if (skipFirstRoomSave.current && isStoredCaseId(activeCaseIdRef.current)) {
+      const prepared = prepareRoomSave({ ...roomStateRef.current, themes: [] });
+      if (prepared) lastSavedRoom.current = prepared.canonical;
+      skipFirstRoomSave.current = false;
+      return;
+    }
+    sendRoom(true);
+  }, [messages, primaryFile, supplementaryFiles, generatedNotes, storedCaseTick]);
+
+  useEffect(() => {
+    const flush = () => sendRoom(true);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      sendRoom(true);
+    };
+  }, []);
 
   const handleToggleTheme = (themeId: string) => {
     if (selectedThemes.includes(themeId)) {

@@ -45,6 +45,7 @@ export type CaseRoom = {
   supplementaryFiles: StoredDocument[];
   notes: StoredNote[];
   themes: string[];
+  savedAt?: number;
 };
 
 function text(value: unknown, max: number): string {
@@ -77,7 +78,7 @@ function message(value: unknown): StoredMessage | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
   const id = text(row.id, 80);
-  const body = typeof row.text === "string" ? row.text.slice(0, 8000) : "";
+  const body = typeof row.text === "string" ? row.text.replace(/\u0000/g, "").slice(0, 8000) : "";
   if (!id || (row.sender !== "user" && row.sender !== "ai")) return null;
   const sources = Array.isArray(row.sources)
     ? row.sources.map(source).filter((item): item is StoredSource => item !== null).slice(0, 8)
@@ -111,13 +112,13 @@ function note(value: unknown): StoredNote | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
   const id = text(row.id, 80);
-  const content = typeof row.content === "string" ? row.content.slice(0, 8000) : "";
+  const content = typeof row.content === "string" ? row.content.replace(/\u0000/g, "").slice(0, 8000) : "";
   if (!id || !content) return null;
   return {
     id,
     title: text(row.title, 120) || "Output",
     caseType: text(row.caseType, 80),
-    date: text(row.date, 20),
+    date: text(row.date, 40),
     content,
     format: row.format === "pdf" ? "pdf" : "docx",
     included: row.included === true,
@@ -125,33 +126,54 @@ function note(value: unknown): StoredNote | null {
 }
 
 const ROOM_LIMIT = 350000;
+export const ROOM_SAVE_LIMIT = 60000;
 
 function documentWithoutText(file: StoredDocument): StoredDocument {
   return { id: file.id, name: file.name, included: file.included };
 }
 
-// Teksten kan fyldes op, så hele sagen afvises. Fluebenene skal med, også når teksten må udelades.
-export function caseRoomPayload(room: CaseRoom, max = ROOM_LIMIT): string {
-  const full = JSON.stringify(room);
-  if (full.length <= max) return full;
-
-  const lean: CaseRoom = {
+function shrinkRoom(room: CaseRoom, messages: number, messageText: number, noteText: number, keepSources: boolean): CaseRoom {
+  return {
     ...room,
     primaryFile: room.primaryFile ? documentWithoutText(room.primaryFile) : null,
     supplementaryFiles: room.supplementaryFiles.map(documentWithoutText),
-  };
-  const leanPayload = JSON.stringify(lean);
-  if (leanPayload.length <= max) return leanPayload;
-
-  return JSON.stringify({
-    ...lean,
-    messages: lean.messages.slice(-12).map((item) => ({
+    messages: room.messages.slice(-messages).map((item) => ({
       ...item,
-      text: item.text.slice(0, 2000),
-      sources: undefined,
+      text: item.text.slice(0, messageText),
+      sources: keepSources ? item.sources : undefined,
     })),
-    notes: lean.notes.map((item) => ({ ...item, content: item.content.slice(0, 4000) })),
-  });
+    notes: room.notes.map((item) => ({ ...item, content: item.content.slice(0, noteText) })),
+  };
+}
+
+// Teksten kan fyldes op, så hele sagen afvises. Output og flueben skal med, også når teksten må udelades.
+export function caseRoomPayload(room: CaseRoom, max = ROOM_LIMIT): string {
+  const candidates = [
+    room,
+    shrinkRoom(room, 40, 8000, 8000, true),
+    shrinkRoom(room, 12, 2000, 4000, false),
+    shrinkRoom(room, 6, 800, 2000, false),
+    shrinkRoom(room, 2, 200, 800, false),
+  ];
+  for (const candidate of candidates) {
+    const payload = JSON.stringify(candidate);
+    if (payload.length <= max) return payload;
+  }
+  return JSON.stringify(candidates[candidates.length - 1]);
+}
+
+let roomSaveSeq = 0;
+
+export function prepareRoomSave(
+  value: unknown,
+  max = ROOM_SAVE_LIMIT
+): { canonical: string; stamped: string } | null {
+  const clean = sanitizeCaseRoom(value);
+  if (!clean) return null;
+  const canonical = caseRoomPayload({ ...clean, savedAt: undefined }, max);
+  roomSaveSeq += 1;
+  const stamped = JSON.stringify({ ...JSON.parse(canonical), savedAt: Date.now() * 1000 + (roomSaveSeq % 1000) });
+  return { canonical, stamped };
 }
 
 export function sanitizeCaseRoom(value: unknown): CaseRoom | null {
@@ -171,6 +193,7 @@ export function sanitizeCaseRoom(value: unknown): CaseRoom | null {
       ? row.notes.map(note).filter((item): item is StoredNote => item !== null).slice(0, 20)
       : [],
     themes: [],
+    savedAt: typeof row.savedAt === "number" && Number.isFinite(row.savedAt) ? row.savedAt : undefined,
   };
 }
 
