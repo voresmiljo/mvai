@@ -88,6 +88,7 @@ function DocumentMenu({
   open,
   anchorRef,
   lines,
+  items,
   menuId,
   onMouseEnter,
   onMouseLeave,
@@ -95,6 +96,7 @@ function DocumentMenu({
   open: boolean;
   anchorRef: React.RefObject<HTMLDivElement | null>;
   lines: string[];
+  items?: { id: string; label: string; checked: boolean; onToggle: () => void }[];
   menuId: string;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
@@ -126,9 +128,10 @@ function DocumentMenu({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, anchorRef, lines]);
+  }, [open, anchorRef, lines, items]);
 
-  if (!open || lines.length === 0 || typeof document === "undefined") return null;
+  const rows = items && items.length > 0 ? items : lines.map((line, index) => ({ id: `${line}-${index}`, label: line, checked: undefined, onToggle: undefined }));
+  if (!open || rows.length === 0 || typeof document === "undefined") return null;
 
   const rect = anchorRef.current?.getBoundingClientRect();
 
@@ -145,9 +148,20 @@ function DocumentMenu({
       }}
       className="fixed max-h-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-xs text-slate-800 shadow-md"
     >
-      {lines.map((line, index) => (
-        <div key={`${line}-${index}`} className="whitespace-nowrap px-3 py-1">
-          {line}
+      {rows.map((row) => (
+        <div key={row.id} className="flex items-center gap-2 whitespace-nowrap px-3 py-1">
+          {row.onToggle ? (
+            <input
+              type="checkbox"
+              checked={Boolean(row.checked)}
+              onClick={(event) => event.stopPropagation()}
+              onChange={row.onToggle}
+              aria-label={`Brug ${row.label} som kilde i næste spørgsmål`}
+              title="Brug som kilde i næste spørgsmål"
+              className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+            />
+          ) : null}
+          <span>{row.label}</span>
         </div>
       ))}
     </div>,
@@ -1161,27 +1175,6 @@ export function CaseWorkspace({
                 </div>
                 </div>
 
-                {supplementaryFiles.map((file) => (
-                  <label
-                    key={file.id}
-                    className={`inline-flex h-8 max-w-[14rem] items-center gap-1.5 rounded-lg border px-2 text-xs ${
-                      file.included
-                        ? "border-emerald-600/40 bg-white text-[#0F382C]"
-                        : "border-slate-200 bg-white/60 text-slate-600"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={file.included}
-                      onChange={() => toggleSupplementaryFile(file.id)}
-                      aria-label={`Brug ${file.name} som kilde i næste spørgsmål`}
-                      title="Brug som kilde i næste spørgsmål"
-                      className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
-                    />
-                    <span className="truncate font-semibold">{file.name}</span>
-                  </label>
-                ))}
-
                 <div
                   ref={secondaryAnchorRef}
                   className="relative"
@@ -1211,7 +1204,13 @@ export function CaseWorkspace({
                   <DocumentMenu
                     open={secondaryMenuOpen}
                     anchorRef={secondaryAnchorRef}
-                    lines={supplementaryFiles.map((file) => file.name)}
+                    lines={[]}
+                    items={supplementaryFiles.map((file) => ({
+                      id: file.id,
+                      label: file.name,
+                      checked: file.included,
+                      onToggle: () => toggleSupplementaryFile(file.id),
+                    }))}
                     menuId="secondary"
                     onMouseEnter={holdSecondaryMenu}
                     onMouseLeave={releaseSecondaryMenu}
