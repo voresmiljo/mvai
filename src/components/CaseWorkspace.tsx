@@ -574,7 +574,6 @@ export function CaseWorkspace({
 
   const storeOutput = (title: string, content: string) => {
     const noteId = `note-${Date.now()}`;
-    setOpenNoteId(noteId);
     setGeneratedNotes((prev) => [
       {
         id: noteId,
@@ -1407,7 +1406,6 @@ export function CaseWorkspace({
                               included: false,
                             };
                             setGeneratedNotes((prev) => [newNote, ...prev]);
-                            setOpenNoteId(newNote.id);
                             setRightPanelTab("notater");
                           }}
                           className="text-[11px] font-semibold text-[#2E8B57] hover:underline"
