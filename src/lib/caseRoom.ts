@@ -124,6 +124,36 @@ function note(value: unknown): StoredNote | null {
   };
 }
 
+const ROOM_LIMIT = 350000;
+
+function documentWithoutText(file: StoredDocument): StoredDocument {
+  return { id: file.id, name: file.name, included: file.included };
+}
+
+// Teksten kan fyldes op, så hele sagen afvises. Fluebenene skal med, også når teksten må udelades.
+export function caseRoomPayload(room: CaseRoom, max = ROOM_LIMIT): string {
+  const full = JSON.stringify(room);
+  if (full.length <= max) return full;
+
+  const lean: CaseRoom = {
+    ...room,
+    primaryFile: room.primaryFile ? documentWithoutText(room.primaryFile) : null,
+    supplementaryFiles: room.supplementaryFiles.map(documentWithoutText),
+  };
+  const leanPayload = JSON.stringify(lean);
+  if (leanPayload.length <= max) return leanPayload;
+
+  return JSON.stringify({
+    ...lean,
+    messages: lean.messages.slice(-12).map((item) => ({
+      ...item,
+      text: item.text.slice(0, 2000),
+      sources: undefined,
+    })),
+    notes: lean.notes.map((item) => ({ ...item, content: item.content.slice(0, 4000) })),
+  });
+}
+
 export function sanitizeCaseRoom(value: unknown): CaseRoom | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;

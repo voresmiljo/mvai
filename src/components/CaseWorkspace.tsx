@@ -727,13 +727,13 @@ export function CaseWorkspace({
     const markReading = (reading: boolean, text?: string) => {
       if (kind === "primary") {
         setPrimaryFile((current) =>
-          current?.id === id ? { ...current, name: file.name, included: true, reading, text: text ?? current.text } : current
+          current?.id === id ? { ...current, name: file.name, reading, text: text ?? current.text } : current
         );
         return;
       }
       setSupplementaryFiles((current) =>
         current.map((item) =>
-          item.id === id ? { ...item, name: file.name, included: true, reading, text: text ?? item.text } : item
+          item.id === id ? { ...item, name: file.name, reading, text: text ?? item.text } : item
         )
       );
     };
@@ -748,7 +748,11 @@ export function CaseWorkspace({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    const document = { ...newCaseDocument(file.name), reading: true };
+    const current = filesRef.current.primary;
+    const document =
+      current && current.name === file.name
+        ? { ...current, reading: true }
+        : { ...newCaseDocument(file.name), reading: true };
     setPrimaryFile(document);
     void saveCaseFile(document.id, file).catch(() => undefined);
     rememberDocumentText(document.id, file, (text) => {
@@ -767,7 +771,7 @@ export function CaseWorkspace({
       const index = next.findIndex((item) => item.name === file.name && !item.text);
       if (index >= 0) {
         const id = next[index].id;
-        next[index] = { ...next[index], included: true, text: "", reading: true };
+        next[index] = { ...next[index], text: "", reading: true };
         placed.push({ id, file });
       } else {
         const document = { ...newCaseDocument(file.name), reading: true };

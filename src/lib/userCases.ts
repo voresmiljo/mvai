@@ -1,4 +1,4 @@
-import { parseCaseRoom, sanitizeCaseRoom, type CaseRoom } from "@/lib/caseRoom";
+import { caseRoomPayload, parseCaseRoom, sanitizeCaseRoom, type CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle, normalizeCaseTitle, topicFromQuestion, uniqueCaseTitle } from "@/lib/caseTitles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/session";
@@ -193,7 +193,7 @@ export async function saveOwnCaseRoom(
 
   const clean = sanitizeCaseRoom(room);
   if (!clean) return { error: "Samtalen kunne ikke gemmes." };
-  const payload = JSON.stringify(clean);
+  const payload = caseRoomPayload(clean);
   if (payload.length > 350000) return { error: "Samtalen er for lang til at gemme." };
 
   const supabase = await createSupabaseServerClient();
