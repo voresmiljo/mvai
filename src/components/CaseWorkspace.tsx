@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
@@ -381,6 +381,18 @@ export function CaseWorkspace({
 
   // Chat message state: starter altid helt rent med en velkomsthilsen
   const [messages, setMessages] = useState<ChatMessage[]>(restored?.messages ?? [welcomeMessage()]);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const scroller = chatScrollRef.current;
+    if (!scroller) return;
+    const pinToLatest = () => {
+      scroller.scrollTop = scroller.scrollHeight;
+    };
+    pinToLatest();
+    const frame = requestAnimationFrame(pinToLatest);
+    return () => cancelAnimationFrame(frame);
+  }, [messages]);
 
   // Generated long-form notes / outputs in studio
   const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>(restored?.notes ?? []);
@@ -1234,7 +1246,7 @@ export function CaseWorkspace({
           </div>
 
           {/* Chat Besvarelsesvindue */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
+          <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
             {messages.map((msg) => (
               <div
                 key={msg.id}
