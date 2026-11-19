@@ -18,6 +18,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 export function danishAuthError(message: string): string {
   const text = message.toLowerCase();
   if (text.startsWith("one.com:")) return message.replace(/\s+/g, " ").trim().slice(0, 200);
+  if (text.includes("fetch failed") || text.includes("kunne ikke finde login-serveren") || text.includes("login-serveren udløb")) {
+    return "Forbindelsen til login fejlede. Prøv igen om et øjeblik.";
+  }
   if (text.includes("invalid login")) return "E-mail eller adgangskode er forkert.";
   if (text.includes("email not confirmed")) return "Bekræft e-mailen, før du logger ind.";
   if (text.includes("already registered") || text.includes("already been registered")) {

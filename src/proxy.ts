@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAuthConfig } from "@/lib/supabase/env";
+import { ipv4Fetch } from "@/lib/supabase/ipv4Fetch";
 
 export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/api/auth/send-email.") {
@@ -15,6 +16,7 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(config.url, config.key, {
+    global: { fetch: ipv4Fetch },
     cookies: {
       getAll() {
         return request.cookies.getAll();
