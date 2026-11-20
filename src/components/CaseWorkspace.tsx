@@ -85,6 +85,63 @@ const AVAILABLE_THEMES: ThemeFolder[] = THEME_FOLDERS.map((folder) => ({
   count: 0,
 }));
 
+const VIEW_FLAP = 52;
+
+type UploadMenuItem = {
+  id: string;
+  label: string;
+  checked?: boolean;
+  onToggle?: () => void;
+  onView?: () => void;
+};
+
+function ViewFlap({
+  top,
+  left,
+  height,
+  label,
+  onView,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  top: number;
+  left: number;
+  height: number;
+  label: string;
+  onView: () => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return createPortal(
+    <button
+      type="button"
+      data-upload-view
+      aria-label={`Vis ${label} i kildeviseren`}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onView();
+      }}
+      style={{ top, left, height }}
+      className={`fixed z-[81] flex w-12 origin-left items-center rounded-r-md border border-l-0 border-[#0F382C] bg-white px-2.5 text-[11px] font-semibold text-[#0F382C] shadow-md transition duration-150 ease-out hover:bg-emerald-50 ${
+        shown ? "translate-x-0 opacity-100" : "-translate-x-1 opacity-0"
+      }`}
+    >
+      <span className="whitespace-nowrap">Vis</span>
+    </button>,
+    document.body
+  );
+}
+
 function DocumentMenu({
   open,
   anchorRef,
@@ -97,12 +154,16 @@ function DocumentMenu({
   open: boolean;
   anchorRef: React.RefObject<HTMLDivElement | null>;
   lines: string[];
-  items?: { id: string; label: string; checked: boolean; onToggle: () => void }[];
+  items?: UploadMenuItem[];
   menuId: string;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  const hoverTimer = useRef<number | null>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [hoverBox, setHoverBox] = useState<{ top: number; left: number; height: number } | null>(null);
 
   useEffect(() => {
     const anchor = anchorRef.current;
@@ -114,12 +175,12 @@ function DocumentMenu({
       const margin = 8;
       const width = menu.scrollWidth;
       let left = rect.left;
-      if (left + width > window.innerWidth - margin) {
-        left = Math.max(margin, window.innerWidth - margin - width);
+      if (left + width + VIEW_FLAP > window.innerWidth - margin) {
+        left = Math.max(margin, window.innerWidth - margin - width - VIEW_FLAP);
       }
       menu.style.top = `${rect.bottom + 4}px`;
       menu.style.left = `${left}px`;
-      menu.style.maxWidth = `${window.innerWidth - margin * 2}px`;
+      menu.style.maxWidth = `${window.innerWidth - margin * 2 - VIEW_FLAP}px`;
     };
 
     place();
@@ -131,41 +192,127 @@ function DocumentMenu({
     };
   }, [open, anchorRef, lines, items]);
 
-  const rows = items && items.length > 0 ? items : lines.map((line, index) => ({ id: `${line}-${index}`, label: line, checked: undefined, onToggle: undefined }));
+  useEffect(() => {
+    if (!open) setHoverId(null);
+  }, [open]);
+
+  useEffect(() => {
+    if (!hoverId) return;
+    const update = () => {
+      const row = rowRefs.current.get(hoverId);
+      const menu = menuRef.current;
+      if (!row || !menu) return;
+      const rowRect = row.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      if (rowRect.bottom <= menuRect.top + 1 || rowRect.top >= menuRect.bottom - 1) {
+        setHoverBox(null);
+        return;
+      }
+      setHoverBox({
+        top: rowRect.top,
+        left: menuRect.right - 1,
+        height: rowRect.height,
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [hoverId, open, lines, items]);
+
+  const holdRow = (id: string) => {
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+    setHoverId(id);
+  };
+
+  const releaseRow = () => {
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => setHoverId(null), 180);
+  };
+
+  const rows: UploadMenuItem[] =
+    items && items.length > 0
+      ? items
+      : lines.map((line, index) => ({ id: `${line}-${index}`, label: line }));
   if (!open || rows.length === 0 || typeof document === "undefined") return null;
 
   const rect = anchorRef.current?.getBoundingClientRect();
+  const hovered = rows.find((row) => row.id === hoverId && row.onView);
 
   return createPortal(
-    <div
-      ref={menuRef}
-      data-upload-menu={menuId}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      style={{
-        top: rect ? rect.bottom + 4 : 0,
-        left: rect ? rect.left : 0,
-        zIndex: 80,
-      }}
-      className="fixed max-h-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-xs text-slate-800 shadow-md"
-    >
-      {rows.map((row) => (
-        <div key={row.id} className="flex items-center gap-2 whitespace-nowrap px-3 py-1">
-          {row.onToggle ? (
-            <input
-              type="checkbox"
-              checked={Boolean(row.checked)}
-              onClick={(event) => event.stopPropagation()}
-              onChange={row.onToggle}
-              aria-label={`Brug ${row.label} som kilde i næste spørgsmål`}
-              title="Brug som kilde i næste spørgsmål"
-              className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
-            />
-          ) : null}
-          <span>{row.label}</span>
-        </div>
-      ))}
-    </div>,
+    <>
+      <div
+        ref={menuRef}
+        data-upload-menu={menuId}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={(event) => {
+          const next = event.relatedTarget;
+          if (next instanceof Element && next.closest("[data-upload-view]")) return;
+          onMouseLeave();
+        }}
+        style={{
+          top: rect ? rect.bottom + 4 : 0,
+          left: rect ? rect.left : 0,
+          zIndex: 80,
+        }}
+        className="fixed max-h-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-xs text-slate-800 shadow-md"
+      >
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            ref={(node) => {
+              if (node) rowRefs.current.set(row.id, node);
+              else rowRefs.current.delete(row.id);
+            }}
+            data-upload-row={row.id}
+            onMouseEnter={() => {
+              if (row.onView) holdRow(row.id);
+            }}
+            onMouseLeave={(event) => {
+              if (!row.onView) return;
+              const next = event.relatedTarget;
+              if (next instanceof Element && next.closest("[data-upload-view]")) return;
+              releaseRow();
+            }}
+            className="flex items-center gap-2 whitespace-nowrap px-3 py-1"
+          >
+            {row.onToggle ? (
+              <input
+                type="checkbox"
+                checked={Boolean(row.checked)}
+                onClick={(event) => event.stopPropagation()}
+                onChange={row.onToggle}
+                aria-label={`Brug ${row.label} som kilde i næste spørgsmål`}
+                title="Brug som kilde i næste spørgsmål"
+                className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+              />
+            ) : null}
+            <span>{row.label}</span>
+          </div>
+        ))}
+      </div>
+      {hovered && hoverBox && (
+        <ViewFlap
+          key={hovered.id}
+          top={hoverBox.top}
+          left={hoverBox.left}
+          height={hoverBox.height}
+          label={hovered.label}
+          onView={hovered.onView!}
+          onMouseEnter={() => {
+            holdRow(hovered.id);
+            onMouseEnter();
+          }}
+          onMouseLeave={() => {
+            releaseRow();
+            onMouseLeave();
+          }}
+        />
+      )}
+    </>,
     document.body
   );
 }
@@ -185,6 +332,23 @@ function newCaseDocument(name: string): CaseDocument {
     included: true,
     text: "",
   };
+}
+
+function uploadedPreview(file: CaseDocument, storedText?: string): string {
+  const text = (storedText || file.text || "").trim();
+  if (text) return text;
+  return file.reading ? "Dokumentet læses endnu." : "Der er ingen læsbar tekst i dokumentet.";
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const element = document.createElement("a");
+  element.href = url;
+  element.download = fileName;
+  document.body.appendChild(element);
+  element.click();
+  element.remove();
+  URL.revokeObjectURL(url);
 }
 
 async function readDocument(file: File): Promise<string> {
@@ -329,6 +493,7 @@ export function CaseWorkspace({
     bootDocuments.current = { primary: primaryFile, secondary: supplementaryFiles };
   }
   const fileTextRef = useRef<Map<string, string>>(new Map());
+  const fileBytesRef = useRef(new Map<string, File>());
   const pendingReads = useRef<Map<string, Promise<void>>>(new Map());
   if (primaryFile?.text) fileTextRef.current.set(primaryFile.id, primaryFile.text);
   for (const file of supplementaryFiles) {
@@ -780,6 +945,7 @@ export function CaseWorkspace({
   };
 
   const readIntoDocument = (kind: "primary" | "secondary", id: string, file: File) => {
+    fileBytesRef.current.set(id, file);
     void saveCaseFile(id, file).catch(() => undefined);
     const markReading = (reading: boolean, text?: string) => {
       if (kind === "primary") {
@@ -811,6 +977,7 @@ export function CaseWorkspace({
         ? { ...current, reading: true }
         : { ...newCaseDocument(file.name), reading: true };
     setPrimaryFile(document);
+    fileBytesRef.current.set(document.id, file);
     void saveCaseFile(document.id, file).catch(() => undefined);
     rememberDocumentText(document.id, file, (text) => {
       setPrimaryFile((current) => (current?.id === document.id ? { ...current, text, reading: false } : current));
@@ -838,6 +1005,7 @@ export function CaseWorkspace({
     }
     setSupplementaryFiles(next);
     for (const item of placed) {
+      fileBytesRef.current.set(item.id, item.file);
       void saveCaseFile(item.id, item.file).catch(() => undefined);
       rememberDocumentText(item.id, item.file, (text) => {
         setSupplementaryFiles((prev) =>
@@ -887,11 +1055,55 @@ export function CaseWorkspace({
     }, 2000);
   };
 
+  const showUploadedSource = (file: CaseDocument, role: string) => {
+    setActiveSnippet({
+      id: file.id,
+      title: file.name,
+      citation: "",
+      lawSection: role,
+      date: "",
+      textSnippet: uploadedPreview(file, fileTextRef.current.get(file.id)),
+      pdfUrl: "",
+      pdfFileName: file.name,
+      hasOriginal: true,
+      relevanceScore: 0,
+      sourceType: "sagsdokument",
+    });
+    setSourceExpanded(false);
+    setOriginalError("");
+    setRightPanelTab("kilde");
+    setPrimaryMenuOpen(false);
+    setSecondaryMenuOpen(false);
+  };
+
+  useEffect(() => {
+    setActiveSnippet((current) => {
+      if (!current || current.sourceType !== "sagsdokument") return current;
+      const file =
+        primaryFile?.id === current.id
+          ? primaryFile
+          : supplementaryFiles.find((item) => item.id === current.id);
+      if (!file) return current;
+      const next = uploadedPreview(file, fileTextRef.current.get(file.id));
+      if (next === current.textSnippet && file.name === current.title) return current;
+      return { ...current, title: file.name, pdfFileName: file.name, textSnippet: next };
+    });
+  }, [primaryFile, supplementaryFiles]);
+
   const handleDownloadOriginal = async (source: SourceSnippet) => {
     if (!source.hasOriginal || downloadingOriginal) return;
     setOriginalError("");
     setDownloadingOriginal(true);
     try {
+      if (source.sourceType === "sagsdokument") {
+        const file = fileBytesRef.current.get(source.id) || (await loadCaseFile(source.id));
+        if (!file) {
+          setOriginalError("Originalen kunne ikke hentes.");
+          return;
+        }
+        downloadBlob(file, file.name || source.pdfFileName || source.title);
+        return;
+      }
       const res = await fetch(`/api/sources/${source.id}/original`);
       if (!res.ok) {
         setOriginalError("Originalen kunne ikke hentes.");
@@ -902,14 +1114,7 @@ export function CaseWorkspace({
       const encoded = header.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
       const plain = header.match(/filename="([^"]+)"/i)?.[1];
       const fileName = encoded ? decodeURIComponent(encoded) : plain || source.pdfFileName || "kilde.pdf";
-      const url = URL.createObjectURL(blob);
-      const element = document.createElement("a");
-      element.href = url;
-      element.download = fileName;
-      document.body.appendChild(element);
-      element.click();
-      element.remove();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, fileName);
     } catch {
       setOriginalError("Originalen kunne ikke hentes.");
     } finally {
@@ -1207,7 +1412,18 @@ export function CaseWorkspace({
                   <DocumentMenu
                     open={primaryMenuOpen}
                     anchorRef={primaryAnchorRef}
-                    lines={primaryFile ? [primaryFile.name] : []}
+                    lines={[]}
+                    items={
+                      primaryFile
+                        ? [
+                            {
+                              id: primaryFile.id,
+                              label: primaryFile.name,
+                              onView: () => showUploadedSource(primaryFile, "Primært dokument"),
+                            },
+                          ]
+                        : []
+                    }
                     menuId="primary"
                     onMouseEnter={holdPrimaryMenu}
                     onMouseLeave={releasePrimaryMenu}
@@ -1250,6 +1466,7 @@ export function CaseWorkspace({
                       label: file.name,
                       checked: file.included,
                       onToggle: () => toggleSupplementaryFile(file.id),
+                      onView: () => showUploadedSource(file, "Sekundært dokument"),
                     }))}
                     menuId="secondary"
                     onMouseEnter={holdSecondaryMenu}
@@ -1606,7 +1823,14 @@ export function CaseWorkspace({
                         className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F382C] px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#14493a] disabled:opacity-50 transition-colors cursor-pointer"
                       >
                         <Download className="w-4 h-4" />
-                        <span>{downloadingOriginal ? "Henter..." : "Hent original PDF"}</span>
+                        <span>
+                          {downloadingOriginal
+                            ? "Henter..."
+                            : activeSnippet.sourceType === "sagsdokument" &&
+                                !/\.pdf$/i.test(activeSnippet.pdfFileName || activeSnippet.title)
+                              ? "Hent original"
+                              : "Hent original PDF"}
+                        </span>
                       </button>
                     )}
                     {originalError && (
