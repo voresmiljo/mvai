@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Download,
   ChevronDown,
+  ChevronUp,
   Sparkles,
   Search,
   ArrowUp,
@@ -136,7 +137,7 @@ function SourceHoverBox({
       <button
         type="button"
         data-upload-view
-        aria-label={`Vis ${name} i kildeviseren`}
+        aria-label={`Vis ${name} i kildeupload`}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -438,6 +439,7 @@ export function CaseWorkspace({
   }
   // Left panel: kildeupload vs. temamapper. Right panel: kildeviser vs. output.
   const [leftPanelTab, setLeftPanelTab] = useState<"kilder" | "temaer">("kilder");
+  const [openUploadId, setOpenUploadId] = useState<string | null>(null);
   const [rightPanelTab, setRightPanelTab] = useState<"kilde" | "notater">("kilde");
 
   // Active source in right preview panel
@@ -959,23 +961,8 @@ export function CaseWorkspace({
     }, 2000);
   };
 
-  const showUploadedSource = (file: CaseDocument, role: string) => {
-    setActiveSnippet({
-      id: file.id,
-      title: file.name,
-      citation: "",
-      lawSection: role,
-      date: "",
-      textSnippet: uploadedPreview(file, fileTextRef.current.get(file.id)),
-      pdfUrl: "",
-      pdfFileName: file.name,
-      hasOriginal: true,
-      relevanceScore: 0,
-      sourceType: "sagsdokument",
-    });
-    setSourceExpanded(false);
-    setOriginalError("");
-    setRightPanelTab("kilde");
+  const openUploadedSource = (id: string) => {
+    setOpenUploadId(id);
     setLeftPanelTab("kilder");
   };
 
@@ -1132,6 +1119,11 @@ export function CaseWorkspace({
     return () => document.removeEventListener("mousedown", close);
   }, [downloadMenuId]);
 
+  const openedUpload =
+    (openUploadId && primaryFile?.id === openUploadId && primaryFile) ||
+    supplementaryFiles.find((file) => file.id === openUploadId) ||
+    null;
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#F7FAFA] text-slate-800">
       {/* Top Application Header - NotebookLM style */}
@@ -1228,8 +1220,26 @@ export function CaseWorkspace({
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {leftPanelTab === "kilder" ? (
+          <div className={`min-h-0 flex-1 ${openedUpload && leftPanelTab === "kilder" ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}>
+            {leftPanelTab === "kilder" && openedUpload ? (
+              <div className="flex min-h-0 flex-1 flex-col" data-upload-reader={openedUpload.id}>
+                <button
+                  type="button"
+                  data-upload-collapse
+                  onClick={() => setOpenUploadId(null)}
+                  className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5 text-left text-xs font-semibold text-[#0F382C] hover:bg-emerald-50"
+                >
+                  <ChevronUp className="h-4 w-4 shrink-0" />
+                  <span>Sammenklap</span>
+                </button>
+                <h2 className="shrink-0 break-words px-4 pt-4 text-sm font-bold leading-snug text-slate-900">
+                  {openedUpload.name}
+                </h2>
+                <div className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-relaxed text-slate-800">
+                  {uploadedPreview(openedUpload, fileTextRef.current.get(openedUpload.id))}
+                </div>
+              </div>
+            ) : leftPanelTab === "kilder" ? (
               <div className="space-y-3 p-4">
                 <label
                   htmlFor="mvai-source-file"
@@ -1261,7 +1271,7 @@ export function CaseWorkspace({
                         primary={primary}
                         onToggle={() => toggleUploadedFile(file.id)}
                         onTogglePrimary={(next) => setSourcePrimary(file.id, next)}
-                        onView={() => showUploadedSource(file, primary ? "Primært dokument" : "Sagsdokument")}
+                        onView={() => openUploadedSource(file.id)}
                       />
                     ))}
                   </div>
