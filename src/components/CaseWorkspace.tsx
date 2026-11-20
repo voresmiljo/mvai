@@ -440,6 +440,7 @@ export function CaseWorkspace({
   // Left panel: kildeupload vs. temamapper. Right panel: kildeviser vs. output.
   const [leftPanelTab, setLeftPanelTab] = useState<"kilder" | "temaer">("kilder");
   const [openUploadId, setOpenUploadId] = useState<string | null>(null);
+  const [uploadDownloadError, setUploadDownloadError] = useState("");
   const [rightPanelTab, setRightPanelTab] = useState<"kilde" | "notater">("kilde");
 
   // Active source in right preview panel
@@ -962,8 +963,23 @@ export function CaseWorkspace({
   };
 
   const openUploadedSource = (id: string) => {
+    setUploadDownloadError("");
     setOpenUploadId(id);
     setLeftPanelTab("kilder");
+  };
+
+  const downloadUploadedFile = async (file: CaseDocument) => {
+    setUploadDownloadError("");
+    try {
+      const stored = fileBytesRef.current.get(file.id) || (await loadCaseFile(file.id));
+      if (!stored) {
+        setUploadDownloadError("Filen kunne ikke hentes.");
+        return;
+      }
+      downloadBlob(stored, stored.name || file.name);
+    } catch {
+      setUploadDownloadError("Filen kunne ikke hentes.");
+    }
   };
 
   useEffect(() => {
@@ -1223,15 +1239,32 @@ export function CaseWorkspace({
           <div className={`min-h-0 flex-1 ${openedUpload && leftPanelTab === "kilder" ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}>
             {leftPanelTab === "kilder" && openedUpload ? (
               <div className="flex min-h-0 flex-1 flex-col" data-upload-reader={openedUpload.id}>
-                <button
-                  type="button"
-                  data-upload-collapse
-                  onClick={() => setOpenUploadId(null)}
-                  className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5 text-left text-xs font-semibold text-[#0F382C] hover:bg-emerald-50"
-                >
-                  <ChevronUp className="h-4 w-4 shrink-0" />
-                  <span>Sammenklap</span>
-                </button>
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2">
+                  <button
+                    type="button"
+                    data-upload-collapse
+                    onClick={() => {
+                      setUploadDownloadError("");
+                      setOpenUploadId(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0F382C] hover:underline"
+                  >
+                    <ChevronUp className="h-4 w-4 shrink-0" />
+                    <span>Sammenklap</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-upload-download
+                    onClick={() => void downloadUploadedFile(openedUpload)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[#0F382C] bg-white px-2 py-1 text-xs font-semibold text-[#0F382C] hover:bg-emerald-50"
+                  >
+                    <Download className="h-3.5 w-3.5 shrink-0" />
+                    <span>Download</span>
+                  </button>
+                </div>
+                {uploadDownloadError ? (
+                  <p className="shrink-0 px-3 py-1.5 text-[10px] text-amber-800">{uploadDownloadError}</p>
+                ) : null}
                 <h2 className="shrink-0 break-words px-4 pt-4 text-sm font-bold leading-snug text-slate-900">
                   {openedUpload.name}
                 </h2>
