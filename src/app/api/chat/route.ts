@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { guardCitations } from "@/lib/citationGuard";
 import { archiveAnswer, withSearchCoverage } from "@/lib/sourceInquiry";
 import { asksToCreateOutput, resumeText } from "@/lib/outputSave";
 import { THEME_FOLDERS } from "@/lib/themeFolders";
@@ -273,7 +274,9 @@ ${scopeRules}
 6. KILDEHENVISNINGER:
 Kilderne ovenfor er nummereret [1], [2], [3]. Henvis med det nummer, kilden har i listen, og kun nummeret. Samme kilde beholder samme nummer, hver gang den bruges.
 Sæt kildemærket i samme sætning som enhver lovhenvisning og enhver juridisk eller miljøfaglig påstand, også i den første sætning. Eksempel: miljøvurderingslovens afsnit III, § 21 [1].
-Skriv ikke titel, paragraf eller journalnummer inde i hakparenteserne. Skriv ikke markdown-links. Brug kun numre, der findes i listen. Sæt ikke et nummer på en påstand, kilderne ikke støtter.
+Skriv ikke titel, paragraf eller journalnummer inde i hakparenteserne. Skriv ikke markdown-links. Brug kun numre, der findes i listen.
+Et nummer må kun stå på en sætning, når den kildes eget uddrag nævner reglen. Nævner uddraget ikke habitatdirektivet, habitatbekendtgørelsen, bilag IV, yngle- og rasteområder eller officialprincippet, må sætningen hverken handle om det eller bære kildens nummer. Begrebsdisciplinen er en ordforklaring, ikke en kilde. Sig ikke reglen fra hukommelsen og sæt ikke et andet dokuments nummer på.
+Spørger brugeren, hvorfor en kilde er brugt til en påstand, så svar kun ud fra den kildes uddrag. Dækker uddraget ikke påstanden, så sig det i én sætning og stop. Gentag ikke reglen.
 Når du nævner et dokument ved navn, så brug den fulde officielle titel fra kildelisten. Forkort den ikke.
 
 7. LÆNGDE:
@@ -333,7 +336,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
                 .trim() || "Ingen analyse kunne genereres."
             : "Ingen analyse kunne genereres.";
 
-        const cited = renumberCitations(colleagueReply(message, responseText), sources);
+        const cited = renumberCitations(guardCitations(colleagueReply(message, responseText), sources), sources);
 
         return NextResponse.json({
           text: presentReply(message, cited.text, themes),
@@ -371,7 +374,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           completion.choices[0]?.message?.content ||
           "Ingen analyse kunne genereres.";
 
-        const cited = renumberCitations(colleagueReply(message, responseText), sources);
+        const cited = renumberCitations(guardCitations(colleagueReply(message, responseText), sources), sources);
 
         return NextResponse.json({
           text: presentReply(message, cited.text, themes),
@@ -399,7 +402,10 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
         savedOutput.map((item) => "- " + item.citation + "\n" + item.textSnippet).join("\n")
       : "";
 
-    const cited = renumberCitations(colleagueReply(message, `${dynamicResponse.text}${outputNote}`), sources);
+    const cited = renumberCitations(
+      guardCitations(colleagueReply(message, `${dynamicResponse.text}${outputNote}`), sources),
+      sources
+    );
 
     return NextResponse.json({
       ...dynamicResponse,
