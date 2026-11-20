@@ -10,7 +10,7 @@ import { prepareRoomSave, type CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { downloadNote } from "@/lib/noteDownload";
 import { asksToCreateOutput, createdOutputTitle, isOutputSaveOnly, outputDraft, resumeText } from "@/lib/outputSave";
-import { sourceMeta } from "@/lib/sourceLevel";
+import { sourceFileTitle } from "@/lib/sourceSummary";
 import { buildQuestion } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
@@ -532,6 +532,9 @@ export function CaseWorkspace({
 
   // Active source in right preview panel
   const [activeSnippet, setActiveSnippet] = useState<SourceSnippet | null>(null);
+  const [sourceSummary, setSourceSummary] = useState("");
+  const [summaryPending, setSummaryPending] = useState(false);
+  const summaryCache = useRef(new Map<string, string>());
   const [downloadingOriginal, setDownloadingOriginal] = useState(false);
   const [originalError, setOriginalError] = useState("");
 
@@ -1089,6 +1092,58 @@ export function CaseWorkspace({
       return { ...current, title: file.name, pdfFileName: file.name, textSnippet: next };
     });
   }, [primaryFile, supplementaryFiles]);
+
+  useEffect(() => {
+    if (!activeSnippet) {
+      setSourceSummary("");
+      setSummaryPending(false);
+      return;
+    }
+    const text = activeSnippet.textSnippet.trim();
+    const readable =
+      text &&
+      text !== "Dokumentet læses endnu." &&
+      text !== "Der er ingen læsbar tekst i dokumentet.";
+    if (!readable) {
+      setSourceSummary("");
+      setSummaryPending(text === "Dokumentet læses endnu.");
+      return;
+    }
+    const key = `${activeSnippet.id}:${text.length}:${text.slice(0, 80)}`;
+    const cached = summaryCache.current.get(key);
+    if (cached) {
+      setSourceSummary(cached);
+      setSummaryPending(false);
+      return;
+    }
+    let cancel = false;
+    setSourceSummary("");
+    setSummaryPending(true);
+    void fetch("/api/source-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: sourceFileTitle(activeSnippet),
+        text: text.slice(0, 12000),
+      }),
+    })
+      .then((res) => res.json())
+      .then((data: { summary?: unknown }) => {
+        if (cancel) return;
+        const summary = typeof data.summary === "string" ? data.summary.trim() : "";
+        if (summary) summaryCache.current.set(key, summary);
+        setSourceSummary(summary);
+      })
+      .catch(() => {
+        if (!cancel) setSourceSummary("");
+      })
+      .finally(() => {
+        if (!cancel) setSummaryPending(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [activeSnippet]);
 
   const handleDownloadOriginal = async (source: SourceSnippet) => {
     if (!source.hasOriginal || downloadingOriginal) return;
@@ -1789,14 +1844,13 @@ export function CaseWorkspace({
                   <div className="mt-4 space-y-4">
                     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                       <h3 className="break-words text-base font-bold leading-snug text-slate-900">
-                        {activeSnippet.title}
+                        {sourceFileTitle(activeSnippet)}
                       </h3>
-                      {activeSnippet.lawSection && (
-                        <p className="mt-2 break-words text-xs leading-snug text-slate-500">{activeSnippet.lawSection}</p>
-                      )}
-                      {sourceMeta(activeSnippet) && (
-                        <p className="mt-2 break-words text-[11px] leading-snug text-slate-400">{sourceMeta(activeSnippet)}</p>
-                      )}
+                      {sourceSummary ? (
+                        <p className="mt-3 text-sm leading-relaxed text-slate-700">{sourceSummary}</p>
+                      ) : summaryPending ? (
+                        <p className="mt-3 text-xs text-slate-400">Læser kilden...</p>
+                      ) : null}
                     </div>
 
                     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
