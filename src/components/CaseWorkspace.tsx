@@ -15,7 +15,7 @@ import { buildQuestion } from "@/lib/promptSupport";
 import { INITIAL_CASES } from "@/lib/casesData";
 import { THEME_CATEGORIES, THEME_FOLDERS } from "@/lib/themeFolders";
 import {
-  FileText,
+  Folder,
   Upload,
   AlertTriangle,
   Download,
@@ -85,16 +85,6 @@ const AVAILABLE_THEMES: ThemeFolder[] = THEME_FOLDERS.map((folder) => ({
   count: 0,
 }));
 
-const VIEW_FLAP = 52;
-
-type UploadMenuItem = {
-  id: string;
-  label: string;
-  checked?: boolean;
-  onToggle?: () => void;
-  onView?: () => void;
-};
-
 function ViewFlap({
   top,
   left,
@@ -142,47 +132,35 @@ function ViewFlap({
   );
 }
 
-function DocumentMenu({
-  open,
-  anchorRef,
-  lines,
-  items,
-  menuId,
-  onMouseEnter,
-  onMouseLeave,
+function UploadedSourceRow({
+  fileId,
+  name,
+  included,
+  badge,
+  onToggle,
+  onView,
 }: {
-  open: boolean;
-  anchorRef: React.RefObject<HTMLDivElement | null>;
-  lines: string[];
-  items?: UploadMenuItem[];
-  menuId: string;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
+  fileId: string;
+  name: string;
+  included: boolean;
+  badge?: string;
+  onToggle: () => void;
+  onView: () => void;
 }) {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const rowRefs = useRef(new Map<string, HTMLDivElement>());
-  const hoverTimer = useRef<number | null>(null);
-  const [hoverId, setHoverId] = useState<string | null>(null);
-  const [hoverBox, setHoverBox] = useState<{ top: number; left: number; height: number } | null>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const timer = useRef<number | null>(null);
+  const [hover, setHover] = useState(false);
+  const [box, setBox] = useState<{ top: number; left: number; height: number } | null>(null);
+
+  const place = () => {
+    const row = rowRef.current;
+    if (!row) return;
+    const rect = row.getBoundingClientRect();
+    setBox({ top: rect.top, left: rect.right - 1, height: rect.height });
+  };
 
   useEffect(() => {
-    const anchor = anchorRef.current;
-    const menu = menuRef.current;
-    if (!open || !anchor || !menu) return;
-
-    const place = () => {
-      const rect = anchor.getBoundingClientRect();
-      const margin = 8;
-      const width = menu.scrollWidth;
-      let left = rect.left;
-      if (left + width + VIEW_FLAP > window.innerWidth - margin) {
-        left = Math.max(margin, window.innerWidth - margin - width - VIEW_FLAP);
-      }
-      menu.style.top = `${rect.bottom + 4}px`;
-      menu.style.left = `${left}px`;
-      menu.style.maxWidth = `${window.innerWidth - margin * 2 - VIEW_FLAP}px`;
-    };
-
+    if (!hover) return;
     place();
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
@@ -190,130 +168,64 @@ function DocumentMenu({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, anchorRef, lines, items]);
+  }, [hover]);
 
-  useEffect(() => {
-    if (!open) setHoverId(null);
-  }, [open]);
-
-  useEffect(() => {
-    if (!hoverId) return;
-    const update = () => {
-      const row = rowRefs.current.get(hoverId);
-      const menu = menuRef.current;
-      if (!row || !menu) return;
-      const rowRect = row.getBoundingClientRect();
-      const menuRect = menu.getBoundingClientRect();
-      if (rowRect.bottom <= menuRect.top + 1 || rowRect.top >= menuRect.bottom - 1) {
-        setHoverBox(null);
-        return;
-      }
-      setHoverBox({
-        top: rowRect.top,
-        left: menuRect.right - 1,
-        height: rowRect.height,
-      });
-    };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
-    };
-  }, [hoverId, open, lines, items]);
-
-  const holdRow = (id: string) => {
-    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-    setHoverId(id);
-  };
-
-  const releaseRow = () => {
-    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-    hoverTimer.current = window.setTimeout(() => setHoverId(null), 180);
-  };
-
-  const rows: UploadMenuItem[] =
-    items && items.length > 0
-      ? items
-      : lines.map((line, index) => ({ id: `${line}-${index}`, label: line }));
-  if (!open || rows.length === 0 || typeof document === "undefined") return null;
-
-  const rect = anchorRef.current?.getBoundingClientRect();
-  const hovered = rows.find((row) => row.id === hoverId && row.onView);
-
-  return createPortal(
+  return (
     <>
       <div
-        ref={menuRef}
-        data-upload-menu={menuId}
-        onMouseEnter={onMouseEnter}
+        ref={rowRef}
+        data-case-file={fileId}
+        onClick={onToggle}
+        onMouseEnter={() => {
+          if (timer.current) window.clearTimeout(timer.current);
+          setHover(true);
+        }}
         onMouseLeave={(event) => {
           const next = event.relatedTarget;
           if (next instanceof Element && next.closest("[data-upload-view]")) return;
-          onMouseLeave();
+          if (timer.current) window.clearTimeout(timer.current);
+          timer.current = window.setTimeout(() => setHover(false), 180);
         }}
-        style={{
-          top: rect ? rect.bottom + 4 : 0,
-          left: rect ? rect.left : 0,
-          zIndex: 80,
-        }}
-        className="fixed max-h-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-xs text-slate-800 shadow-md"
+        className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-xs transition-all ${
+          included
+            ? "border-emerald-600/40 bg-white text-slate-900 shadow-2xs"
+            : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
+        }`}
       >
-        {rows.map((row) => (
-          <div
-            key={row.id}
-            ref={(node) => {
-              if (node) rowRefs.current.set(row.id, node);
-              else rowRefs.current.delete(row.id);
-            }}
-            data-upload-row={row.id}
-            onMouseEnter={() => {
-              if (row.onView) holdRow(row.id);
-            }}
-            onMouseLeave={(event) => {
-              if (!row.onView) return;
-              const next = event.relatedTarget;
-              if (next instanceof Element && next.closest("[data-upload-view]")) return;
-              releaseRow();
-            }}
-            className="flex items-center gap-2 whitespace-nowrap px-3 py-1"
-          >
-            {row.onToggle ? (
-              <input
-                type="checkbox"
-                checked={Boolean(row.checked)}
-                onClick={(event) => event.stopPropagation()}
-                onChange={row.onToggle}
-                aria-label={`Brug ${row.label} som kilde i næste spørgsmål`}
-                title="Brug som kilde i næste spørgsmål"
-                className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
-              />
-            ) : null}
-            <span>{row.label}</span>
-          </div>
-        ))}
+        <input
+          type="checkbox"
+          checked={included}
+          onClick={(event) => event.stopPropagation()}
+          onChange={onToggle}
+          aria-label={`Brug ${name} som kilde i næste spørgsmål`}
+          title="Brug som kilde i næste spørgsmål"
+          className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+        />
+        <span className={`min-w-0 flex-1 truncate font-semibold ${included ? "text-[#0F382C]" : "text-slate-700"}`}>
+          {name}
+        </span>
+        {badge ? (
+          <span className="shrink-0 rounded bg-[#0F382C] px-1 py-0.2 font-mono text-[9px] text-white">{badge}</span>
+        ) : null}
       </div>
-      {hovered && hoverBox && (
+      {hover && box && (
         <ViewFlap
-          key={hovered.id}
-          top={hoverBox.top}
-          left={hoverBox.left}
-          height={hoverBox.height}
-          label={hovered.label}
-          onView={hovered.onView!}
+          top={box.top}
+          left={box.left}
+          height={box.height}
+          label={name}
+          onView={onView}
           onMouseEnter={() => {
-            holdRow(hovered.id);
-            onMouseEnter();
+            if (timer.current) window.clearTimeout(timer.current);
+            setHover(true);
           }}
           onMouseLeave={() => {
-            releaseRow();
-            onMouseLeave();
+            if (timer.current) window.clearTimeout(timer.current);
+            timer.current = window.setTimeout(() => setHover(false), 180);
           }}
         />
       )}
-    </>,
-    document.body
+    </>
   );
 }
 
@@ -374,7 +286,7 @@ function touchStoredCase(id: string): void {
 }
 
 const WELCOME_TEXT =
-  "Du kan uploade sagens dokumenter ovenfor, vælge de relevante temamapper til venstre, og stille dine konkrete juridiske eller miljøfaglige spørgsmål i feltet nedenfor. Til højre finder du både kildehenvisninger og de output du selv producerer undervejs.";
+  "Under Kildeupload til venstre lægger du den primære kilde og de sekundære kilder. Under Temamapper vælger du de relevante fagområder. Stil dine spørgsmål i feltet nedenfor. Til højre finder du kildehenvisninger og de output du selv producerer.";
 
 function welcomeMessage(): ChatMessage {
   return {
@@ -499,35 +411,8 @@ export function CaseWorkspace({
   for (const file of supplementaryFiles) {
     if (file.text) fileTextRef.current.set(file.id, file.text);
   }
-  const primaryInputRef = useRef<HTMLInputElement>(null);
-  const supplementaryInputRef = useRef<HTMLInputElement>(null);
-  const primaryAnchorRef = useRef<HTMLDivElement>(null);
-  const secondaryAnchorRef = useRef<HTMLDivElement>(null);
-  const [primaryMenuOpen, setPrimaryMenuOpen] = useState(false);
-  const [secondaryMenuOpen, setSecondaryMenuOpen] = useState(false);
-  const primaryMenuTimer = useRef<number | null>(null);
-  const secondaryMenuTimer = useRef<number | null>(null);
-
-  const holdPrimaryMenu = () => {
-    if (!primaryFile) return;
-    if (primaryMenuTimer.current) window.clearTimeout(primaryMenuTimer.current);
-    setPrimaryMenuOpen(true);
-  };
-  const releasePrimaryMenu = () => {
-    if (primaryMenuTimer.current) window.clearTimeout(primaryMenuTimer.current);
-    primaryMenuTimer.current = window.setTimeout(() => setPrimaryMenuOpen(false), 150);
-  };
-  const holdSecondaryMenu = () => {
-    if (!supplementaryFiles.length) return;
-    if (secondaryMenuTimer.current) window.clearTimeout(secondaryMenuTimer.current);
-    setSecondaryMenuOpen(true);
-  };
-  const releaseSecondaryMenu = () => {
-    if (secondaryMenuTimer.current) window.clearTimeout(secondaryMenuTimer.current);
-    secondaryMenuTimer.current = window.setTimeout(() => setSecondaryMenuOpen(false), 150);
-  };
-
-  // Right panel tab state: 'kilde' vs 'notater'
+  // Left panel: kildeupload vs. temamapper. Right panel: kildeviser vs. output.
+  const [leftPanelTab, setLeftPanelTab] = useState<"kilder" | "temaer">("kilder");
   const [rightPanelTab, setRightPanelTab] = useState<"kilde" | "notater">("kilde");
 
   // Active source in right preview panel
@@ -1075,8 +960,7 @@ export function CaseWorkspace({
     setSourceExpanded(false);
     setOriginalError("");
     setRightPanelTab("kilde");
-    setPrimaryMenuOpen(false);
-    setSecondaryMenuOpen(false);
+    setLeftPanelTab("kilder");
   };
 
   useEffect(() => {
@@ -1291,220 +1175,111 @@ export function CaseWorkspace({
 
       {/* Main 3-Panel Layout (NotebookLM) */}
       <div className="flex flex-1 overflow-hidden">
-        {/* PANEL 1: VENSTRE SIDEBAR (KUN TEMAMAPPER MED AFKRYDSNING) */}
-        <aside className="w-80 shrink-0 border-r border-slate-200 bg-[#F7FAFA] flex flex-col justify-between overflow-y-auto">
-          <div className="p-4 space-y-4">
-            {/* Temamapper Header */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
-                  Temamapper
-                </span>
-                <span className="text-xs font-semibold text-slate-500">
-                  {selectedThemes.length}/3 aktive
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 mb-3">
-                Aktivér de fagområder, sagen handler om.
-              </p>
-
-              {/* Temamapper Opremsning med afkrydsningsfelter */}
-              <div className="space-y-4">
-                {THEME_CATEGORIES.map((category) => (
-                  <div key={category.id} className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      {category.name}
-                    </p>
-                    {AVAILABLE_THEMES.filter((theme) => theme.category === category.id).map((theme) => {
-                      const isChecked = selectedThemes.includes(theme.id);
-                      return (
-                        <div
-                          key={theme.id}
-                          onClick={(event) => {
-                            if ((event.target as HTMLElement).tagName === "INPUT") return;
-                            handleToggleTheme(theme.id);
-                          }}
-                          data-theme={theme.id}
-                          className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                            isChecked
-                              ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
-                              : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={() => handleToggleTheme(theme.id)}
-                            className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
-                          />
-                          <span className={`font-semibold ${isChecked ? "text-[#0F382C]" : "text-slate-700"}`}>
-                            {theme.name}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Sektion til brugerens egne sagsdokumenter */}
-            <div className="relative pt-4 border-t border-slate-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold tracking-wider uppercase text-slate-700">
-                  Sagsdokumenter
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {(primaryFile ? 1 : 0) + supplementaryFiles.length} fil(er)
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                {primaryFile ? (
-                  <div
-                    data-case-file="primary"
-                    onClick={togglePrimaryFile}
-                    className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                      primaryFile.included
-                        ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
-                        : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={primaryFile.included}
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={togglePrimaryFile}
-                      aria-label="Brug det primære dokument som kilde i næste spørgsmål"
-                      title="Brug som kilde i næste spørgsmål"
-                      className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
-                    />
-                    <span className={`min-w-0 flex-1 truncate font-semibold ${primaryFile.included ? "text-[#0F382C]" : "text-slate-700"}`}>
-                      {primaryFile.name}
-                    </span>
-                    <span className="rounded bg-[#0F382C] text-white text-[9px] px-1 py-0.2 font-mono shrink-0">
-                      Primært
-                    </span>
-                  </div>
-                ) : null}
-                {supplementaryFiles.map((file) => (
-                    <div
-                      key={file.id}
-                      data-case-file={file.id}
-                      onClick={() => toggleSupplementaryFile(file.id)}
-                      className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                        file.included
-                          ? "border-emerald-600/40 bg-white shadow-2xs text-slate-900"
-                          : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={file.included}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={() => toggleSupplementaryFile(file.id)}
-                        aria-label={`Brug ${file.name} som kilde i næste spørgsmål`}
-                        title="Brug som kilde i næste spørgsmål"
-                        className="mt-0.5 rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
-                      />
-                      <span className={`min-w-0 flex-1 truncate font-semibold ${file.included ? "text-[#0F382C]" : "text-slate-700"}`}>
-                        {file.name}
-                      </span>
-                    </div>
-                ))}
-              </div>
-            </div>
+        {/* PANEL 1: VENSTRE SIDEBAR */}
+        <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-[#F7FAFA]">
+          <div className="flex shrink-0 border-b border-slate-200 bg-white">
+            <button
+              type="button"
+              data-left-tab="kilder"
+              onClick={() => setLeftPanelTab("kilder")}
+              className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-3 text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer ${
+                leftPanelTab === "kilder"
+                  ? "border-[#0F382C] bg-[#F7FAFA] text-[#0F382C]"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              <span>Kildeupload</span>
+              <span className="rounded-full bg-slate-200 px-1.5 py-0.2 text-[10px] font-bold text-slate-700">
+                {(primaryFile ? 1 : 0) + supplementaryFiles.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              data-left-tab="temaer"
+              onClick={() => setLeftPanelTab("temaer")}
+              className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-3 text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer ${
+                leftPanelTab === "temaer"
+                  ? "border-[#0F382C] bg-[#F7FAFA] text-[#0F382C]"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Folder className="h-3.5 w-3.5" />
+              <span>Temamapper</span>
+              <span className="rounded-full bg-slate-200 px-1.5 py-0.2 text-[10px] font-bold text-slate-700">
+                {selectedThemes.length}
+              </span>
+            </button>
           </div>
-        </aside>
 
-        {/* PANEL 2: MIDTERPANEL (CHAT & ANALYSE MED OMDØBTE UPLOAD-KNAPPER OG EXPORT) */}
-        <main className="flex-1 flex flex-col justify-between overflow-hidden bg-white border-r border-slate-200">
-          {/* Top Bar: Upload-knapper (Primært dokument og sekundære dokumenter) */}
-          <div className="border-b border-slate-200 bg-[#F7FAFA]/60 p-3 px-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                  Sagsmateriale:
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(primaryFile?.included)}
-                    disabled={!primaryFile}
-                    onChange={togglePrimaryFile}
-                    aria-label="Brug det primære dokument som kilde i næste spørgsmål"
-                    title="Brug som kilde i næste spørgsmål"
-                    className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C] disabled:opacity-40"
-                  />
-                <div
-                  ref={primaryAnchorRef}
-                  className="relative"
-                  onMouseEnter={holdPrimaryMenu}
-                  onMouseLeave={releasePrimaryMenu}
-                >
+          <div className="flex-1 overflow-y-auto">
+            {leftPanelTab === "kilder" ? (
+              <div className="space-y-6 p-4">
+                <section className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Primær kilde</p>
+                  {primaryFile ? (
+                    <UploadedSourceRow
+                      fileId="primary"
+                      name={primaryFile.name}
+                      included={primaryFile.included}
+                      badge="Primær"
+                      onToggle={togglePrimaryFile}
+                      onView={() => showUploadedSource(primaryFile, "Primært dokument")}
+                    />
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
+                      Ingen primær kilde endnu.
+                    </p>
+                  )}
                   <label
                     htmlFor="mvai-primary-file"
                     data-upload="primary"
-                    className="relative inline-flex h-8 w-[13.5rem] shrink-0 cursor-pointer items-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3.5 text-xs font-bold text-[#0F382C] hover:bg-emerald-50 transition-colors shadow-2xs"
+                    className="relative flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3 py-2 text-xs font-bold text-[#0F382C] hover:bg-emerald-50"
                   >
-                    <Upload className="w-3.5 h-3.5 shrink-0 text-[#2E8B57]" />
-                    <span className="min-w-0 flex-1 truncate text-left">
-                      {primaryFile?.name || "1. Primært dokument"}
-                    </span>
+                    <Upload className="h-3.5 w-3.5 shrink-0 text-[#2E8B57]" />
+                    <span>{primaryFile ? "Skift primær kilde" : "Upload primær kilde"}</span>
                     <input
                       id="mvai-primary-file"
-                      ref={primaryInputRef}
                       type="file"
                       accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
                       className="absolute h-px w-px overflow-hidden opacity-0"
                       onChange={handlePrimarySelected}
                     />
                   </label>
-                  <DocumentMenu
-                    open={primaryMenuOpen}
-                    anchorRef={primaryAnchorRef}
-                    lines={[]}
-                    items={
-                      primaryFile
-                        ? [
-                            {
-                              id: primaryFile.id,
-                              label: primaryFile.name,
-                              onView: () => showUploadedSource(primaryFile, "Primært dokument"),
-                            },
-                          ]
-                        : []
-                    }
-                    menuId="primary"
-                    onMouseEnter={holdPrimaryMenu}
-                    onMouseLeave={releasePrimaryMenu}
-                  />
-                </div>
-                </div>
+                </section>
 
-                <div
-                  ref={secondaryAnchorRef}
-                  className="relative"
-                  onMouseEnter={holdSecondaryMenu}
-                  onMouseLeave={releaseSecondaryMenu}
-                >
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sekundære kilder</p>
+                    <span className="font-mono text-[10px] text-slate-400">{supplementaryFiles.length}</span>
+                  </div>
+                  {supplementaryFiles.length > 0 ? (
+                    <div className="space-y-2">
+                      {supplementaryFiles.map((file) => (
+                        <UploadedSourceRow
+                          key={file.id}
+                          fileId={file.id}
+                          name={file.name}
+                          included={file.included}
+                          onToggle={() => toggleSupplementaryFile(file.id)}
+                          onView={() => showUploadedSource(file, "Sekundært dokument")}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
+                      Ingen sekundære kilder endnu.
+                    </p>
+                  )}
                   <label
                     htmlFor="mvai-secondary-file"
                     data-upload="secondary"
-                    className="relative inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+                    className="relative flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                   >
-                    <Upload className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                    <span>2. Sekundære dokumenter</span>
-                    <span className="inline-block w-8 text-center text-[10px] tabular-nums text-slate-400">
-                      ({supplementaryFiles.length})
-                    </span>
+                    <Upload className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <span>Tilføj sekundær kilde</span>
                     <input
                       id="mvai-secondary-file"
-                      ref={supplementaryInputRef}
                       type="file"
                       multiple
                       accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
@@ -1512,26 +1287,59 @@ export function CaseWorkspace({
                       onChange={handleSupplementarySelected}
                     />
                   </label>
-                  <DocumentMenu
-                    open={secondaryMenuOpen}
-                    anchorRef={secondaryAnchorRef}
-                    lines={[]}
-                    items={supplementaryFiles.map((file) => ({
-                      id: file.id,
-                      label: file.name,
-                      checked: file.included,
-                      onToggle: () => toggleSupplementaryFile(file.id),
-                      onView: () => showUploadedSource(file, "Sekundært dokument"),
-                    }))}
-                    menuId="secondary"
-                    onMouseEnter={holdSecondaryMenu}
-                    onMouseLeave={releaseSecondaryMenu}
-                  />
+                </section>
+              </div>
+            ) : (
+              <div className="space-y-4 p-4">
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Temamapper</span>
+                    <span className="text-xs font-semibold text-slate-500">{selectedThemes.length}/3 aktive</span>
+                  </div>
+                  <p className="mb-3 text-[11px] text-slate-500">Aktivér de fagområder, sagen handler om.</p>
+                  <div className="space-y-4">
+                    {THEME_CATEGORIES.map((category) => (
+                      <div key={category.id} className="space-y-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{category.name}</p>
+                        {AVAILABLE_THEMES.filter((theme) => theme.category === category.id).map((theme) => {
+                          const isChecked = selectedThemes.includes(theme.id);
+                          return (
+                            <div
+                              key={theme.id}
+                              onClick={(event) => {
+                                if ((event.target as HTMLElement).tagName === "INPUT") return;
+                                handleToggleTheme(theme.id);
+                              }}
+                              data-theme={theme.id}
+                              className={`flex cursor-pointer items-center gap-2.5 rounded-lg border p-2.5 text-xs transition-all ${
+                                isChecked
+                                  ? "border-emerald-600/40 bg-white text-slate-900 shadow-2xs"
+                                  : "border-slate-200 bg-white/60 text-slate-600 hover:bg-white"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onClick={(event) => event.stopPropagation()}
+                                onChange={() => handleToggleTheme(theme.id)}
+                                className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+                              />
+                              <span className={`font-semibold ${isChecked ? "text-[#0F382C]" : "text-slate-700"}`}>
+                                {theme.name}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
+        </aside>
 
+        <main className="flex flex-1 flex-col justify-between overflow-hidden border-r border-slate-200 bg-white">
           {/* Chat Besvarelsesvindue */}
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
             {messages.map((msg) => (
