@@ -6,6 +6,9 @@ interface LogoProps {
   size?: "sm" | "md" | "lg";
 }
 
+// Midlertidigt: ikonet og undertitlen er skjult, så hjørnet kun viser MVAI.dk.
+const WORDMARK_ONLY = true;
+
 export function MvLogo({ className = "", variant = "dark", size = "md" }: LogoProps) {
   const isLight = variant === "light";
   
@@ -23,26 +26,27 @@ export function MvLogo({ className = "", variant = "dark", size = "md" }: LogoPr
 
   return (
     <div className={`flex items-center gap-2.5 font-bold tracking-tight select-none ${className}`}>
-      {/* mv combined with the section sign */}
-      <div
-        className={`${iconSizes[size]} rounded-lg flex items-center justify-center transition-transform shadow-xs ${
-          isLight
-            ? "bg-white text-[#0F382C] border border-white/20"
-            : "bg-[#0F382C] text-[#F7FAFA] border border-[#1A4332]"
-        }`}
-      >
-        <span className="font-extrabold leading-none tracking-tight" aria-hidden="true">
-          mv
-        </span>
-        <span
-          className={`ml-0.5 font-serif text-[1.25em] leading-none ${
-            isLight ? "text-[#2E8B57]" : "text-[#86efac]"
+      {WORDMARK_ONLY ? null : (
+        <div
+          className={`${iconSizes[size]} rounded-lg flex items-center justify-center transition-transform shadow-xs ${
+            isLight
+              ? "bg-white text-[#0F382C] border border-white/20"
+              : "bg-[#0F382C] text-[#F7FAFA] border border-[#1A4332]"
           }`}
-          aria-hidden="true"
         >
-          §
-        </span>
-      </div>
+          <span className="font-extrabold leading-none tracking-tight" aria-hidden="true">
+            mv
+          </span>
+          <span
+            className={`ml-0.5 font-serif text-[1.25em] leading-none ${
+              isLight ? "text-[#2E8B57]" : "text-[#86efac]"
+            }`}
+            aria-hidden="true"
+          >
+            §
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-col leading-none">
         <span
@@ -52,13 +56,15 @@ export function MvLogo({ className = "", variant = "dark", size = "md" }: LogoPr
         >
           MVAI<span className={isLight ? "text-emerald-400" : "text-[#2E8B57]"}>.dk</span>
         </span>
-        <span
-          className={`text-[10px] font-medium tracking-wider uppercase mt-0.5 ${
-            isLight ? "text-slate-300" : "text-[#64748B]"
-          }`}
-        >
-          Miljøvurderingsvejen
-        </span>
+        {WORDMARK_ONLY ? null : (
+          <span
+            className={`text-[10px] font-medium tracking-wider uppercase mt-0.5 ${
+              isLight ? "text-slate-300" : "text-[#64748B]"
+            }`}
+          >
+            Miljøvurderingsvejen
+          </span>
+        )}
       </div>
     </div>
   );
