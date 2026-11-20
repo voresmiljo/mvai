@@ -85,11 +85,13 @@ const AVAILABLE_THEMES: ThemeFolder[] = THEME_FOLDERS.map((folder) => ({
   count: 0,
 }));
 
-function ViewFlap({
+function SourceHoverBox({
   top,
   left,
   height,
-  label,
+  name,
+  primary,
+  onTogglePrimary,
   onView,
   onMouseEnter,
   onMouseLeave,
@@ -97,7 +99,9 @@ function ViewFlap({
   top: number;
   left: number;
   height: number;
-  label: string;
+  name: string;
+  primary: boolean;
+  onTogglePrimary: (primary: boolean) => void;
   onView: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
@@ -110,24 +114,39 @@ function ViewFlap({
   }, []);
 
   return createPortal(
-    <button
-      type="button"
-      data-upload-view
-      aria-label={`Vis ${label} i kildeviseren`}
+    <div
+      data-upload-hover
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        onView();
-      }}
       style={{ top, left, height }}
-      className={`fixed z-[81] flex w-12 origin-left items-center rounded-r-md border border-l-0 border-[#0F382C] bg-white px-2.5 text-[11px] font-semibold text-[#0F382C] shadow-md transition duration-150 ease-out hover:bg-emerald-50 ${
+      className={`fixed z-[81] flex origin-left items-center gap-2 rounded-r-md border border-l-0 border-[#0F382C] bg-white pl-2.5 pr-1.5 shadow-md transition duration-150 ease-out ${
         shown ? "translate-x-0 opacity-100" : "-translate-x-1 opacity-0"
       }`}
     >
-      <span className="whitespace-nowrap">Vis</span>
-    </button>,
+      <span className="text-[11px] font-semibold text-[#0F382C]">Primær</span>
+      <input
+        type="checkbox"
+        checked={primary}
+        data-primary-toggle
+        aria-label={`Markér ${name} som primær kilde`}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => onTogglePrimary(event.target.checked)}
+        className="rounded border-slate-300 text-[#0F382C] focus:ring-[#0F382C]"
+      />
+      <button
+        type="button"
+        data-upload-view
+        aria-label={`Vis ${name} i kildeviseren`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onView();
+        }}
+        className="rounded px-1.5 py-1 text-[11px] font-semibold text-[#0F382C] hover:bg-emerald-50"
+      >
+        Vis
+      </button>
+    </div>,
     document.body
   );
 }
@@ -136,15 +155,17 @@ function UploadedSourceRow({
   fileId,
   name,
   included,
-  badge,
+  primary,
   onToggle,
+  onTogglePrimary,
   onView,
 }: {
   fileId: string;
   name: string;
   included: boolean;
-  badge?: string;
+  primary: boolean;
   onToggle: () => void;
+  onTogglePrimary: (primary: boolean) => void;
   onView: () => void;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -159,9 +180,13 @@ function UploadedSourceRow({
     setBox({ top: rect.top, left: rect.right - 1, height: rect.height });
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!hover) return;
     place();
+  }, [hover, primary, name]);
+
+  useEffect(() => {
+    if (!hover) return;
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
     return () => {
@@ -170,21 +195,28 @@ function UploadedSourceRow({
     };
   }, [hover]);
 
+  const keepOpen = () => {
+    if (timer.current) window.clearTimeout(timer.current);
+    setHover(true);
+  };
+
+  const scheduleClose = () => {
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setHover(false), 180);
+  };
+
   return (
     <>
       <div
         ref={rowRef}
         data-case-file={fileId}
+        data-primary={primary ? "true" : "false"}
         onClick={onToggle}
-        onMouseEnter={() => {
-          if (timer.current) window.clearTimeout(timer.current);
-          setHover(true);
-        }}
+        onMouseEnter={keepOpen}
         onMouseLeave={(event) => {
           const next = event.relatedTarget;
-          if (next instanceof Element && next.closest("[data-upload-view]")) return;
-          if (timer.current) window.clearTimeout(timer.current);
-          timer.current = window.setTimeout(() => setHover(false), 180);
+          if (next instanceof Element && next.closest("[data-upload-hover]")) return;
+          scheduleClose();
         }}
         className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-xs transition-all ${
           included
@@ -204,25 +236,18 @@ function UploadedSourceRow({
         <span className={`min-w-0 flex-1 truncate font-semibold ${included ? "text-[#0F382C]" : "text-slate-700"}`}>
           {name}
         </span>
-        {badge ? (
-          <span className="shrink-0 rounded bg-[#0F382C] px-1 py-0.2 font-mono text-[9px] text-white">{badge}</span>
-        ) : null}
       </div>
       {hover && box && (
-        <ViewFlap
+        <SourceHoverBox
           top={box.top}
           left={box.left}
           height={box.height}
-          label={name}
+          name={name}
+          primary={primary}
+          onTogglePrimary={onTogglePrimary}
           onView={onView}
-          onMouseEnter={() => {
-            if (timer.current) window.clearTimeout(timer.current);
-            setHover(true);
-          }}
-          onMouseLeave={() => {
-            if (timer.current) window.clearTimeout(timer.current);
-            timer.current = window.setTimeout(() => setHover(false), 180);
-          }}
+          onMouseEnter={keepOpen}
+          onMouseLeave={scheduleClose}
         />
       )}
     </>
@@ -286,7 +311,7 @@ function touchStoredCase(id: string): void {
 }
 
 const WELCOME_TEXT =
-  "Under Kildeupload til venstre lægger du den primære kilde og de sekundære kilder. Under Temamapper vælger du de relevante fagområder. Stil dine spørgsmål i feltet nedenfor. Til højre finder du kildehenvisninger og de output du selv producerer.";
+  "Under Kildeupload til venstre lægger du kilderne. Hold musen over en kilde for at markere den som primær. Under Temamapper vælger du de relevante fagområder. Stil dine spørgsmål i feltet nedenfor. Til højre finder du kildehenvisninger og de output du selv producerer.";
 
 function welcomeMessage(): ChatMessage {
   return {
@@ -831,21 +856,14 @@ export function CaseWorkspace({
     pendingReads.current.set(id, task);
   };
 
-  const readIntoDocument = (kind: "primary" | "secondary", id: string, file: File) => {
+  const readIntoDocument = (id: string, file: File) => {
     fileBytesRef.current.set(id, file);
     void saveCaseFile(id, file).catch(() => undefined);
     const markReading = (reading: boolean, text?: string) => {
-      if (kind === "primary") {
-        setPrimaryFile((current) =>
-          current?.id === id ? { ...current, name: file.name, reading, text: text ?? current.text } : current
-        );
-        return;
-      }
-      setSupplementaryFiles((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, name: file.name, reading, text: text ?? item.text } : item
-        )
-      );
+      const update = (item: CaseDocument) =>
+        item.id === id ? { ...item, name: file.name, reading, text: text ?? item.text } : item;
+      setPrimaryFile((current) => (current ? update(current) : current));
+      setSupplementaryFiles((current) => current.map(update));
     };
     markReading(true, "");
     rememberDocumentText(id, file, (text) => {
@@ -854,35 +872,23 @@ export function CaseWorkspace({
     });
   };
 
-  const handlePrimarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    const current = filesRef.current.primary;
-    const document =
-      current && current.name === file.name
-        ? { ...current, reading: true }
-        : { ...newCaseDocument(file.name), reading: true };
-    setPrimaryFile(document);
-    fileBytesRef.current.set(document.id, file);
-    void saveCaseFile(document.id, file).catch(() => undefined);
-    rememberDocumentText(document.id, file, (text) => {
-      setPrimaryFile((current) => (current?.id === document.id ? { ...current, text, reading: false } : current));
-      nameFromDocuments();
-    });
-  };
-
-  const handleSupplementarySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSourcesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
+    let nextPrimary = filesRef.current.primary;
     const next = [...filesRef.current.secondary];
     const placed: { id: string; file: File }[] = [];
     for (const file of files) {
+      if (nextPrimary && nextPrimary.name === file.name && !nextPrimary.text) {
+        nextPrimary = { ...nextPrimary, name: file.name, text: "", reading: true };
+        placed.push({ id: nextPrimary.id, file });
+        continue;
+      }
       const index = next.findIndex((item) => item.name === file.name && !item.text);
       if (index >= 0) {
         const id = next[index].id;
-        next[index] = { ...next[index], text: "", reading: true };
+        next[index] = { ...next[index], name: file.name, text: "", reading: true };
         placed.push({ id, file });
       } else {
         const document = { ...newCaseDocument(file.name), reading: true };
@@ -890,17 +896,9 @@ export function CaseWorkspace({
         placed.push({ id: document.id, file });
       }
     }
+    setPrimaryFile(nextPrimary);
     setSupplementaryFiles(next);
-    for (const item of placed) {
-      fileBytesRef.current.set(item.id, item.file);
-      void saveCaseFile(item.id, item.file).catch(() => undefined);
-      rememberDocumentText(item.id, item.file, (text) => {
-        setSupplementaryFiles((prev) =>
-          prev.map((current) => (current.id === item.id ? { ...current, text, reading: false } : current))
-        );
-        nameFromDocuments();
-      });
-    }
+    for (const item of placed) readIntoDocument(item.id, item.file);
   };
 
   useEffect(() => {
@@ -908,13 +906,13 @@ export function CaseWorkspace({
     const boot = bootDocuments.current;
     if (!boot) return;
     const missing = [
-      ...(boot.primary && !boot.primary.text ? [{ kind: "primary" as const, id: boot.primary.id }] : []),
-      ...boot.secondary.filter((file) => !file.text).map((file) => ({ kind: "secondary" as const, id: file.id })),
+      ...(boot.primary && !boot.primary.text ? [boot.primary.id] : []),
+      ...boot.secondary.filter((file) => !file.text).map((file) => file.id),
     ];
-    for (const item of missing) {
-      void loadCaseFile(item.id).then((file) => {
+    for (const id of missing) {
+      void loadCaseFile(id).then((file) => {
         if (cancel || !file) return;
-        readIntoDocument(item.kind, item.id, file);
+        readIntoDocument(id, file);
       });
     }
     return () => {
@@ -924,14 +922,33 @@ export function CaseWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId]);
 
-  const togglePrimaryFile = () => {
-    setPrimaryFile((current) => (current ? { ...current, included: !current.included } : current));
-  };
-
-  const toggleSupplementaryFile = (id: string) => {
+  const toggleUploadedFile = (id: string) => {
+    if (filesRef.current.primary?.id === id) {
+      setPrimaryFile((current) => (current ? { ...current, included: !current.included } : current));
+      return;
+    }
     setSupplementaryFiles((current) =>
       current.map((file) => (file.id === id ? { ...file, included: !file.included } : file))
     );
+  };
+
+  const setSourcePrimary = (id: string, primary: boolean) => {
+    const currentPrimary = filesRef.current.primary;
+    const secondary = filesRef.current.secondary;
+    if (primary) {
+      if (currentPrimary?.id === id) return;
+      const chosen = secondary.find((file) => file.id === id);
+      if (!chosen) return;
+      setPrimaryFile(chosen);
+      setSupplementaryFiles([
+        ...(currentPrimary ? [currentPrimary] : []),
+        ...secondary.filter((file) => file.id !== id),
+      ]);
+      return;
+    }
+    if (currentPrimary?.id !== id) return;
+    setPrimaryFile(null);
+    setSupplementaryFiles([currentPrimary, ...secondary]);
   };
 
   const handleCopyText = (text: string, msgId: string) => {
@@ -1213,80 +1230,46 @@ export function CaseWorkspace({
 
           <div className="flex-1 overflow-y-auto">
             {leftPanelTab === "kilder" ? (
-              <div className="space-y-6 p-4">
-                <section className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Primær kilde</p>
-                  {primaryFile ? (
-                    <UploadedSourceRow
-                      fileId="primary"
-                      name={primaryFile.name}
-                      included={primaryFile.included}
-                      badge="Primær"
-                      onToggle={togglePrimaryFile}
-                      onView={() => showUploadedSource(primaryFile, "Primært dokument")}
-                    />
-                  ) : (
-                    <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
-                      Ingen primær kilde endnu.
-                    </p>
-                  )}
-                  <label
-                    htmlFor="mvai-primary-file"
-                    data-upload="primary"
-                    className="relative flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3 py-2 text-xs font-bold text-[#0F382C] hover:bg-emerald-50"
-                  >
-                    <Upload className="h-3.5 w-3.5 shrink-0 text-[#2E8B57]" />
-                    <span>{primaryFile ? "Skift primær kilde" : "Upload primær kilde"}</span>
-                    <input
-                      id="mvai-primary-file"
-                      type="file"
-                      accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
-                      className="absolute h-px w-px overflow-hidden opacity-0"
-                      onChange={handlePrimarySelected}
-                    />
-                  </label>
-                </section>
-
-                <section className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sekundære kilder</p>
-                    <span className="font-mono text-[10px] text-slate-400">{supplementaryFiles.length}</span>
+              <div className="space-y-3 p-4">
+                <label
+                  htmlFor="mvai-source-file"
+                  data-upload="source"
+                  className="relative flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-[#0F382C] bg-white px-3 py-2 text-xs font-bold text-[#0F382C] hover:bg-emerald-50"
+                >
+                  <Upload className="h-3.5 w-3.5 shrink-0 text-[#2E8B57]" />
+                  <span>Upload kilde</span>
+                  <input
+                    id="mvai-source-file"
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
+                    className="absolute h-px w-px overflow-hidden opacity-0"
+                    onChange={handleSourcesSelected}
+                  />
+                </label>
+                {primaryFile || supplementaryFiles.length > 0 ? (
+                  <div className="space-y-2">
+                    {[
+                      ...(primaryFile ? [{ file: primaryFile, primary: true }] : []),
+                      ...supplementaryFiles.map((file) => ({ file, primary: false })),
+                    ].map(({ file, primary }) => (
+                      <UploadedSourceRow
+                        key={file.id}
+                        fileId={file.id}
+                        name={file.name}
+                        included={file.included}
+                        primary={primary}
+                        onToggle={() => toggleUploadedFile(file.id)}
+                        onTogglePrimary={(next) => setSourcePrimary(file.id, next)}
+                        onView={() => showUploadedSource(file, primary ? "Primært dokument" : "Sagsdokument")}
+                      />
+                    ))}
                   </div>
-                  {supplementaryFiles.length > 0 ? (
-                    <div className="space-y-2">
-                      {supplementaryFiles.map((file) => (
-                        <UploadedSourceRow
-                          key={file.id}
-                          fileId={file.id}
-                          name={file.name}
-                          included={file.included}
-                          onToggle={() => toggleSupplementaryFile(file.id)}
-                          onView={() => showUploadedSource(file, "Sekundært dokument")}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
-                      Ingen sekundære kilder endnu.
-                    </p>
-                  )}
-                  <label
-                    htmlFor="mvai-secondary-file"
-                    data-upload="secondary"
-                    className="relative flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    <Upload className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                    <span>Tilføj sekundær kilde</span>
-                    <input
-                      id="mvai-secondary-file"
-                      type="file"
-                      multiple
-                      accept=".pdf,.doc,.docx,.odt,.txt,.rtf,application/pdf"
-                      className="absolute h-px w-px overflow-hidden opacity-0"
-                      onChange={handleSupplementarySelected}
-                    />
-                  </label>
-                </section>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
+                    Ingen kilder endnu.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-4 p-4">
