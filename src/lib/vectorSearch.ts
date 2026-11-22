@@ -1,3 +1,4 @@
+import { SEARCH_WAIT_MS } from "@/lib/functionDuration";
 import { originalSourceIds } from "@/lib/sourceOriginals";
 import { rankLegalSources } from "@/lib/sourceRank";
 import { supabase } from "@/lib/supabase";
@@ -29,7 +30,7 @@ export async function searchSupabaseLegalSources(
   // 1. Forsøg semantisk vektorsøgning via OpenAI embeddings, hvis OPENAI_API_KEY er aktiv
   if (process.env.OPENAI_API_KEY) {
     try {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: SEARCH_WAIT_MS });
       
       const embeddingResponse = await openai.embeddings.create({
         model: "text-embedding-3-small",
