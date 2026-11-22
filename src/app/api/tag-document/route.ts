@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { AI_MAX_DURATION, SHORT_WAIT_MS } from "@/lib/functionDuration";
+import { SHORT_WAIT_MS } from "@/lib/functionDuration";
 import { THEME_FOLDERS } from "@/lib/themeFolders";
 import OpenAI from "openai";
 
-export const maxDuration = AI_MAX_DURATION;
+export const maxDuration = 60;
 
 interface TaggingRequest {
   fileName: string;

@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { guardCitations } from "@/lib/citationGuard";
-import { CHAT_MAX_DURATION, gaveUp, LATE_ANSWER, MODEL_WAIT_MS } from "@/lib/functionDuration";
+import { gaveUp, LATE_ANSWER, MODEL_WAIT_MS } from "@/lib/functionDuration";
 import { archiveAnswer, withSearchCoverage } from "@/lib/sourceInquiry";
 import { asksToCreateOutput, resumeText } from "@/lib/outputSave";
 import { THEME_FOLDERS } from "@/lib/themeFolders";
 import { searchSupabaseLegalSources } from "@/lib/vectorSearch";
 
-export const maxDuration = CHAT_MAX_DURATION;
+export const maxDuration = 300;
 
 export function renumberCitations<T>(text: string, sources: T[]): { text: string; sources: T[] } {
   const order: number[] = [];

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { textFromDocument } from "@/lib/documentText";
-import { AI_MAX_DURATION } from "@/lib/functionDuration";
 
-export const maxDuration = AI_MAX_DURATION;
+export const maxDuration = 60;
 
 const MAX_BYTES = 4_000_000;
 

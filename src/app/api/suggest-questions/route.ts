@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { AI_MAX_DURATION, SHORT_WAIT_MS } from "@/lib/functionDuration";
+import { SHORT_WAIT_MS } from "@/lib/functionDuration";
 import { suggestQuestionsLocally, takeThreeQuestions, type PromptTurn } from "@/lib/suggestedQuestions";
 
-export const maxDuration = AI_MAX_DURATION;
+export const maxDuration = 60;
 
 const instruction = `Foreslå præcis tre opfølgende spørgsmål på dansk til en sagsbehandler.
 Det nyeste brugerindlæg vejer mest. Ældre indlæg er kun baggrund.

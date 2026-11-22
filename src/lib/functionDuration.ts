@@ -1,5 +1,3 @@
-export const CHAT_MAX_DURATION = 300;
-export const AI_MAX_DURATION = 60;
 export const MODEL_WAIT_MS = 110_000;
 export const SEARCH_WAIT_MS = 20_000;
 export const SHORT_WAIT_MS = 25_000;

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { AI_MAX_DURATION, SHORT_WAIT_MS } from "@/lib/functionDuration";
+import { SHORT_WAIT_MS } from "@/lib/functionDuration";
 import { cleanSummary, readableSourceText, summaryFromText } from "@/lib/sourceSummary";
 
-export const maxDuration = AI_MAX_DURATION;
+export const maxDuration = 60;
 
 const instruction = `Skriv et kort resume på dansk af kildens indhold.
 Svar med ét afsnit. Skriv ingen overskrift, og begynd ikke med ordene Resume, Resumé, Sammenfatning eller Kilde.

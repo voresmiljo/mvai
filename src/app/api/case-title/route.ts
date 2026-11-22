@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { composeCaseTitle, normalizeCaseTitle, titleIsGrounded } from "@/lib/caseTitles";
-import { AI_MAX_DURATION, SHORT_WAIT_MS } from "@/lib/functionDuration";
+import { SHORT_WAIT_MS } from "@/lib/functionDuration";
 
-export const maxDuration = AI_MAX_DURATION;
+export const maxDuration = 60;
 
 const instruction = `Du navngiver en dansk miljøsag ud fra sagsakterne.
 Svar kun med det miljøretlige kerneemne. Tag ikke lokalitet, plannavn eller projekt med. Det står allerede i brugerfladen.
