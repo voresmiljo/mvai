@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { AnswerBody } from "@/components/AnswerBody";
-import { loadCaseFile, saveCaseFile } from "@/lib/caseFileStore";
+import { deleteCaseFile, loadCaseFile, saveCaseFile } from "@/lib/caseFileStore";
 import { prepareRoomSave, type CaseRoom } from "@/lib/caseRoom";
 import { isPlaceholderTitle } from "@/lib/caseTitles";
 import { downloadNote } from "@/lib/noteDownload";
@@ -935,6 +935,27 @@ export function CaseWorkspace({
     );
   };
 
+  const removeUploadedSource = (id: string) => {
+    const currentPrimary = filesRef.current.primary;
+    const secondary = filesRef.current.secondary;
+    if (currentPrimary?.id === id) {
+      setPrimaryFile(null);
+    } else if (secondary.some((file) => file.id === id)) {
+      setSupplementaryFiles(secondary.filter((file) => file.id !== id));
+    } else {
+      return;
+    }
+    fileBytesRef.current.delete(id);
+    fileTextRef.current.delete(id);
+    pendingReads.current.delete(id);
+    setUploadDownloadError("");
+    setOpenUploadId((current) => (current === id ? null : current));
+    setActiveSnippet((current) =>
+      current?.id === id && current.sourceType === "sagsdokument" ? null : current
+    );
+    void deleteCaseFile(id).catch(() => undefined);
+  };
+
   const setSourcePrimary = (id: string, primary: boolean) => {
     const currentPrimary = filesRef.current.primary;
     const secondary = filesRef.current.secondary;
@@ -1252,15 +1273,26 @@ export function CaseWorkspace({
                     <ChevronUp className="h-4 w-4 shrink-0" />
                     <span>Sammenklap</span>
                   </button>
-                  <button
-                    type="button"
-                    data-upload-download
-                    onClick={() => void downloadUploadedFile(openedUpload)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[#0F382C] bg-white px-2 py-1 text-xs font-semibold text-[#0F382C] hover:bg-emerald-50"
-                  >
-                    <Download className="h-3.5 w-3.5 shrink-0" />
-                    <span>Download</span>
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      data-upload-delete
+                      onClick={() => removeUploadedSource(openedUpload.id)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-red-700 bg-white px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                      <span>Slet kilde</span>
+                    </button>
+                    <button
+                      type="button"
+                      data-upload-download
+                      onClick={() => void downloadUploadedFile(openedUpload)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-[#0F382C] bg-white px-2 py-1 text-xs font-semibold text-[#0F382C] hover:bg-emerald-50"
+                    >
+                      <Download className="h-3.5 w-3.5 shrink-0" />
+                      <span>Download</span>
+                    </button>
+                  </div>
                 </div>
                 {uploadDownloadError ? (
                   <p className="shrink-0 px-3 py-1.5 text-[10px] text-amber-800">{uploadDownloadError}</p>

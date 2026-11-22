@@ -33,6 +33,18 @@ export async function saveCaseFile(id: string, file: File): Promise<void> {
   db.close();
 }
 
+export async function deleteCaseFile(id: string): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const db = await openStore();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
 export async function loadCaseFile(id: string): Promise<File | null> {
   if (typeof indexedDB === "undefined") return null;
   const db = await openStore();
