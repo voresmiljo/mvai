@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { textFromDocument } from "@/lib/documentText";
+import { pagesFromDocument } from "@/lib/documentText";
 
 const MAX_BYTES = 4_000_000;
 
@@ -13,6 +13,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ text: "" });
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const text = await textFromDocument(file.name, bytes);
-  return NextResponse.json({ text });
+  const pages = await pagesFromDocument(file.name, bytes);
+  const text = pages.map((item) => item.text).join("\n\n").slice(0, 40000);
+  return NextResponse.json({ text, pages });
 }

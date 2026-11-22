@@ -48,10 +48,14 @@ function textFromXmlZip(bytes: Uint8Array, entry: string, paragraph: RegExp): st
   return clean(xmlText(new TextDecoder().decode(xml), paragraph));
 }
 
-async function textFromPdf(bytes: Uint8Array): Promise<string> {
+async function pdfPages(bytes: Uint8Array): Promise<string[]> {
   const { extractText } = await import("unpdf");
-  const result = await extractText(bytes, { mergePages: true });
-  return result.text;
+  const result = await extractText(bytes, { mergePages: false });
+  return Array.isArray(result.text) ? result.text : [result.text || ""];
+}
+
+async function textFromPdf(bytes: Uint8Array): Promise<string> {
+  return (await pdfPages(bytes)).join("\n\n");
 }
 
 function textFromRtf(bytes: Uint8Array): string {
@@ -77,6 +81,28 @@ function textFromLegacyDoc(bytes: Uint8Array): string {
   }
   if (current.length > 40) parts.push(current);
   return clean(parts.join("\n"));
+}
+
+export type DocumentPage = { page: number | null; text: string };
+
+function pageText(value: string): string {
+  return value.replace(/\u0000/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 8000);
+}
+
+export async function pagesFromDocument(name: string, bytes: Uint8Array): Promise<DocumentPage[]> {
+  const lower = name.toLowerCase();
+  try {
+    if (lower.endsWith(".pdf") || (bytes[0] === 0x25 && bytes[1] === 0x50)) {
+      const pages = (await pdfPages(bytes))
+        .map((text, index) => ({ page: index + 1, text: pageText(text) }))
+        .filter((item) => item.text);
+      return pages;
+    }
+  } catch {
+    return [];
+  }
+  const text = await textFromDocument(name, bytes);
+  return text ? [{ page: null, text }] : [];
 }
 
 export async function textFromDocument(name: string, bytes: Uint8Array): Promise<string> {
