@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { AI_MAX_DURATION, SHORT_WAIT_MS } from "@/lib/functionDuration";
 import { cleanSummary, readableSourceText, summaryFromText } from "@/lib/sourceSummary";
+
+export const maxDuration = AI_MAX_DURATION;
 
 const instruction = `Skriv et kort resume på dansk af kildens indhold.
 Svar med ét afsnit. Skriv ingen overskrift, og begynd ikke med ordene Resume, Resumé, Sammenfatning eller Kilde.
@@ -27,7 +30,7 @@ async function summaryFromModel(title: string, text: string): Promise<string | n
 
   if (anthropicKey) {
     try {
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
+      const anthropic = new Anthropic({ apiKey: anthropicKey, timeout: SHORT_WAIT_MS });
       const response = await anthropic.messages.create({
         model,
         max_tokens: 500,
@@ -48,7 +51,7 @@ async function summaryFromModel(title: string, text: string): Promise<string | n
   const openaiKey = process.env.OPENAI_API_KEY?.trim();
   if (openaiKey) {
     try {
-      const openai = new OpenAI({ apiKey: openaiKey });
+      const openai = new OpenAI({ apiKey: openaiKey, timeout: SHORT_WAIT_MS });
       const completion = await openai.chat.completions.create({
         model: process.env.OPENAI_MODEL || "gpt-4o-mini",
         temperature: 0.2,

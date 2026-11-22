@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import { AI_MAX_DURATION, SHORT_WAIT_MS } from "@/lib/functionDuration";
 import { THEME_FOLDERS } from "@/lib/themeFolders";
 import OpenAI from "openai";
+
+export const maxDuration = AI_MAX_DURATION;
 
 interface TaggingRequest {
   fileName: string;
@@ -24,7 +27,7 @@ export async function POST(req: Request) {
 
     // Hvis OpenAI API-nøgle er til stede: Kør lynhurtig tagging med GPT-4o-mini
     if (openaiApiKey) {
-      const openai = new OpenAI({ apiKey: openaiApiKey });
+      const openai = new OpenAI({ apiKey: openaiApiKey, timeout: SHORT_WAIT_MS });
 
       const prompt = `Analysér følgende miljøretlige dokument for sagsbehandlingen i Danmark:
 Filnavn: "${fileName}"

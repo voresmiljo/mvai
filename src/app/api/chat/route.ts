@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { guardCitations } from "@/lib/citationGuard";
+import { CHAT_MAX_DURATION, gaveUp, LATE_ANSWER, MODEL_WAIT_MS } from "@/lib/functionDuration";
 import { archiveAnswer, withSearchCoverage } from "@/lib/sourceInquiry";
 import { asksToCreateOutput, resumeText } from "@/lib/outputSave";
 import { THEME_FOLDERS } from "@/lib/themeFolders";
 import { searchSupabaseLegalSources } from "@/lib/vectorSearch";
+
+export const maxDuration = CHAT_MAX_DURATION;
 
 export function renumberCitations<T>(text: string, sources: T[]): { text: string; sources: T[] } {
   const order: number[] = [];
@@ -295,7 +298,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
     // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
       try {
-        const anthropic = new Anthropic({ apiKey: anthropicApiKey.trim() });
+        const anthropic = new Anthropic({ apiKey: anthropicApiKey.trim(), timeout: MODEL_WAIT_MS });
 
         const conversationHistory = history.slice(-20).map((h) => ({
           role: (h.sender === "user" ? "user" : "assistant") as "user" | "assistant",
@@ -345,15 +348,22 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           isLiveLLM: true,
         });
       } catch (anthropicErr) {
+        if (gaveUp(anthropicErr)) {
+          return NextResponse.json({
+            text: LATE_ANSWER,
+            sources: [],
+            modelUsed: "",
+            isLiveLLM: false,
+          });
+        }
         console.error("Anthropic API error, falling back:", anthropicErr);
-        // Fall through to secondary model or intelligent legal matrix if Anthropic fails
       }
     }
 
     // 2. SEKUNDÆR MODEL: OpenAI (f.eks. hvis OPENAI_API_KEY er konfigureret)
     if (openaiApiKey) {
       try {
-        const openai = new OpenAI({ apiKey: openaiApiKey.trim() });
+        const openai = new OpenAI({ apiKey: openaiApiKey.trim(), timeout: MODEL_WAIT_MS });
 
         const formattedMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
           { role: "system", content: systemPrompt },
@@ -383,8 +393,15 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           isLiveLLM: true,
         });
       } catch (openAiErr) {
+        if (gaveUp(openAiErr)) {
+          return NextResponse.json({
+            text: LATE_ANSWER,
+            sources: [],
+            modelUsed: "",
+            isLiveLLM: false,
+          });
+        }
         console.error("OpenAI API error, falling back to matrix:", openAiErr);
-        // Fall through to offline retskildematrix if OpenAI quota is exhausted
       }
     }
 
