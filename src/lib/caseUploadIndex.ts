@@ -72,7 +72,7 @@ export async function replaceCaseUploadChunks(input: {
   if (!apiKey) return { error: "Indlejring mangler." };
   let vectors: number[][] = [];
   try {
-    const openai = new OpenAI({ apiKey });
+    const openai = new OpenAI({ apiKey, timeout: 60_000 });
     const embedded = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: chunks.map(embedInput),
@@ -112,7 +112,7 @@ async function vectorHits(caseId: string, fileIds: string[], question: string): 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) return [];
   try {
-    const openai = new OpenAI({ apiKey });
+    const openai = new OpenAI({ apiKey, timeout: 20_000 });
     const embedded = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: question.trim().slice(0, 8000),
@@ -156,18 +156,6 @@ async function vectorHits(caseId: string, fileIds: string[], question: string): 
   }
 }
 
-async function chunkCount(caseId: string, fileIds: string[]): Promise<number | null> {
-  const owned = await ownCase(caseId);
-  if (!owned) return 0;
-  const { count, error } = await owned.client
-    .from("case_upload_chunks")
-    .select("id", { count: "exact", head: true })
-    .eq("case_id", caseId)
-    .in("file_id", fileIds);
-  if (error) return null;
-  return count || 0;
-}
-
 export async function caseActSources(input: {
   question: string;
   caseId: string;
@@ -182,27 +170,7 @@ export async function caseActSources(input: {
   if (!files.length) return [];
   if (!isCaseUuid(input.caseId)) return fallback();
 
-  const fileIds = files.map((file) => file.id);
-  const found = await vectorHits(input.caseId, fileIds, input.question);
-  if (found === null) return fallback();
-
-  let changed = false;
-  if (process.env.OPENAI_API_KEY?.trim()) {
-    for (const file of files) {
-      if (!file.pages.length) continue;
-      const stored = await chunkCount(input.caseId, [file.id]);
-      if (stored !== 0) continue;
-      const result = await replaceCaseUploadChunks({
-        caseId: input.caseId,
-        fileId: file.id,
-        fileName: file.name,
-        pages: file.pages,
-      });
-      if ("indexed" in result && result.indexed > 0) changed = true;
-    }
-  }
-
-  const hits = changed ? await vectorHits(input.caseId, fileIds, input.question) : found;
-  if (hits && hits.length) return hits.slice(0, 4);
+  const found = await vectorHits(input.caseId, files.map((file) => file.id), input.question);
+  if (found && found.length) return found.slice(0, 4);
   return fallback();
 }
