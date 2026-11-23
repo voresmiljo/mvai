@@ -158,7 +158,9 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
 
     // Hent retskilder via semantisk vektorsøgning i Supabase
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
-    const retrievedSources = (await searchSupabaseLegalSources(message, scope, themes)).slice(0, 5);
+    const modelSignal = () => AbortSignal.any([req.signal, AbortSignal.timeout(MODEL_WAIT_MS)]);
+    const retrievedSources = (await searchSupabaseLegalSources(message, scope, themes, req.signal)).slice(0, 5);
+    if (req.signal.aborted) return new Response(null, { status: 499 });
     const outputSlots = Math.max(0, 8 - retrievedSources.length);
     const savedOutput = (Array.isArray(output) ? output : [])
       .filter((item) => item && typeof item.title === "string" && typeof item.content === "string" && item.content.trim())
@@ -317,17 +319,20 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
             ? configuredModel
             : "claude-sonnet-5-5";
 
-        const anthropicResponse = await anthropic.messages.create({
-          model,
-          max_tokens: 2500,
-          temperature: 0.2,
-          system: systemPrompt,
-          output_config: { effort: "medium" },
-          messages: [
-            ...conversationHistory,
-            { role: "user", content: message },
-          ],
-        });
+        const anthropicResponse = await anthropic.messages.create(
+          {
+            model,
+            max_tokens: 2500,
+            temperature: 0.2,
+            system: systemPrompt,
+            output_config: { effort: "medium" },
+            messages: [
+              ...conversationHistory,
+              { role: "user", content: message },
+            ],
+          },
+          { signal: modelSignal() }
+        );
         const usedModel = model.includes("opus") ? "Claude Opus" : "Claude Sonnet";
 
         const responseText =
@@ -348,6 +353,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           isLiveLLM: true,
         });
       } catch (anthropicErr) {
+        if (req.signal.aborted) return new Response(null, { status: 499 });
         if (gaveUp(anthropicErr)) {
           return NextResponse.json({
             text: LATE_ANSWER,
@@ -374,11 +380,14 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           { role: "user", content: message },
         ];
 
-        const completion = await openai.chat.completions.create({
-          model: process.env.OPENAI_MODEL || "gpt-4o",
-          messages: formattedMessages,
-          temperature: 0.2,
-        });
+        const completion = await openai.chat.completions.create(
+          {
+            model: process.env.OPENAI_MODEL || "gpt-4o",
+            messages: formattedMessages,
+            temperature: 0.2,
+          },
+          { signal: modelSignal() }
+        );
 
         const responseText =
           completion.choices[0]?.message?.content ||
@@ -393,6 +402,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           isLiveLLM: true,
         });
       } catch (openAiErr) {
+        if (req.signal.aborted) return new Response(null, { status: 499 });
         if (gaveUp(openAiErr)) {
           return NextResponse.json({
             text: LATE_ANSWER,

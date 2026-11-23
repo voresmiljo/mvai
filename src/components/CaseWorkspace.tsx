@@ -24,6 +24,7 @@ import {
   Sparkles,
   Search,
   ArrowUp,
+  Square,
   BookOpen,
   ArrowLeft,
   Copy,
@@ -460,6 +461,10 @@ export function CaseWorkspace({
 
   // Loading state for LLM analysis
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const answerRun = useRef(0);
+  const answerAbort = useRef<AbortController | null>(null);
+  const pendingQuestion = useRef<{ id: string; text: string } | null>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
 
   // Chat message state: starter altid helt rent med en velkomsthilsen
   const [messages, setMessages] = useState<ChatMessage[]>(restored?.messages ?? [welcomeMessage()]);
@@ -679,6 +684,20 @@ export function CaseWorkspace({
     setRightPanelTab("notater");
   };
 
+  const stopThinking = () => {
+    const pending = pendingQuestion.current;
+    answerRun.current += 1;
+    answerAbort.current?.abort();
+    answerAbort.current = null;
+    pendingQuestion.current = null;
+    if (pending) {
+      setMessages((prev) => prev.filter((msg) => msg.id !== pending.id));
+      setInputPrompt((current) => (current.trim() ? current : pending.text));
+    }
+    setIsAnalyzing(false);
+    promptRef.current?.focus();
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputPrompt.trim() || isAnalyzing) return;
@@ -690,6 +709,11 @@ export function CaseWorkspace({
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       text: userText,
     };
+    const run = ++answerRun.current;
+    const controller = new AbortController();
+    answerAbort.current = controller;
+    pendingQuestion.current = { id: userMsg.id, text: userText };
+    const stillGoing = () => run === answerRun.current && !controller.signal.aborted;
 
     setMessages((prev) => [...prev, userMsg]);
     setInputPrompt("");
@@ -705,6 +729,7 @@ export function CaseWorkspace({
       storeOutput(draft.title, draft.content);
     }
     if (saveOnly && draft) {
+      pendingQuestion.current = null;
       setMessages((prev) => [
         ...prev,
         {
@@ -720,7 +745,8 @@ export function CaseWorkspace({
     try {
       await ensureSavedCase(userText);
     } catch (err) {
-      if (saveOnly) return;
+      if (saveOnly || !stillGoing()) return;
+      pendingQuestion.current = null;
       setMessages((prev) => [
         ...prev,
         {
@@ -734,15 +760,17 @@ export function CaseWorkspace({
       return;
     }
 
+    if (!stillGoing()) return;
     void touchStoredCase(activeCaseIdRef.current);
     await Promise.all([...pendingReads.current.values()]);
 
-    if (saveOnly) return;
+    if (!stillGoing() || saveOnly) return;
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           message: userText,
           scope,
@@ -773,11 +801,13 @@ export function CaseWorkspace({
         }),
       });
 
+      if (!stillGoing()) return;
       if (!res.ok) {
         throw new Error("Fejl fra analyse-API");
       }
 
       const data = await res.json();
+      if (!stillGoing()) return;
       const rawReply = typeof data.text === "string" ? data.text.trim() : "";
       const reply = createOutput ? resumeText(rawReply) : rawReply;
       const usableReply =
@@ -795,12 +825,14 @@ export function CaseWorkspace({
         placedInOutput: createOutput && usableReply,
       };
 
+      pendingQuestion.current = null;
       setMessages((prev) => [...prev, aiMsg]);
       if (aiMsg.placedInOutput) {
         storeOutput(createdOutputTitle(userText), reply);
       }
-    } catch {
-      // Graceful fallback
+    } catch (err) {
+      if (!stillGoing() || (err instanceof Error && err.name === "AbortError")) return;
+      pendingQuestion.current = null;
       const aiMsg: ChatMessage = {
         id: `msg-${Date.now() + 1}`,
         sender: "ai",
@@ -812,7 +844,11 @@ export function CaseWorkspace({
       };
       setMessages((prev) => [...prev, aiMsg]);
     } finally {
-      setIsAnalyzing(false);
+      if (run === answerRun.current) {
+        answerAbort.current = null;
+        pendingQuestion.current = null;
+        setIsAnalyzing(false);
+      }
     }
   };
 
@@ -1564,9 +1600,18 @@ export function CaseWorkspace({
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0F382C] text-white">
                   <Sparkles className="w-4 h-4 text-emerald-300 animate-spin" />
                 </div>
-                <div className="rounded-xl p-4 text-xs bg-[#F7FAFA] border border-slate-200 text-slate-600 flex items-center gap-2">
+                <div className="rounded-xl p-4 text-xs bg-[#F7FAFA] border border-slate-200 text-slate-600 flex items-center gap-3">
                   <span className="flex h-2 w-2 rounded-full bg-[#2E8B57] animate-pulse" />
                   <span>Arbejder...</span>
+                  <button
+                    type="button"
+                    data-stop-answer
+                    onClick={stopThinking}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 cursor-pointer"
+                  >
+                    <Square className="h-3 w-3 fill-current" />
+                    Stop
+                  </button>
                 </div>
               </div>
             )}
@@ -1577,6 +1622,7 @@ export function CaseWorkspace({
             <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
               <div className="relative rounded-xl border border-slate-300 bg-white shadow-xs focus-within:border-[#0F382C] focus-within:ring-1 focus-within:ring-[#0F382C]">
                 <textarea
+                  ref={promptRef}
                   rows={3}
                   value={inputPrompt}
                   onChange={(e) => setInputPrompt(e.target.value)}
@@ -1614,19 +1660,32 @@ export function CaseWorkspace({
                     >
                       <WandSparkles className={`w-3.5 h-3.5 ${enhancing ? "animate-spin" : ""}`} />
                     </button>
-                    <button
-                      type="submit"
-                      disabled={!inputPrompt.trim() || isAnalyzing}
-                      title="Send forespørgsel"
-                      aria-label="Send forespørgsel"
-                      className={`inline-flex items-center justify-center rounded-full p-2 transition-all cursor-pointer ${
-                        inputPrompt.trim() && !isAnalyzing
-                          ? "bg-slate-900 text-white hover:bg-slate-800"
-                          : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                      }`}
-                    >
-                      <ArrowUp className="h-5 w-5" />
-                    </button>
+                    {isAnalyzing ? (
+                      <button
+                        type="button"
+                        data-stop-answer
+                        onClick={stopThinking}
+                        title="Stop"
+                        aria-label="Stop"
+                        className="inline-flex items-center justify-center rounded-full bg-slate-900 p-2 text-white hover:bg-slate-800 cursor-pointer"
+                      >
+                        <Square className="h-4 w-4 fill-current" />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={!inputPrompt.trim()}
+                        title="Send forespørgsel"
+                        aria-label="Send forespørgsel"
+                        className={`inline-flex items-center justify-center rounded-full p-2 transition-all cursor-pointer ${
+                          inputPrompt.trim()
+                            ? "bg-slate-900 text-white hover:bg-slate-800"
+                            : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        }`}
+                      >
+                        <ArrowUp className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
