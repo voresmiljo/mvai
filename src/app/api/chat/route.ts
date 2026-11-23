@@ -31,6 +31,62 @@ export function renumberCitations<T>(text: string, sources: T[]): { text: string
   return { text: nextText, sources: [...cited, ...rest] };
 }
 
+const CLOSING_FLUFF =
+  /^(?:hvis der er (?:noget )?andet\b|sig (?:endelig |gerne )?til(?:,\s*|\s+)hvis\b|håber (?:det|dette)\b|jeg håber\b|lad mig vide\b|du er velkommen\b|spørg (?:endelig|bare|gerne)\b|bare sig til\b|er der (?:ellers )?andet\b|ræk (?:endelig )?ud\b|jeg står klar\b)/i;
+
+const MONTH =
+  /^(?:januar|februar|marts|april|maj|juni|juli|august|september|oktober|november|december)\b/i;
+
+export function shapeReply(text: string): string {
+  return dropClosingFluff(explicitListNumbers(text));
+}
+
+function explicitListNumbers(text: string): string {
+  const lines = text.split("\n");
+  const stack: { indent: number; next: number }[] = [];
+  return lines
+    .map((line) => {
+      const match = line.match(/^(\s*)(\d+)([.)])(\s+)(.*)$/);
+      if (!match) {
+        if (line.trim() && !/^\s{2,}\S/.test(line)) stack.length = 0;
+        return line;
+      }
+      if (MONTH.test(match[5])) return line;
+      const indent = match[1].length;
+      while (stack.length && stack[stack.length - 1].indent > indent) stack.pop();
+      let frame = stack[stack.length - 1];
+      if (!frame || frame.indent !== indent) {
+        frame = { indent, next: 0 };
+        stack.push(frame);
+      }
+      frame.next += 1;
+      return `${match[1]}${frame.next}${match[3]}${match[4]}${match[5]}`;
+    })
+    .join("\n");
+}
+
+function dropClosingFluff(text: string): string {
+  const parts = text.trim().split(/\n{2,}/);
+  while (parts.length) {
+    const sentences = parts[parts.length - 1].split(/(?<=[.!?])\s+/);
+    let removed = false;
+    while (sentences.length) {
+      const last = sentences[sentences.length - 1].trim();
+      if (!last || last.length > 180 || !CLOSING_FLUFF.test(last)) break;
+      sentences.pop();
+      removed = true;
+    }
+    const kept = sentences.join(" ").trim();
+    if (!removed) break;
+    if (kept) {
+      parts[parts.length - 1] = kept;
+      break;
+    }
+    parts.pop();
+  }
+  return parts.join("\n\n").trim();
+}
+
 export function colleagueReply(message: string, text: string): string {
   const pastedQuestion = /\bskriver\b|\bspørger\b|e-mail|korrespondance/i.test(message);
   if (!pastedQuestion) return text;
@@ -61,8 +117,9 @@ function uploadedDocument(value: unknown): { name: string; text: string } | null
 }
 
 function presentReply(message: string, text: string, themes: string[]): string {
-  if (asksToCreateOutput(message)) return resumeText(text);
-  return withSearchCoverage(text, themes);
+  const shaped = shapeReply(text);
+  if (asksToCreateOutput(message)) return resumeText(shaped);
+  return withSearchCoverage(shaped, themes);
 }
 
 function documentContext(name: string, text: string): string {
@@ -284,7 +341,8 @@ Når du nævner et dokument ved navn, så brug den fulde officielle titel fra ki
 
 7. LÆNGDE:
 Svar kun på det, der spørges om. Hold svaret kort, direkte og sammenhængende. Et generelt spørgsmål klares i ét til tre korte afsnit.
-Når svaret har flere led, så brug ### til overskrifter med en tom linje før og efter. Brug nummererede lister til regler og punktopstillinger, der starter med *, under et hovedpunkt. Fed skrift kun på nøgleordet i starten af et punkt, ikke på hele sætninger.
+Når svaret har flere led, så brug ### til overskrifter med en tom linje før og efter. Brug nummererede lister til regler og punktopstillinger, der starter med *, under et hovedpunkt. En nummereret liste skrives med stigende tal: 1., 2., 3., 4. Skriv aldrig en liste, hvor hvert punkt begynder med 1. Fed skrift kun på nøgleordet i starten af et punkt, ikke på hele sætninger.
+Stop, når den faglige analyse er færdig. Svaret må ikke slutte med høflighed eller et tilbud om mere hjælp. Skriv ikke "Hvis der er noget andet", "Sig til hvis", "Håber dette hjælper" eller lignende.
 
 8. RETSLIG RISIKO:
 Skriv ikke overskriften Retslig risikofaktor eller Risikoadvarsel. Hvis analysen viser en direkte procesrisiko, en ophævelsesrisiko ved klagenævnet eller manglende overholdelse af officialprincippet eller forsigtighedsprincippet, så flet den ind i brødteksten som en almindelig sætning. Skriv den ikke, hvis der ikke er en sådan risiko.
@@ -293,7 +351,7 @@ KILDETRANSPARENS:
 Udskriv ikke en liste over alle kilder i alle mapper. Spørgsmål om, hvorvidt en bestemt kilde indgår, besvares uden for denne instruks ud fra arkivet. Skriv ikke selv linjen Søgning foretaget i. Den sættes på svaret bagefter.
 
 STRUKTUR:
-Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Følg Kritisk kollega: intet udkast, ingen handlingsplan og ingen indledende ros. Et direkte spørgsmål i indsat korrespondance skal analyseres. Kategori B besvares kun med de to afsnit under Todelstype. Når brugeren selv oplyser en rolle, en organisation eller en person, og ikke stiller et retligt spørgsmål, så følg Samtalehukommelse: kun bekræftelsen, uden opfølgende spørgsmål, og brug ikke afklaringssætningen. En kort eller uspecificeret henvendelse, som ikke er besvaret i sagsakterne eller samtalen, er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. En risiko skrives ind i brødteksten, aldrig som egen overskrift.`;
+Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Følg Kritisk kollega: intet udkast, ingen handlingsplan og ingen indledende ros. Et direkte spørgsmål i indsat korrespondance skal analyseres. Kategori B besvares kun med de to afsnit under Todelstype. Når brugeren selv oplyser en rolle, en organisation eller en person, og ikke stiller et retligt spørgsmål, så følg Samtalehukommelse: kun bekræftelsen, uden opfølgende spørgsmål, og brug ikke afklaringssætningen. En kort eller uspecificeret henvendelse, som ikke er besvaret i sagsakterne eller samtalen, er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. En risiko skrives ind i brødteksten, aldrig som egen overskrift. Nummererede lister bruger 1., 2., 3. Afslut kontant, uden høflighedsfrase.`;
 
     // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
