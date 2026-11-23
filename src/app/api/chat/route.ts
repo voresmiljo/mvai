@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { caseActSources, type CaseUploadFile } from "@/lib/caseUploadIndex";
 import { guardCitations } from "@/lib/citationGuard";
+import type { DocumentPage } from "@/lib/documentText";
 import { gaveUp, LATE_ANSWER, MODEL_WAIT_MS } from "@/lib/functionDuration";
 import { archiveAnswer, withSearchCoverage } from "@/lib/sourceInquiry";
 import { asksToCreateOutput, resumeText } from "@/lib/outputSave";
@@ -99,32 +101,51 @@ interface RequestBody {
   themes: string[];
   caseTitle?: string;
   caseNumber?: string;
+  caseId?: string;
   primaryFile?: unknown;
   supplementaryFiles?: unknown;
   history?: Array<{ sender: "user" | "ai"; text: string }>;
   output?: Array<{ id?: string; title?: string; content?: string; date?: string }>;
 }
 
-function uploadedDocument(value: unknown): { name: string; text: string } | null {
-  if (typeof value === "string" && value.trim()) return { name: value.trim().slice(0, 180), text: "" };
+function uploadPages(value: unknown): DocumentPage[] {
+  if (!Array.isArray(value)) return [];
+  const pages: DocumentPage[] = [];
+  for (const item of value.slice(0, 80)) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as { page?: unknown; text?: unknown };
+    const text = typeof row.text === "string" ? row.text.replace(/\u0000/g, "").trim().slice(0, 8000) : "";
+    if (!text) continue;
+    const page =
+      typeof row.page === "number" && Number.isInteger(row.page) && row.page > 0 && row.page < 5000
+        ? row.page
+        : null;
+    pages.push({ page, text });
+  }
+  return pages;
+}
+
+function uploadedDocument(value: unknown): { id: string; name: string; text: string; pages: DocumentPage[] } | null {
+  if (typeof value === "string" && value.trim()) {
+    return { id: "", name: value.trim().slice(0, 180), text: "", pages: [] };
+  }
   if (!value || typeof value !== "object") return null;
-  const row = value as { name?: unknown; text?: unknown };
+  const row = value as { id?: unknown; name?: unknown; text?: unknown; pages?: unknown };
   if (typeof row.name !== "string" || !row.name.trim()) return null;
+  const text = typeof row.text === "string" ? row.text.replace(/\u0000/g, "").trim().slice(0, 24000) : "";
+  const pages = uploadPages(row.pages);
   return {
+    id: typeof row.id === "string" ? row.id.trim().slice(0, 80) : "",
     name: row.name.trim().slice(0, 180),
-    text: typeof row.text === "string" ? row.text.replace(/\u0000/g, "").trim().slice(0, 24000) : "",
+    text,
+    pages: pages.length ? pages : text ? [{ page: null, text }] : [],
   };
 }
 
-function presentReply(message: string, text: string, themes: string[]): string {
+function presentReply(message: string, text: string, themes: string[], uploads: string[]): string {
   const shaped = shapeReply(text);
   if (asksToCreateOutput(message)) return resumeText(shaped);
-  return withSearchCoverage(shaped, themes);
-}
-
-function documentContext(name: string, text: string): string {
-  if (!text) return `Dokument: ${name}\nIndhold: ikke medsendt. Opfind ikke dokumentets indhold.`;
-  return `Dokument: ${name}\nIndhold:\n${text}`;
+  return withSearchCoverage(shaped, themes, uploads);
 }
 
 export async function POST(req: Request) {
@@ -136,6 +157,7 @@ export async function POST(req: Request) {
       themes = [],
       caseTitle,
       caseNumber,
+      caseId = "",
       primaryFile: primaryFileRaw,
       supplementaryFiles: supplementaryFilesRaw = [],
       history = [],
@@ -194,18 +216,17 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
     const primaryFile = uploadedDocument(primaryFileRaw);
     const supplementaryFiles = (Array.isArray(supplementaryFilesRaw) ? supplementaryFilesRaw : [])
       .map(uploadedDocument)
-      .filter((item): item is { name: string; text: string } => item !== null)
+      .filter((item): item is NonNullable<ReturnType<typeof uploadedDocument>> => item !== null)
       .slice(0, 8);
-    const fileBlocks = [
-      primaryFile
-        ? `Primært dokument:\n${documentContext(primaryFile.name, primaryFile.text)}\nDet primære dokument er det dokument, sagen handler om. Det kan være et udkast, en miljørapport, en afgørelse eller et andet dokument, der skal vurderes, også når formålet er at skrive en klage.`
-        : "Der er ikke uploadet et primært dokument. Nævn ikke det manglende dokument, medmindre brugeren spørger til sagens dokumenter.",
-      supplementaryFiles.length
-        ? `Sekundære dokumenter:\n${supplementaryFiles.map((file) => documentContext(file.name, file.text)).join("\n\n")}\nSekundære dokumenter er materiale, sagen skal sammenholdes med.`
-        : "Sekundære dokumenter: ingen.",
-      "Under hvert dokument står først navnet og derefter indholdet. Indholdet er filens tekst, ikke et nyt dokument. Sig aldrig, at du ikke kan læse eller tilgå uploadede filer. Hvis brugeren spørger, om du kan læse sagsakten, og indholdet er med, så svar sådan: Ja, jeg kan se sagsakten [dokumentnavn]. Dokumentet omhandler [kort resumé af indholdet]. Hvilke specifikke juridiske eller miljøfaglige forhold ønsker du belyst? Resuméet må kun bruge det medsendte indhold. Kald ikke dokumentet en miljørapport eller en miljøkonsekvensrapport, medmindre indholdet selv er det lovdefinerede dokument. Sagens titel er kun en overskrift. Hvis brugerens ord indgår i et dokuments indhold, også som del af et længere navn, er emnet fundet. Svar ud fra det indhold.",
+    const uploadFiles: CaseUploadFile[] = [
+      ...(primaryFile ? [{ id: primaryFile.id || primaryFile.name, name: primaryFile.name, pages: primaryFile.pages }] : []),
+      ...supplementaryFiles.map((file) => ({ id: file.id || file.name, name: file.name, pages: file.pages })),
     ];
-    const fileContext = fileBlocks.join("\n\n");
+    const uploadNames = uploadFiles.map((file) => file.name);
+    const uploadLabels = uploadFiles.map((file, index) => (index === 0 && primaryFile ? `${file.name} (primær)` : file.name));
+    const fileContext = uploadLabels.length
+      ? `Afkrydsede sagsakter: ${uploadLabels.join(", ")}.\nUddragene står i kildelisten som SAGSAKT med dokumentnavn og sidetal. Henvis med kildens nummer. Nævn et sidetal kun når afsnittet har et. Sig aldrig, at du ikke kan læse en afkrydset sagsakt. Hvis brugeren spørger, om du kan læse sagsakten, så svar ud fra uddragene: Ja, jeg kan se sagsakten [dokumentnavn]. Kald ikke dokumentet en miljørapport eller en miljøkonsekvensrapport, medmindre uddraget selv er det lovdefinerede dokument. Sagens titel er kun en overskrift.`
+      : "Der er ikke afkrydset en sagsakt. Nævn ikke et manglende dokument, medmindre brugeren spørger til sagens dokumenter.";
     const dialogue = history
       .slice(-20)
       .filter((item) => item && (item.sender === "user" || item.sender === "ai") && typeof item.text === "string" && item.text.trim())
@@ -217,6 +238,14 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
     const modelSignal = () => AbortSignal.any([req.signal, AbortSignal.timeout(MODEL_WAIT_MS)]);
     const retrievedSources = (await searchSupabaseLegalSources(message, scope, themes, req.signal)).slice(0, 5);
+    if (req.signal.aborted) return new Response(null, { status: 499 });
+    const uploadSources = (
+      await caseActSources({
+        question: message,
+        caseId: typeof caseId === "string" ? caseId : "",
+        files: uploadFiles,
+      })
+    ).slice(0, 4);
     if (req.signal.aborted) return new Response(null, { status: 499 });
     const outputSlots = Math.max(0, 8 - retrievedSources.length);
     const savedOutput = (Array.isArray(output) ? output : [])
@@ -233,17 +262,23 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
         pdfFileName: "",
         hasOriginal: false,
         relevanceScore: 100,
+        sourceType: "",
       }));
-    const sources = [...savedOutput, ...retrievedSources];
+    const citedMaterial = [...retrievedSources, ...uploadSources];
+    const sources = [...savedOutput, ...citedMaterial];
 
     const sourceNumber = (item: (typeof sources)[number]) => sources.indexOf(item) + 1;
     const formatSource = (item: (typeof sources)[number]) => {
-      const kind = item.citation.startsWith("Output:") ? "GEMT OUTPUT" : "RETSKILDE";
+      const kind = item.citation.startsWith("Output:")
+        ? "GEMT OUTPUT"
+        : item.sourceType === "sagsakt"
+          ? "SAGSAKT"
+          : "RETSKILDE";
       return `[${sourceNumber(item)}] ${item.title}\nAfsnit: ${item.lawSection || "Ikke angivet"}\n${kind}\nHenvisning: ${item.citation}\nDato: ${item.date || "Ikke angivet"}\nUddrag:\n"${item.textSnippet}"`;
     };
 
-    const sourcesContext = retrievedSources.length > 0
-      ? retrievedSources.map((item) => formatSource(item)).join("\n\n")
+    const sourcesContext = citedMaterial.length > 0
+      ? citedMaterial.map((item) => formatSource(item)).join("\n\n")
       : "Der er på nuværende tidspunkt ikke uploadet eller indekseret specifikke retskildedokumenter i databasen for de valgte temamapper.";
 
     const outputContext = savedOutput.length > 0
@@ -338,6 +373,7 @@ Kilderne ovenfor er nummereret [1], [2], [3]. Henvis med det nummer, kilden har 
 Sæt kildemærket i samme sætning som enhver lovhenvisning og enhver juridisk eller miljøfaglig påstand, også i den første sætning. Eksempel: miljøvurderingslovens afsnit III, § 21 [1].
 Skriv ikke titel, paragraf eller journalnummer inde i hakparenteserne. Skriv ikke markdown-links. Brug kun numre, der findes i listen.
 Et nummer må kun stå på en sætning, når den kildes eget uddrag nævner reglen. Nævner uddraget ikke habitatdirektivet, habitatbekendtgørelsen, bilag IV, yngle- og rasteområder eller officialprincippet, må sætningen hverken handle om det eller bære kildens nummer. Begrebsdisciplinen er en ordforklaring, ikke en kilde. Sig ikke reglen fra hukommelsen og sæt ikke et andet dokuments nummer på.
+En SAGSAKT er brugerens afkrydsede fil. Henvis med dens nummer, og nævn dokumentnavn og sidetal kun som de står i uddragets afsnit.
 Spørger brugeren, hvorfor en kilde er brugt til en påstand, så svar kun ud fra den kildes uddrag. Dækker uddraget ikke påstanden, så sig det i én sætning og stop. Gentag ikke reglen.
 Når du nævner et dokument ved navn, så brug den fulde officielle titel fra kildelisten. Forkort den ikke.
 
@@ -405,7 +441,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
         const cited = renumberCitations(guardCitations(colleagueReply(message, responseText), sources), sources);
 
         return NextResponse.json({
-          text: presentReply(message, cited.text, themes),
+          text: presentReply(message, cited.text, themes, uploadNames),
           sources: cited.sources,
           modelUsed: usedModel,
           isLiveLLM: true,
@@ -454,7 +490,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
         const cited = renumberCitations(guardCitations(colleagueReply(message, responseText), sources), sources);
 
         return NextResponse.json({
-          text: presentReply(message, cited.text, themes),
+          text: presentReply(message, cited.text, themes, uploadNames),
           sources: cited.sources,
           modelUsed: "GPT-4o",
           isLiveLLM: true,
@@ -494,7 +530,7 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
 
     return NextResponse.json({
       ...dynamicResponse,
-      text: presentReply(message, cited.text, themes),
+      text: presentReply(message, cited.text, themes, uploadNames),
       sources: cited.sources,
       modelUsed: "",
       isLiveLLM: false,

@@ -290,12 +290,30 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-async function readDocument(file: File): Promise<string> {
+type UploadPage = { page: number | null; text: string };
+
+function uploadPagesFrom(value: unknown): UploadPage[] {
+  if (!Array.isArray(value)) return [];
+  const pages: UploadPage[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as { page?: unknown; text?: unknown };
+    const text = typeof row.text === "string" ? row.text.trim() : "";
+    if (!text) continue;
+    const page = typeof row.page === "number" && row.page > 0 ? row.page : null;
+    pages.push({ page, text });
+  }
+  return pages;
+}
+
+async function readDocument(file: File): Promise<{ text: string; pages: UploadPage[] }> {
   const body = new FormData();
   body.append("file", file);
   const res = await fetch("/api/read-document", { method: "POST", body });
   const data = await res.json().catch(() => ({}));
-  return typeof data.text === "string" ? data.text : "";
+  const text = typeof data.text === "string" ? data.text : "";
+  const pages = uploadPagesFrom(data.pages);
+  return { text, pages: pages.length ? pages : text ? [{ page: null, text }] : [] };
 }
 
 function isStoredCaseId(id: string): boolean {
@@ -432,6 +450,7 @@ export function CaseWorkspace({
     bootDocuments.current = { primary: primaryFile, secondary: supplementaryFiles };
   }
   const fileTextRef = useRef<Map<string, string>>(new Map());
+  const filePagesRef = useRef(new Map<string, UploadPage[]>());
   const fileBytesRef = useRef(new Map<string, File>());
   const pendingReads = useRef<Map<string, Promise<void>>>(new Map());
   if (primaryFile?.text) fileTextRef.current.set(primaryFile.id, primaryFile.text);
@@ -775,19 +794,24 @@ export function CaseWorkspace({
           message: userText,
           scope,
           themes: selectedThemes,
+          caseId: activeCaseIdRef.current,
           caseTitle: savedTitle.current,
           caseNumber: caseNumberRef.current,
           primaryFile: filesRef.current.primary?.included
             ? {
+                id: filesRef.current.primary.id,
                 name: filesRef.current.primary.name,
                 text: fileTextRef.current.get(filesRef.current.primary.id) || filesRef.current.primary.text || "",
+                pages: filePagesRef.current.get(filesRef.current.primary.id) || [],
               }
             : null,
           supplementaryFiles: filesRef.current.secondary
             .filter((file) => file.included)
             .map((file) => ({
+              id: file.id,
               name: file.name,
               text: fileTextRef.current.get(file.id) || file.text || "",
+              pages: filePagesRef.current.get(file.id) || [],
             })),
           history: messages.slice(-20).map((m) => ({ sender: m.sender, text: m.text })),
           output: generatedNotes
@@ -879,14 +903,27 @@ export function CaseWorkspace({
     }
   };
 
+  const indexUploadedPages = (id: string, fileName: string, pages: UploadPage[]) => {
+    const caseId = activeCaseIdRef.current;
+    if (!isStoredCaseId(caseId) || !pages.length) return;
+    void fetch("/api/case-uploads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caseId, fileId: id, fileName, pages }),
+    }).catch(() => undefined);
+  };
+
   const rememberDocumentText = (id: string, file: File, apply: (text: string) => void) => {
     const task = readDocument(file)
-      .then((text) => {
+      .then(({ text, pages }) => {
         fileTextRef.current.set(id, text);
+        filePagesRef.current.set(id, pages);
         apply(text);
+        indexUploadedPages(id, file.name, pages);
       })
       .catch(() => {
         fileTextRef.current.set(id, "");
+        filePagesRef.current.delete(id);
         apply("");
       })
       .finally(() => {
@@ -944,14 +981,22 @@ export function CaseWorkspace({
     let cancel = false;
     const boot = bootDocuments.current;
     if (!boot) return;
-    const missing = [
-      ...(boot.primary && !boot.primary.text ? [boot.primary.id] : []),
-      ...boot.secondary.filter((file) => !file.text).map((file) => file.id),
+    const known = [
+      ...(boot.primary ? [boot.primary] : []),
+      ...boot.secondary,
     ];
-    for (const id of missing) {
-      void loadCaseFile(id).then((file) => {
+    for (const item of known) {
+      void loadCaseFile(item.id).then((file) => {
         if (cancel || !file) return;
-        readIntoDocument(id, file);
+        if (item.text) {
+          void readDocument(file).then(({ pages }) => {
+            if (cancel) return;
+            filePagesRef.current.set(item.id, pages);
+            indexUploadedPages(item.id, file.name, pages);
+          });
+          return;
+        }
+        readIntoDocument(item.id, file);
       });
     }
     return () => {
@@ -983,7 +1028,14 @@ export function CaseWorkspace({
     }
     fileBytesRef.current.delete(id);
     fileTextRef.current.delete(id);
+    filePagesRef.current.delete(id);
     pendingReads.current.delete(id);
+    if (isStoredCaseId(activeCaseIdRef.current)) {
+      const caseId = activeCaseIdRef.current;
+      void fetch(`/api/case-uploads?caseId=${encodeURIComponent(caseId)}&fileId=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }).catch(() => undefined);
+    }
     setUploadDownloadError("");
     setOpenUploadId((current) => (current === id ? null : current));
     setActiveSnippet((current) =>

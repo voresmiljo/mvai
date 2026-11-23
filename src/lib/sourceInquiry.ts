@@ -99,13 +99,14 @@ export function classifyInquiry(message: string): Inquiry | null {
   return { kind: "source", query, tokens: words };
 }
 
-export function searchCoverageLine(themeIds: string[]): string {
+export function searchCoverageLine(themeIds: string[], uploads: string[] = []): string {
   const names: string[] = [];
   for (const id of themeIds) {
     const name = THEME_FOLDERS.find((folder) => folder.id === id)?.name;
     if (name) names.push(name);
   }
-  return `Søgning foretaget i: ${["Grundmappe", ...names].join(" + ")}`;
+  const files = uploads.map((name) => name.trim()).filter(Boolean);
+  return `Søgning foretaget i: ${["Grundmappe", ...names, ...files].join(" + ")}`;
 }
 
 export function foldRiskIntoBody(text: string): string {
@@ -117,7 +118,7 @@ export function foldRiskIntoBody(text: string): string {
   return body ? `${body}\n\n${sentence}` : sentence;
 }
 
-export function withSearchCoverage(text: string, themes: string[]): string {
+export function withSearchCoverage(text: string, themes: string[], uploads: string[] = []): string {
   const folded = foldRiskIntoBody(text).replace(/\n*_?Søgning foretaget i:[^\n]*_?\s*$/i, "").trim();
   if (
     /^(?:Dette emne ligger efter alt at dømme uden for|Modtaget – jeg har registreret|Der fremgår ikke umiddelbart oplysninger)/.test(
@@ -126,7 +127,7 @@ export function withSearchCoverage(text: string, themes: string[]): string {
   ) {
     return folded;
   }
-  return `${folded}\n\n${searchCoverageLine(themes)}`;
+  return `${folded}\n\n${searchCoverageLine(themes, uploads)}`;
 }
 
 function tokensOf(value: string): string[] {
