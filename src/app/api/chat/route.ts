@@ -4,10 +4,13 @@ import OpenAI from "openai";
 import { caseActSources, type CaseUploadFile } from "@/lib/caseUploadIndex";
 import { guardCitations } from "@/lib/citationGuard";
 import type { DocumentPage } from "@/lib/documentText";
+import { gaveUp, LATE_ANSWER, MODEL_WAIT_MS } from "@/lib/functionDuration";
 import { archiveAnswer, withSearchCoverage } from "@/lib/sourceInquiry";
 import { asksToCreateOutput, resumeText } from "@/lib/outputSave";
 import { THEME_FOLDERS } from "@/lib/themeFolders";
 import { searchSupabaseLegalSources } from "@/lib/vectorSearch";
+
+export const maxDuration = 300;
 
 export function renumberCitations<T>(text: string, sources: T[]): { text: string; sources: T[] } {
   const order: number[] = [];
@@ -28,6 +31,62 @@ export function renumberCitations<T>(text: string, sources: T[]): { text: string
     return mapped ? `[${mapped}]` : full;
   });
   return { text: nextText, sources: [...cited, ...rest] };
+}
+
+const CLOSING_FLUFF =
+  /^(?:hvis der er (?:noget )?andet\b|sig (?:endelig |gerne )?til(?:,\s*|\s+)hvis\b|håber (?:det|dette)\b|jeg håber\b|lad mig vide\b|du er velkommen\b|spørg (?:endelig|bare|gerne)\b|bare sig til\b|er der (?:ellers )?andet\b|ræk (?:endelig )?ud\b|jeg står klar\b)/i;
+
+const MONTH =
+  /^(?:januar|februar|marts|april|maj|juni|juli|august|september|oktober|november|december)\b/i;
+
+export function shapeReply(text: string): string {
+  return dropClosingFluff(explicitListNumbers(text));
+}
+
+function explicitListNumbers(text: string): string {
+  const lines = text.split("\n");
+  const stack: { indent: number; next: number }[] = [];
+  return lines
+    .map((line) => {
+      const match = line.match(/^(\s*)(\d+)([.)])(\s+)(.*)$/);
+      if (!match) {
+        if (line.trim() && !/^\s{2,}\S/.test(line)) stack.length = 0;
+        return line;
+      }
+      if (MONTH.test(match[5])) return line;
+      const indent = match[1].length;
+      while (stack.length && stack[stack.length - 1].indent > indent) stack.pop();
+      let frame = stack[stack.length - 1];
+      if (!frame || frame.indent !== indent) {
+        frame = { indent, next: 0 };
+        stack.push(frame);
+      }
+      frame.next += 1;
+      return `${match[1]}${frame.next}${match[3]}${match[4]}${match[5]}`;
+    })
+    .join("\n");
+}
+
+function dropClosingFluff(text: string): string {
+  const parts = text.trim().split(/\n{2,}/);
+  while (parts.length) {
+    const sentences = parts[parts.length - 1].split(/(?<=[.!?])\s+/);
+    let removed = false;
+    while (sentences.length) {
+      const last = sentences[sentences.length - 1].trim();
+      if (!last || last.length > 180 || !CLOSING_FLUFF.test(last)) break;
+      sentences.pop();
+      removed = true;
+    }
+    const kept = sentences.join(" ").trim();
+    if (!removed) break;
+    if (kept) {
+      parts[parts.length - 1] = kept;
+      break;
+    }
+    parts.pop();
+  }
+  return parts.join("\n\n").trim();
 }
 
 export function colleagueReply(message: string, text: string): string {
@@ -84,8 +143,9 @@ function uploadedDocument(value: unknown): { id: string; name: string; text: str
 }
 
 function presentReply(message: string, text: string, themes: string[], uploads: string[]): string {
-  if (asksToCreateOutput(message)) return resumeText(text);
-  return withSearchCoverage(text, themes, uploads);
+  const shaped = shapeReply(text);
+  if (asksToCreateOutput(message)) return resumeText(shaped);
+  return withSearchCoverage(shaped, themes, uploads);
 }
 
 export async function POST(req: Request) {
@@ -176,7 +236,9 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
 
     // Hent retskilder via semantisk vektorsøgning i Supabase
     // Når databasen er tom, er retrievedSources tom, og Claude svarer ud fra de reelle forhold jf. prompten
-    const retrievedSources = (await searchSupabaseLegalSources(message, scope, themes)).slice(0, 5);
+    const modelSignal = () => AbortSignal.any([req.signal, AbortSignal.timeout(MODEL_WAIT_MS)]);
+    const retrievedSources = (await searchSupabaseLegalSources(message, scope, themes, req.signal)).slice(0, 5);
+    if (req.signal.aborted) return new Response(null, { status: 499 });
     const uploadSources = (
       await caseActSources({
         question: message,
@@ -184,6 +246,7 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
         files: uploadFiles,
       })
     ).slice(0, 4);
+    if (req.signal.aborted) return new Response(null, { status: 499 });
     const outputSlots = Math.max(0, 8 - retrievedSources.length);
     const savedOutput = (Array.isArray(output) ? output : [])
       .filter((item) => item && typeof item.title === "string" && typeof item.content === "string" && item.content.trim())
@@ -316,7 +379,8 @@ Når du nævner et dokument ved navn, så brug den fulde officielle titel fra ki
 
 7. LÆNGDE:
 Svar kun på det, der spørges om. Hold svaret kort, direkte og sammenhængende. Et generelt spørgsmål klares i ét til tre korte afsnit.
-Når svaret har flere led, så brug ### til overskrifter med en tom linje før og efter. Brug nummererede lister til regler og punktopstillinger, der starter med *, under et hovedpunkt. Fed skrift kun på nøgleordet i starten af et punkt, ikke på hele sætninger.
+Når svaret har flere led, så brug ### til overskrifter med en tom linje før og efter. Brug nummererede lister til regler og punktopstillinger, der starter med *, under et hovedpunkt. En nummereret liste skrives med stigende tal: 1., 2., 3., 4. Skriv aldrig en liste, hvor hvert punkt begynder med 1. Fed skrift kun på nøgleordet i starten af et punkt, ikke på hele sætninger.
+Stop, når den faglige analyse er færdig. Svaret må ikke slutte med høflighed eller et tilbud om mere hjælp. Skriv ikke "Hvis der er noget andet", "Sig til hvis", "Håber dette hjælper" eller lignende.
 
 8. RETSLIG RISIKO:
 Skriv ikke overskriften Retslig risikofaktor eller Risikoadvarsel. Hvis analysen viser en direkte procesrisiko, en ophævelsesrisiko ved klagenævnet eller manglende overholdelse af officialprincippet eller forsigtighedsprincippet, så flet den ind i brødteksten som en almindelig sætning. Skriv den ikke, hvis der ikke er en sådan risiko.
@@ -325,12 +389,12 @@ KILDETRANSPARENS:
 Udskriv ikke en liste over alle kilder i alle mapper. Spørgsmål om, hvorvidt en bestemt kilde indgår, besvares uden for denne instruks ud fra arkivet. Skriv ikke selv linjen Søgning foretaget i. Den sættes på svaret bagefter.
 
 STRUKTUR:
-Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Følg Kritisk kollega: intet udkast, ingen handlingsplan og ingen indledende ros. Et direkte spørgsmål i indsat korrespondance skal analyseres. Kategori B besvares kun med de to afsnit under Todelstype. Når brugeren selv oplyser en rolle, en organisation eller en person, og ikke stiller et retligt spørgsmål, så følg Samtalehukommelse: kun bekræftelsen, uden opfølgende spørgsmål, og brug ikke afklaringssætningen. En kort eller uspecificeret henvendelse, som ikke er besvaret i sagsakterne eller samtalen, er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. En risiko skrives ind i brødteksten, aldrig som egen overskrift.`;
+Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. Følg Kritisk kollega: intet udkast, ingen handlingsplan og ingen indledende ros. Et direkte spørgsmål i indsat korrespondance skal analyseres. Kategori B besvares kun med de to afsnit under Todelstype. Når brugeren selv oplyser en rolle, en organisation eller en person, og ikke stiller et retligt spørgsmål, så følg Samtalehukommelse: kun bekræftelsen, uden opfølgende spørgsmål, og brug ikke afklaringssætningen. En kort eller uspecificeret henvendelse, som ikke er besvaret i sagsakterne eller samtalen, er kategori A, følger afsnittet Afklarende dialog og får ingen eksempler. Hvis kilderne ikke rækker, så begynd med sætningen under Kildeutilstrækkelighed. Usikkerhedsafsnit kun efter punkt 3. En risiko skrives ind i brødteksten, aldrig som egen overskrift. Nummererede lister bruger 1., 2., 3. Afslut kontant, uden høflighedsfrase.`;
 
     // 1. STANDARDMODEL: Claude Sonnet / Anthropic (hvis ANTHROPIC_API_KEY er konfigureret)
     if (anthropicApiKey) {
       try {
-        const anthropic = new Anthropic({ apiKey: anthropicApiKey.trim() });
+        const anthropic = new Anthropic({ apiKey: anthropicApiKey.trim(), timeout: MODEL_WAIT_MS });
 
         const conversationHistory = history.slice(-20).map((h) => ({
           role: (h.sender === "user" ? "user" : "assistant") as "user" | "assistant",
@@ -349,17 +413,20 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
             ? configuredModel
             : "claude-sonnet-5-5";
 
-        const anthropicResponse = await anthropic.messages.create({
-          model,
-          max_tokens: 2500,
-          temperature: 0.2,
-          system: systemPrompt,
-          output_config: { effort: "medium" },
-          messages: [
-            ...conversationHistory,
-            { role: "user", content: message },
-          ],
-        });
+        const anthropicResponse = await anthropic.messages.create(
+          {
+            model,
+            max_tokens: 2500,
+            temperature: 0.2,
+            system: systemPrompt,
+            output_config: { effort: "medium" },
+            messages: [
+              ...conversationHistory,
+              { role: "user", content: message },
+            ],
+          },
+          { signal: modelSignal() }
+        );
         const usedModel = model.includes("opus") ? "Claude Opus" : "Claude Sonnet";
 
         const responseText =
@@ -380,15 +447,23 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           isLiveLLM: true,
         });
       } catch (anthropicErr) {
+        if (req.signal.aborted) return new Response(null, { status: 499 });
+        if (gaveUp(anthropicErr)) {
+          return NextResponse.json({
+            text: LATE_ANSWER,
+            sources: [],
+            modelUsed: "",
+            isLiveLLM: false,
+          });
+        }
         console.error("Anthropic API error, falling back:", anthropicErr);
-        // Fall through to secondary model or intelligent legal matrix if Anthropic fails
       }
     }
 
     // 2. SEKUNDÆR MODEL: OpenAI (f.eks. hvis OPENAI_API_KEY er konfigureret)
     if (openaiApiKey) {
       try {
-        const openai = new OpenAI({ apiKey: openaiApiKey.trim() });
+        const openai = new OpenAI({ apiKey: openaiApiKey.trim(), timeout: MODEL_WAIT_MS });
 
         const formattedMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
           { role: "system", content: systemPrompt },
@@ -399,11 +474,14 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           { role: "user", content: message },
         ];
 
-        const completion = await openai.chat.completions.create({
-          model: process.env.OPENAI_MODEL || "gpt-4o",
-          messages: formattedMessages,
-          temperature: 0.2,
-        });
+        const completion = await openai.chat.completions.create(
+          {
+            model: process.env.OPENAI_MODEL || "gpt-4o",
+            messages: formattedMessages,
+            temperature: 0.2,
+          },
+          { signal: modelSignal() }
+        );
 
         const responseText =
           completion.choices[0]?.message?.content ||
@@ -418,8 +496,16 @@ Skriv ét sammenhængende svar om spørgsmålet. Ikke en opremsning af kilder. F
           isLiveLLM: true,
         });
       } catch (openAiErr) {
+        if (req.signal.aborted) return new Response(null, { status: 499 });
+        if (gaveUp(openAiErr)) {
+          return NextResponse.json({
+            text: LATE_ANSWER,
+            sources: [],
+            modelUsed: "",
+            isLiveLLM: false,
+          });
+        }
         console.error("OpenAI API error, falling back to matrix:", openAiErr);
-        // Fall through to offline retskildematrix if OpenAI quota is exhausted
       }
     }
 

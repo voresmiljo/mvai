@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { nameLegalReference } from "@/lib/legalNames";
+import { SHORT_WAIT_MS } from "@/lib/functionDuration";
 import { enhanceQuestionLocally } from "@/lib/promptSupport";
+
+export const maxDuration = 60;
 
 const instruction = `Omformulér brugerens spørgsmål til ét præcist spørgsmål på dansk til en miljøvurdering.
 Behold kun det emne, brugeren selv har nævnt. Tilføj ikke anlæg, steder, arter eller krav, som ikke står i spørgsmålet.
@@ -26,7 +29,7 @@ async function rewriteWithModel(question: string): Promise<string | null> {
 
   if (anthropicKey) {
     try {
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
+      const anthropic = new Anthropic({ apiKey: anthropicKey, timeout: SHORT_WAIT_MS });
       const response = await anthropic.messages.create({
         model,
         max_tokens: 300,
@@ -47,7 +50,7 @@ async function rewriteWithModel(question: string): Promise<string | null> {
   const openaiKey = process.env.OPENAI_API_KEY?.trim();
   if (openaiKey) {
     try {
-      const openai = new OpenAI({ apiKey: openaiKey });
+      const openai = new OpenAI({ apiKey: openaiKey, timeout: SHORT_WAIT_MS });
       const completion = await openai.chat.completions.create({
         model: process.env.OPENAI_MODEL || "gpt-4o",
         temperature: 0.2,

@@ -1,3 +1,4 @@
+import { SEARCH_WAIT_MS } from "@/lib/functionDuration";
 import { originalSourceIds } from "@/lib/sourceOriginals";
 import { rankLegalSources } from "@/lib/sourceRank";
 import { supabase } from "@/lib/supabase";
@@ -20,7 +21,8 @@ export interface RetrievedSource {
 export async function searchSupabaseLegalSources(
   prompt: string,
   scope: "projekt" | "plan",
-  themes: string[] = []
+  themes: string[] = [],
+  signal?: AbortSignal
 ): Promise<RetrievedSource[]> {
   if (!supabase) {
     return [];
@@ -29,12 +31,15 @@ export async function searchSupabaseLegalSources(
   // 1. Forsøg semantisk vektorsøgning via OpenAI embeddings, hvis OPENAI_API_KEY er aktiv
   if (process.env.OPENAI_API_KEY) {
     try {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: SEARCH_WAIT_MS });
       
-      const embeddingResponse = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: prompt.trim(),
-      });
+      const embeddingResponse = await openai.embeddings.create(
+        {
+          model: "text-embedding-3-small",
+          input: prompt.trim(),
+        },
+        { signal }
+      );
 
       const vector = embeddingResponse.data[0]?.embedding;
       if (vector) {
@@ -75,9 +80,12 @@ export async function searchSupabaseLegalSources(
         }
       }
     } catch (err) {
+      if (signal?.aborted) return [];
       console.warn("Vector embedding search skipped, falling back to text query:", err);
     }
   }
+
+  if (signal?.aborted) return [];
 
   // 2. Direkte metadata- og tekstsøgning i Supabase (hvis vektorsøgning ikke returnerer noget)
   try {
