@@ -974,6 +974,7 @@ export function CaseWorkspace({
     }
     setPrimaryFile(nextPrimary);
     setSupplementaryFiles(next);
+    filesRef.current = { primary: nextPrimary, secondary: next };
     for (const item of placed) readIntoDocument(item.id, item.file);
   };
 

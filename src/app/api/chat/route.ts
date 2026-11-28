@@ -217,7 +217,7 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
     const supplementaryFiles = (Array.isArray(supplementaryFilesRaw) ? supplementaryFilesRaw : [])
       .map(uploadedDocument)
       .filter((item): item is NonNullable<ReturnType<typeof uploadedDocument>> => item !== null)
-      .slice(0, 8);
+      .slice(0, 24);
     const uploadFiles: CaseUploadFile[] = [
       ...(primaryFile ? [{ id: primaryFile.id || primaryFile.name, name: primaryFile.name, pages: primaryFile.pages }] : []),
       ...supplementaryFiles.map((file) => ({ id: file.id || file.name, name: file.name, pages: file.pages })),
@@ -225,7 +225,7 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
     const uploadNames = uploadFiles.map((file) => file.name);
     const uploadLabels = uploadFiles.map((file, index) => (index === 0 && primaryFile ? `${file.name} (primær)` : file.name));
     const fileContext = uploadLabels.length
-      ? `Afkrydsede sagsakter: ${uploadLabels.join(", ")}.\nUddragene står i kildelisten som SAGSAKT med dokumentnavn og sidetal. Henvis med kildens nummer. Nævn et sidetal kun når afsnittet har et. Sig aldrig, at du ikke kan læse en afkrydset sagsakt. Hvis brugeren spørger, om du kan læse sagsakten, så svar ud fra uddragene: Ja, jeg kan se sagsakten [dokumentnavn]. Kald ikke dokumentet en miljørapport eller en miljøkonsekvensrapport, medmindre uddraget selv er det lovdefinerede dokument. Sagens titel er kun en overskrift.`
+      ? `Afkrydsede sagsakter: ${uploadLabels.join(", ")}.\nUddragene står i kildelisten som SAGSAKT med dokumentnavn og sidetal. Brug uddraget fra den fil, spørgsmålet gælder. En anden afkrydset fil må ikke træde i stedet. Henvis med kildens nummer. Nævn et sidetal kun når afsnittet har et. Sig aldrig, at du ikke kan læse en afkrydset sagsakt. Hvis brugeren spørger, om du kan læse sagsakten, så svar ud fra uddragene: Ja, jeg kan se sagsakten [dokumentnavn]. Kald ikke dokumentet en miljørapport eller en miljøkonsekvensrapport, medmindre uddraget selv er det lovdefinerede dokument. Sagens titel er kun en overskrift.`
       : "Der er ikke afkrydset en sagsakt. Nævn ikke et manglende dokument, medmindre brugeren spørger til sagens dokumenter.";
     const dialogue = history
       .slice(-20)
@@ -245,7 +245,7 @@ Ved et generelt spørgsmål skal du svare på reglen for konkrete projekter. Næ
         caseId: typeof caseId === "string" ? caseId : "",
         files: uploadFiles,
       })
-    ).slice(0, 4);
+    ).slice(0, 12);
     if (req.signal.aborted) return new Response(null, { status: 499 });
     const outputSlots = Math.max(0, 8 - retrievedSources.length);
     const savedOutput = (Array.isArray(output) ? output : [])
