@@ -2,7 +2,7 @@ import type { DocumentPage } from "@/lib/documentText";
 import { getSessionUser } from "@/lib/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { RetrievedSource } from "@/lib/vectorSearch";
-import { chunksFromPages, selectUploadChunks, type UploadChunk } from "@/lib/uploadChunks";
+import { chunksFromPages, nameOverlap, searchChunksFromPages, selectUploadChunks, type UploadChunk } from "@/lib/uploadChunks";
 import OpenAI from "openai";
 
 const CASE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -73,11 +73,15 @@ export async function replaceCaseUploadChunks(input: {
   let vectors: number[][] = [];
   try {
     const openai = new OpenAI({ apiKey, timeout: 60_000 });
-    const embedded = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: chunks.map(embedInput),
-    });
-    vectors = embedded.data.map((item) => item.embedding);
+    for (let start = 0; start < chunks.length; start += 32) {
+      const batch = chunks.slice(start, start + 32);
+      const embedded = await openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input: batch.map(embedInput),
+      });
+      const ordered = [...embedded.data].sort((left, right) => left.index - right.index);
+      vectors.push(...ordered.map((item) => item.embedding));
+    }
   } catch (err) {
     console.warn("Sagsakt kunne ikke indlejres:", err);
     return { error: "Sagsakten kunne ikke indlejres." };
@@ -156,21 +160,60 @@ async function vectorHits(caseId: string, fileIds: string[], question: string): 
   }
 }
 
+const CASE_FILE_CAP = 24;
+const CASE_SOURCE_CAP = 12;
+
+function belongsToFile(source: RetrievedSource, fileId: string): boolean {
+  return source.id.startsWith(`sagsakt-${fileId}-`);
+}
+
+function samePassage(left: RetrievedSource, right: RetrievedSource): boolean {
+  return left.pdfFileName === right.pdfFileName && left.lawSection === right.lawSection && left.textSnippet === right.textSnippet;
+}
+
 export async function caseActSources(input: {
   question: string;
   caseId: string;
   files: CaseUploadFile[];
 }): Promise<RetrievedSource[]> {
-  const files = input.files.filter((file) => file.id && file.name).slice(0, 8);
-  const local = files.flatMap((file) => chunksFromPages(file.id, file.name, file.pages));
+  const files = input.files.filter((file) => file.id && file.name).slice(0, CASE_FILE_CAP);
+  if (!files.length) return [];
+  const ordered = files
+    .map((file, index) => ({ file, index }))
+    .sort((left, right) => nameOverlap(input.question, right.file.name) - nameOverlap(input.question, left.file.name) || right.index - left.index)
+    .map((item) => item.file);
+  const local = ordered.flatMap((file) => searchChunksFromPages(file.id, file.name, file.pages));
   const fallback = () =>
     selectUploadChunks(input.question, local).map((chunk, index) =>
       uploadChunkSource(chunk, Math.max(40, 80 - index * 10))
     );
-  if (!files.length) return [];
   if (!isCaseUuid(input.caseId)) return fallback();
 
-  const found = await vectorHits(input.caseId, files.map((file) => file.id), input.question);
-  if (found && found.length) return found.slice(0, 4);
-  return fallback();
+  const found = await vectorHits(input.caseId, ordered.map((file) => file.id), input.question);
+  const vectorHitsFor = found || [];
+  const groups: RetrievedSource[][] = [];
+  for (const file of ordered) {
+    const fromText = selectUploadChunks(input.question, searchChunksFromPages(file.id, file.name, file.pages), 2, true)
+      .map((chunk) => uploadChunkSource(chunk, 70));
+    const fromVector = vectorHitsFor.filter((source) => belongsToFile(source, file.id)).slice(0, 2);
+    const group: RetrievedSource[] = [];
+    for (const source of [...fromText, ...fromVector]) {
+      if (group.some((kept) => samePassage(kept, source))) continue;
+      group.push(source);
+      if (group.length >= 2) break;
+    }
+    if (group.length) groups.push(group);
+  }
+  if (!groups.length) return found && found.length ? found.slice(0, 4) : fallback();
+
+  const picked: RetrievedSource[] = [];
+  for (let slot = 0; slot < 2 && picked.length < CASE_SOURCE_CAP; slot += 1) {
+    for (const group of groups) {
+      const source = group[slot];
+      if (!source || picked.includes(source)) continue;
+      picked.push(source);
+      if (picked.length >= CASE_SOURCE_CAP) break;
+    }
+  }
+  return picked;
 }
